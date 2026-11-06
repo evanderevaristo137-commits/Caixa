@@ -106,7 +106,7 @@ describe('daySummaryText', () => {
         '',
         '• Numerário: 4.250 Kz',
         '• QR KWiK: 1.000 Kz',
-        'Fiado recebido: 300 Kz',
+        'Recebido de clientes: 300 Kz',
         'Vendas anuladas: 1 (500 Kz)',
       ].join('\n'),
     );

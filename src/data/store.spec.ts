@@ -106,7 +106,7 @@ describe('Store: fiado', () => {
 describe('Store: settings', () => {
   it('returns defaults and saves with audit', async () => {
     expect((await store.settings.get()).storeName).toBe('A minha loja');
-    await store.settings.save({ storeName: 'Loja X', phone: ' ', nif: '123' });
+    await store.settings.save({ storeName: 'Loja X', phone: ' ', nif: '5000000000' });
     const s = await store.settings.get();
     expect(s.storeName).toBe('Loja X');
     expect(s.phone).toBeUndefined();
@@ -159,5 +159,13 @@ describe('Store: reminders', () => {
     expect(c.lastRemindedAt).toBeUndefined();
     await store.customers.markReminded(c.id);
     expect((await store.customers.get(c.id))!.lastRemindedAt).toBeDefined();
+  });
+});
+
+describe('Store: NIF with letters', () => {
+  it('saves a NIF with letters and digits, normalised', async () => {
+    await store.settings.save({ storeName: 'Loja', nif: ' 000 000 000-aa.000 ' });
+    expect((await store.settings.get()).nif).toBe('000000000AA000');
+    await expect(store.settings.save({ storeName: 'Loja', nif: '12AB#' })).rejects.toSatisfy((e) => code(e) === 'invalid_nif');
   });
 });

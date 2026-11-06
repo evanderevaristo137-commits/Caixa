@@ -11,7 +11,7 @@ import { parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { daysClass } from './days';
 
-const PAY_METHODS: CreditPayment['method'][] = ['cash', 'multicaixa_express', 'kwik', 'unitel_money', 'afrimoney'];
+const PAY_METHODS: CreditPayment['method'][] = ['cash', 'multicaixa_express', 'kwik', 'unitel_money', 'afrimoney', 'paypay'];
 
 export function CustomerSheet({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { store, showToast } = useApp();

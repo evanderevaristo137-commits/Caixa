@@ -58,21 +58,24 @@ const PRODUCTS: [string, number, number, number][] = [
   ['Carvão (saco)', 1_500, 4, 8],
 ];
 
-// Fictitious customers and phone numbers.
+// Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
+// receipts sent from the demo arrive on a phone we control (never on a stranger's phone).
+export const DEMO_WHATSAPP_TEST_NUMBER = '955 502 264';
 const CUSTOMERS: [string, string][] = [
-  ['Joana Mateus', '923 000 101'],
-  ['António Kiala', '924 000 202'],
-  ['Esperança Domingos', '912 000 303'],
-  ['Manuel Sebastião', '937 000 404'],
-  ['Luísa Neto', '991 000 505'],
+  ['Joana Mateus', DEMO_WHATSAPP_TEST_NUMBER],
+  ['António Kiala', DEMO_WHATSAPP_TEST_NUMBER],
+  ['Esperança Domingos', DEMO_WHATSAPP_TEST_NUMBER],
+  ['Manuel Sebastião', DEMO_WHATSAPP_TEST_NUMBER],
+  ['Luísa Neto', DEMO_WHATSAPP_TEST_NUMBER],
 ];
 
 const METHOD_WEIGHTS: [PaymentMethod, number][] = [
-  ['cash', 0.5],
+  ['cash', 0.46],
   ['multicaixa_express', 0.2],
   ['kwik', 0.08],
   ['unitel_money', 0.08],
   ['afrimoney', 0.04],
+  ['paypay', 0.04],
   ['credit', 0.1],
 ];
 

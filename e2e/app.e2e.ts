@@ -35,12 +35,12 @@ test('Today matches the sales, and a voided sale stops counting', async ({ page 
 
 test('fiado shows who owes and the reminder opens WhatsApp with a polite message', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Fiado');
-  await expect(page.getByText('Total em fiado')).toBeVisible();
+  await nav(page, 'Clientes');
+  await expect(page.getByText('A receber de clientes')).toBeVisible();
   await page.getByRole('button', { name: /Joana Mateus/ }).click();
   await expect(page.getByText(/há \d+ dias/).first()).toBeVisible();
   const href = await page.getByRole('link', { name: 'Lembrar por WhatsApp' }).getAttribute('href');
-  expect(href).toMatch(/^https:\/\/wa\.me\/244923000101\?text=/);
+  expect(href).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
   expect(decodeURIComponent(href!)).toContain('com todo o respeito');
 });
 
@@ -105,16 +105,16 @@ test('a fiado sale receipt shows the total owed, and reminders are remembered', 
   await openDemo(page);
   await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
   await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Fiado' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cliente (a crédito)' }).click();
   await page.getByRole('button', { name: 'Joana Mateus' }).click();
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
   const receipt = page.getByRole('link', { name: 'Enviar talão por WhatsApp' });
-  await expect(receipt).toHaveAttribute('href', /^https:\/\/wa\.me\/244923000101\?text=/);
+  await expect(receipt).toHaveAttribute('href', /^https:\/\/wa\.me\/244955502264\?text=/);
   // The total owed is added to the receipt right after the sale is saved.
   await expect.poll(async () => decodeURIComponent((await receipt.getAttribute('href'))!)).toMatch(/Total em dívida: [\d.]+ Kz/);
   await page.getByRole('button', { name: 'Nova venda' }).click();
 
-  await nav(page, 'Fiado');
+  await nav(page, 'Clientes');
   await page.getByRole('button', { name: /Joana Mateus/ }).click();
   const popup = page.context().waitForEvent('page');
   await page.getByRole('link', { name: 'Lembrar por WhatsApp' }).click();
@@ -147,7 +147,7 @@ test('the day summary can be sent to the owner by WhatsApp', async ({ page }) =>
 
 test('a customer name can be corrected', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Fiado');
+  await nav(page, 'Clientes');
   await page.getByRole('button', { name: /Luísa Neto/ }).click();
   await page.getByLabel('Nome').fill('Luísa Neto Exemplo');
   await page.getByRole('button', { name: 'Guardar' }).click();

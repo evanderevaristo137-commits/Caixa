@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../app/context';
 import { makeBackup } from '../app/backup-action';
 import { creditCsv, importBackup, lastBackupAt, productsCsv, salesCsv } from '../data/backup';
+import { normaliseNif } from '../domain/nif';
 import type { Settings } from '../domain/types';
 import { t } from '../i18n/pt-AO';
 import { formatDate } from '../lib/dates';
@@ -47,10 +48,13 @@ function StoreForm({ settings }: { settings: Settings }) {
   const [phone, setPhone] = useState(settings.phone ?? '');
   const [nif, setNif] = useState(settings.nif ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [nifError, setNifError] = useState<string | null>(null);
   const save = async () => {
     if (!storeName.trim()) return setError(t.products.nameRequired);
+    if (!normaliseNif(nif).ok) return setNifError(t.settings.nifInvalid);
     await store.settings.save({ storeName, phone, nif });
     setError(null);
+    setNifError(null);
     showToast(t.settings.saved);
   };
   return (
@@ -58,7 +62,15 @@ function StoreForm({ settings }: { settings: Settings }) {
       <h2 className="text-lg font-bold">{t.settings.title}</h2>
       <Field label={t.settings.storeName} value={storeName} onChange={(e) => setStoreName(e.target.value)} error={error} />
       <Field label={t.settings.phone} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" />
-      <Field label={t.settings.nif} value={nif} onChange={(e) => setNif(e.target.value)} inputMode="numeric" />
+      <Field
+        label={t.settings.nif}
+        value={nif}
+        onChange={(e) => setNif(e.target.value)}
+        autoCapitalize="characters"
+        autoComplete="off"
+        hint={t.settings.nifHint}
+        error={nifError}
+      />
       <Button className="w-full" onClick={() => void save()}>
         {t.common.save}
       </Button>
@@ -131,7 +143,7 @@ function DataCard() {
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('produtos', () => productsCsv(store.db))}>
           {t.settings.exportProducts}
         </Button>
-        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('fiado', () => creditCsv(store.db))}>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('clientes', () => creditCsv(store.db))}>
           {t.settings.exportCredit}
         </Button>
       </div>

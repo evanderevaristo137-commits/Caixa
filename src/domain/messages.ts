@@ -70,7 +70,7 @@ export function daySummaryText(storeName: string, dayTitle: string, view: DayVie
     lines.push('');
     for (const m of methods) lines.push(`• ${methodLabel[m]}: ${formatKz(day.byMethod[m])}`);
   }
-  if (view.creditPaidCents > 0) lines.push(`Fiado recebido: ${formatKz(view.creditPaidCents)}`);
+  if (view.creditPaidCents > 0) lines.push(`Recebido de clientes: ${formatKz(view.creditPaidCents)}`);
   if (day.voidedCount > 0) lines.push(`Vendas anuladas: ${day.voidedCount} (${formatKz(day.voidedCents)})`);
   return lines.join('\n');
 }

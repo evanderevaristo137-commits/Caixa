@@ -120,7 +120,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Total linha (Kz)',
       'Total venda (Kz)',
       'Pagamento',
-      'Cliente (fiado)',
+      'Cliente (a crédito)',
       'Anulada',
       'Motivo da anulação',
     ],

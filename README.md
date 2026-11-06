@@ -1,6 +1,6 @@
 # Caixa — a caixa da loja no telemóvel
 
-App para pequenos negócios em Angola: registar vendas, receber por vários meios, controlar o stock e o fiado. Funciona **sem internet** e os dados ficam **só no telemóvel**.
+App para pequenos negócios em Angola: registar vendas, receber por vários meios (incluindo PayPay), controlar o stock e o que os clientes devem. Funciona **sem internet** e os dados ficam **só no telemóvel**.
 
 > Esta app **não emite facturas**. Os talões dizem sempre «Documento não fiscal — não serve de factura».
 
@@ -12,7 +12,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 
 ## Mostrar a um comerciante (modo demonstração)
 
-- Separador **Mais** → **Entrar no modo demonstração**. Aparece a «Mercearia da Dona Teresa» com 30 produtos, 5 clientes no fiado e duas semanas de vendas.
+- Separador **Mais** → **Entrar no modo demonstração**. Aparece a «Mercearia da Dona Teresa» com 30 produtos, 5 clientes com compras a crédito e duas semanas de vendas. Todos os clientes da demonstração usam o número de testes 955 502 264, para os lembretes e talões enviados por WhatsApp chegarem a esse telefone.
 - Uma faixa amarela no topo lembra que são dados de exemplo.
 - Em cada novo dia os dados de exemplo renovam-se sozinhos, para o ecrã «Hoje» ter sempre vendas do dia.
 - **Repor dados da demonstração** volta tudo ao início a qualquer momento.
@@ -23,11 +23,11 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 - **Vender:** toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
   - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
   - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
-- **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a fiado mostra o total em dívida do cliente.
-- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores e **Enviar resumo do dia** para mandar os números ao dono por WhatsApp.
+- **Clientes:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a crédito mostra o total em dívida do cliente.
+- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total a receber de clientes e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores e **Enviar resumo do dia** para mandar os números ao dono por WhatsApp.
   - Toque numa venda para reenviar o talão ou para a **anular** (engano, desistência, devolução). A venda anulada fica no histórico, mas deixa de contar e o stock volta ao lugar.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
-- **Mais:** nome da loja, telefone, NIF, cópias de segurança (JSON) e exportação para Excel (CSV).
+- **Mais:** nome da loja, telefone, NIF (aceita letras e números), cópias de segurança (JSON) e exportação para Excel (CSV).
 
 ## Cópias de segurança
 

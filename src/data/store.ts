@@ -2,6 +2,7 @@ import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
 import { creditBook, totalOutstanding } from '../domain/credit';
 import { byName } from '../domain/ranking';
+import { normaliseNif } from '../domain/nif';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
@@ -295,13 +296,15 @@ export class Store {
     save: (input: Pick<Settings, 'storeName' | 'phone' | 'nif'>): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
         if (!input.storeName.trim()) throw new DomainError('name_required');
+        const nif = normaliseNif(input.nif);
+        if (!nif.ok) throw new DomainError('invalid_nif');
         const before = await this.db.settings.get(SETTINGS_ID);
         const at = this.stamp();
         const after: Settings = {
           id: SETTINGS_ID,
           storeName: input.storeName.trim(),
           phone: clean(input.phone),
-          nif: clean(input.nif),
+          nif: nif.value,
           createdAt: before?.createdAt ?? at,
           updatedAt: at,
         };

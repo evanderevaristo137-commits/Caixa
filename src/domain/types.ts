@@ -33,7 +33,7 @@ export interface Customer extends BaseRecord {
   lastRemindedAt?: IsoDate;
 }
 
-export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'credit'] as const;
+export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay', 'credit'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export interface SaleItem {

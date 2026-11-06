@@ -87,6 +87,10 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Talão de venda a fiado mostra o total em dívida** do cliente depois dessa compra.
 - **Sem carregamento de ecrãs «a pedido» (lazy loading):** todos os ecrãs vão no ficheiro principal. Com ecrãs a pedido, uma versão publicada com a app aberta apagava os ficheiros antigos e o ecrã seguinte ficava em branco.
 - **Actualizações nunca recarregam a app sozinhas** (pode estar a meio de uma venda): aparece «Há uma versão nova da app — Actualizar». A app procura versões novas quando volta ao ecrã (no máximo uma vez por hora).
+- **Nomes na app:** a secção chama-se «Clientes» e a forma de pagamento «Cliente (a crédito)» (pedido do fundador; «fiado» deixou de aparecer). No código continua `credit`.
+- **Formas de pagamento:** numerário, QR KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay e cliente (a crédito).
+- **NIF aceita letras e números** (o NIF de pessoa singular segue o BI); guarda-se em maiúsculas, sem espaços. É só um dado: a app não valida nada para efeitos fiscais.
+- **Número de testes do WhatsApp (955 502 264)** usado em todos os clientes da demonstração, a pedido do fundador. Atenção: o repositório e a app são públicos, por isso este número fica visível.
 - **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas
