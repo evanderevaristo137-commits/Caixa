@@ -27,12 +27,12 @@ export function SalesList({ sales }: { sales: Sale[] }) {
                 onClick={() => setOpenId(s.id)}
                 className="flex min-h-14 w-full items-center gap-3 py-2 text-left active:bg-slate-50"
               >
-                <span className="w-12 text-sm font-semibold text-slate-500 tabular-nums">{time(s.createdAt)}</span>
+                <span className="w-12 text-sm font-semibold text-slate-600 tabular-nums">{time(s.createdAt)}</span>
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate font-semibold ${s.voidedAt ? 'text-slate-400 line-through' : ''}`}>
                     {s.items.map((i) => i.name).join(', ')}
                   </span>
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-slate-600">
                     {methodLabel[s.method]} · {t.sell.cartItems(units)}
                     {s.voidedAt && <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-800">{t.today.voidedTag}</span>}
                   </span>

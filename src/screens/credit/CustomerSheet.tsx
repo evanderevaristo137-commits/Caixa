@@ -176,7 +176,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
               <p className="font-semibold">
                 {h.kind === 'pay' ? t.credit.payment : h.voided ? t.credit.voidedPurchase : t.credit.purchase}
               </p>
-              <p className="truncate text-sm text-slate-500">
+              <p className="truncate text-sm text-slate-600">
                 {formatDateTime(h.at)} · {h.label}
               </p>
             </div>

@@ -87,7 +87,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         </div>
         <div className="mt-4 space-y-2">
           <LinkButton href={whatsAppLink(text, sale.method === 'credit' ? customer?.phone : undefined)}>{t.sell.shareReceipt}</LinkButton>
-          <p className="text-center text-sm text-slate-500">{t.nonFiscal}</p>
+          <p className="text-center text-sm text-slate-600">{t.nonFiscal}</p>
           {settings?.storeName === DEFAULT_STORE_NAME && (
             <p className="rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-900">{t.sell.nameHint}</p>
           )}

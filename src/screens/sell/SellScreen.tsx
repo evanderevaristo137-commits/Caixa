@@ -165,7 +165,7 @@ export function SellScreen() {
                   <span className="mt-1 flex items-end justify-between gap-1">
                     <Money cents={p.priceCents} className="text-lg font-bold text-brand-800" />
                     <span
-                      className={`text-xs ${p.stock <= 0 ? 'font-bold text-red-700' : low ? 'font-semibold text-amber-700' : 'text-slate-500'}`}
+                      className={`text-xs ${p.stock <= 0 ? 'font-bold text-red-700' : low ? 'font-semibold text-amber-700' : 'text-slate-600'}`}
                     >
                       {p.stock <= 0 ? t.sell.outOfStock : t.sell.stockLeft(p.stock)}
                     </span>

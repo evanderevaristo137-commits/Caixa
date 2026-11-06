@@ -65,7 +65,7 @@ export function App() {
               type="button"
               onClick={() => go(id)}
               aria-current={tab === id ? 'page' : undefined}
-              className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${tab === id ? 'text-brand-700' : 'text-slate-500'}`}
+              className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${tab === id ? 'text-brand-700' : 'text-slate-600'}`}
             >
               <svg
                 viewBox="0 0 24 24"

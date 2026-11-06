@@ -53,7 +53,7 @@ export default function CreditScreen() {
                 ) : b.balanceCents < 0 ? (
                   <span className="text-sm font-semibold text-brand-700">{t.credit.inFavourShort(formatKz(-b.balanceCents))}</span>
                 ) : (
-                  <span className="text-sm text-slate-500">{t.credit.settled}</span>
+                  <span className="text-sm text-slate-600">{t.credit.settled}</span>
                 )}
               </div>
               {b.balanceCents > 0 && <Money cents={b.balanceCents} className="text-xl font-bold" />}

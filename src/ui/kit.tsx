@@ -4,12 +4,12 @@ import { formatKz } from '../lib/money';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'dangerSolid' | 'ghost' | 'whatsapp';
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-brand-700 text-white active:bg-brand-800 disabled:bg-slate-300 disabled:text-slate-500',
+  primary: 'bg-brand-700 text-white active:bg-brand-800 disabled:bg-slate-300 disabled:text-slate-600',
   secondary: 'bg-white text-slate-900 border-2 border-slate-300 active:bg-slate-100',
   danger: 'bg-white text-red-700 border-2 border-red-300 active:bg-red-50',
   dangerSolid: 'bg-red-700 text-white active:bg-red-800',
   ghost: 'bg-transparent text-brand-700 active:bg-brand-50',
-  whatsapp: 'bg-[#1a8d4a] text-white active:bg-[#146f3a]',
+  whatsapp: 'bg-[#15803d] text-white active:bg-[#166534]',
 };
 
 export function Button({
@@ -64,7 +64,7 @@ export function Field({
         {...props}
         className={`min-h-12 w-full rounded-xl border-2 bg-white px-3 text-lg ${error ? 'border-red-500' : 'border-slate-300'} focus:border-brand-700 focus:outline-none`}
       />
-      {hint && !error && <span className="mt-1 block text-sm text-slate-500">{hint}</span>}
+      {hint && !error && <span className="mt-1 block text-sm text-slate-600">{hint}</span>}
       {error && <span className="mt-1 block text-sm font-medium text-red-700">{error}</span>}
     </label>
   );

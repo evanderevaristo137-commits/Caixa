@@ -92,7 +92,7 @@ export default function TodayScreen() {
         <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>
         <Money cents={day.totalCents} className="block text-4xl font-extrabold" />
         <p className="mt-1 text-lg">{t.today.sales(day.count)}</p>
-        <div className="mt-2 rounded-lg bg-white/15 px-3 py-2 text-base">
+        <div className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-base">
           <p>
             {view.comparisonIsSameTime ? t.today.vsYesterday : t.today.comparedPrevDay}:{' '}
             <Money cents={view.comparison.totalCents} className="font-semibold" />
@@ -135,7 +135,7 @@ export default function TodayScreen() {
       <Card>
         <h2 className="mb-2 font-bold">{t.today.byMethod}</h2>
         {day.count === 0 ? (
-          <p className="text-slate-500">{isToday ? t.today.noSales : t.today.noSalesDay}</p>
+          <p className="text-slate-600">{isToday ? t.today.noSales : t.today.noSalesDay}</p>
         ) : (
           <ul className="space-y-2">
             {PAYMENT_METHODS.filter((m) => day.byMethod[m] > 0).map((m) => (
@@ -169,7 +169,7 @@ export default function TodayScreen() {
           <Card>
             <h2 className="mb-2 font-bold">{t.today.lowStock}</h2>
             {data.lowStock.length === 0 ? (
-              <p className="text-slate-500">{t.today.noLowStock}</p>
+              <p className="text-slate-600">{t.today.noLowStock}</p>
             ) : (
               <ul className="divide-y divide-slate-100">
                 {data.lowStock.map((p) => (

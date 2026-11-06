@@ -22,7 +22,7 @@ export default function SettingsScreen() {
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <DataCard />
       <DemoCard />
-      <p className="px-2 pb-4 text-center text-sm text-slate-500">{t.settings.about}</p>
+      <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
     </div>
   );
 }

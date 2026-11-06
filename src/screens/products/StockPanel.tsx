@@ -108,13 +108,13 @@ export function StockPanel({ product }: { product: Product }) {
       )}
 
       <h3 className="mt-5 mb-2 font-bold">{t.products.movements}</h3>
-      <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl bg-white">
+      <ul tabIndex={0} aria-label={t.products.movements} className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl bg-white">
         {(movements ?? []).slice(0, 50).map((m) => (
           <li key={m.id} className="flex justify-between gap-2 p-3 text-sm">
             <span className="min-w-0">
               <span className="font-semibold">{MV_LABEL[m.type]}</span>
               {m.reason ? ` · ${m.reason}` : ''}
-              <span className="block text-slate-500">{formatDateTime(m.createdAt)}</span>
+              <span className="block text-slate-600">{formatDateTime(m.createdAt)}</span>
             </span>
             <span className={`font-bold tabular-nums ${m.delta < 0 ? 'text-red-700' : 'text-brand-700'}`}>
               {m.delta > 0 ? `+${m.delta}` : m.delta}

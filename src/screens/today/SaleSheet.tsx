@@ -45,7 +45,7 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
           <li key={i.productId} className="flex justify-between gap-2 p-3">
             <span className="min-w-0">
               <span className="block truncate font-semibold">{i.name}</span>
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-slate-600">
                 {i.quantity} × <Money cents={i.unitPriceCents} />
               </span>
             </span>
