@@ -9,6 +9,7 @@ import { formatDate } from '../lib/dates';
 import { dateStamp } from '../lib/download';
 import { shareOrDownload } from '../lib/share';
 import { isStoragePersisted } from '../lib/storage';
+import { promptInstall, useCanInstall } from '../lib/install';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 
 export default function SettingsScreen() {
@@ -17,11 +18,26 @@ export default function SettingsScreen() {
   if (!settings) return <Skeleton />;
   return (
     <div className="space-y-3 p-3">
+      <InstallCard />
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <DataCard />
       <DemoCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-500">{t.settings.about}</p>
     </div>
+  );
+}
+
+function InstallCard() {
+  const canInstall = useCanInstall();
+  if (!canInstall) return null;
+  return (
+    <Card className="space-y-2 ring-4 ring-brand-100">
+      <h2 className="text-lg font-bold">{t.install.title}</h2>
+      <p className="text-sm text-slate-600">{t.install.hint}</p>
+      <Button big className="w-full" onClick={() => void promptInstall()}>
+        {t.install.button}
+      </Button>
+    </Card>
   );
 }
 

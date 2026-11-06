@@ -29,6 +29,7 @@ export interface NewSale {
 }
 
 export const SETTINGS_ID = 'main';
+export const DEFAULT_STORE_NAME = 'A minha loja';
 
 const clean = (s: string | undefined) => {
   const v = s?.trim();
@@ -166,6 +167,15 @@ export class Store {
         await this.audit({ entity: 'customer', entityId: customer.id, action: 'created', after: customer });
         return customer;
       }),
+    markReminded: (id: string): Promise<void> =>
+      this.db.transaction('rw', [this.db.customers, this.db.audit], async () => {
+        const before = await this.db.customers.get(id);
+        if (!before) throw new DomainError('not_found');
+        const at = this.stamp();
+        const after: Customer = { ...before, lastRemindedAt: at, updatedAt: at };
+        await this.db.customers.put(after);
+        await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
+      }),
     update: (id: string, name: string, phone?: string): Promise<Customer> =>
       this.db.transaction('rw', [this.db.customers, this.db.audit], async () => {
         const before = await this.db.customers.get(id);
@@ -280,7 +290,7 @@ export class Store {
       const s = await this.db.settings.get(SETTINGS_ID);
       if (s) return s;
       const at = this.stamp();
-      return { id: SETTINGS_ID, storeName: 'A minha loja', createdAt: at, updatedAt: at };
+      return { id: SETTINGS_ID, storeName: DEFAULT_STORE_NAME, createdAt: at, updatedAt: at };
     },
     save: (input: Pick<Settings, 'storeName' | 'phone' | 'nif'>): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {

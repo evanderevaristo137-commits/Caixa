@@ -83,6 +83,8 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Cópia de segurança em `.txt` (conteúdo JSON):** o Chrome do Android só partilha alguns tipos de ficheiro (aceita .txt e .csv, recusa .json). Lembrete no «Hoje» 3 dias depois da primeira venda e depois a cada 7 dias (nunca na demonstração).
 - **No ecrã Vender, os mais vendidos dos últimos 30 dias vêm primeiro;** a ordem fixa-se ao abrir o ecrã para os produtos não mudarem de sítio a meio de uma venda. Ordem alfabética portuguesa (`localeCompare('pt')`).
 - **Dinheiro na caixa = vendas em numerário + fiado pago em numerário** (sem fundo de caixa nesta fase).
+- **Lista de compras sugerida:** para cada produto com stock baixo, sugere comprar o suficiente para chegar ao dobro do mínimo (pelo menos 1). A pessoa pode mudar as quantidades no WhatsApp antes de enviar.
+- **Talão de venda a fiado mostra o total em dívida** do cliente depois dessa compra.
 - **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas

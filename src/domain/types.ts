@@ -29,6 +29,8 @@ export interface Customer extends BaseRecord {
   name: string;
   /** Optional, only used to open WhatsApp. Never sent to any external service. */
   phone?: string;
+  /** When the last WhatsApp reminder was opened, so the shopkeeper doesn't insist too often. */
+  lastRemindedAt?: IsoDate;
 }
 
 export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'credit'] as const;

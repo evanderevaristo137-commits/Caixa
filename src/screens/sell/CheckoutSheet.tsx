@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { DEFAULT_STORE_NAME } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
+import { creditStatus } from '../../domain/credit';
 import { receiptText } from '../../domain/messages';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
@@ -18,6 +20,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const [received, setReceived] = useState('');
   const [busy, setBusy] = useState(false);
   const [sale, setSale] = useState<Sale | null>(null);
+  const [balanceAfter, setBalanceAfter] = useState<number | undefined>(undefined);
   const total = cartTotal(cart);
   const receivedCents = received ? parseKz(received) : null;
   const change = receivedCents !== null ? changeDue(total, receivedCents) : null;
@@ -45,6 +48,10 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         paymentRef,
         cashReceivedCents: method === 'cash' && receivedCents !== null ? receivedCents : undefined,
       });
+      if (saved.method === 'credit' && saved.customerId) {
+        const [sales, credits] = await Promise.all([store.sales.byCustomer(saved.customerId), store.credit.byCustomer(saved.customerId)]);
+        setBalanceAfter(creditStatus(saved.customerId, sales, credits, new Date()).balanceCents);
+      }
       navigator.vibrate?.([40, 60, 40]);
       setSale(saved);
     } finally {
@@ -53,7 +60,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   };
 
   if (sale) {
-    const text = settings ? receiptText(sale, settings, customer?.name) : '';
+    const text = settings ? receiptText(sale, settings, customer?.name, balanceAfter) : '';
     return (
       <Sheet title={t.sell.done} onClose={onDone}>
         <div className="py-2 text-center">
@@ -72,6 +79,9 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         <div className="mt-4 space-y-2">
           <LinkButton href={whatsAppLink(text, sale.method === 'credit' ? customer?.phone : undefined)}>{t.sell.shareReceipt}</LinkButton>
           <p className="text-center text-sm text-slate-500">{t.nonFiscal}</p>
+          {settings?.storeName === DEFAULT_STORE_NAME && (
+            <p className="rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-900">{t.sell.nameHint}</p>
+          )}
           <Button big className="w-full" onClick={onDone}>
             {t.sell.newSale}
           </Button>

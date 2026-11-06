@@ -6,7 +6,7 @@ import { reminderText } from '../../domain/messages';
 import { toWhatsAppNumber, whatsAppLink } from '../../domain/whatsapp';
 import type { CreditPayment } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { formatDate, formatDateTime } from '../../lib/dates';
+import { calendarDaysBetween, formatDate, formatDateTime } from '../../lib/dates';
 import { parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { daysClass } from './days';
@@ -80,14 +80,22 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
       {status.balanceCents > 0 && (
         <div className="mt-4 space-y-2">
           {toWhatsAppNumber(customer.phone) ? (
-            <LinkButton
-              href={whatsAppLink(
-                reminderText(customer.name, status.balanceCents, status.oldestUnpaidAt, settings.storeName, now),
-                customer.phone,
+            <>
+              <LinkButton
+                href={whatsAppLink(
+                  reminderText(customer.name, status.balanceCents, status.oldestUnpaidAt, settings.storeName, now),
+                  customer.phone,
+                )}
+                onClick={() => void store.customers.markReminded(customer.id)}
+              >
+                {t.credit.remind}
+              </LinkButton>
+              {customer.lastRemindedAt && (
+                <p className="text-center text-sm text-slate-600">
+                  {t.credit.lastReminder(calendarDaysBetween(new Date(customer.lastRemindedAt), now))}
+                </p>
               )}
-            >
-              {t.credit.remind}
-            </LinkButton>
+            </>
           ) : (
             <p className="rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-900">{t.credit.noPhone}</p>
           )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLowStock, lowStockProducts, summariseDayView } from './today';
+import { isLowStock, lowStockProducts, restockList, summariseDayView } from './today';
 import type { CreditPayment, Product, Sale } from './types';
 
 const now = new Date(2026, 10, 6, 18, 0);
@@ -91,5 +91,18 @@ describe('low stock', () => {
     const list = lowStockProducts([product('ok', 10, 3), product('low', 3, 3), product('out', 0, 5), product('old', 0, 5, at(1, 1))]);
     expect(list.map((p) => p.id)).toEqual(['out', 'low']);
     expect(isLowStock(product('x', 4, 3))).toBe(false);
+  });
+});
+
+describe('restockList', () => {
+  it('suggests enough to reach twice the minimum, most urgent first', () => {
+    const list = restockList([product('ok', 10, 3), product('low', 3, 3), product('out', -2, 5)]);
+    expect(list.map((l) => [l.productId, l.suggested])).toEqual([
+      ['out', 12],
+      ['low', 3],
+    ]);
+  });
+  it('always suggests at least one unit', () => {
+    expect(restockList([product('zero-min', 0, 0)])[0]!.suggested).toBe(1);
   });
 });

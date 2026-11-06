@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { lowStockProducts, summariseDayView } from '../../domain/today';
+import { shoppingListText } from '../../domain/messages';
+import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
+import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { addDays, dayLabel, startOfLocalDay } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
-import { Card, Money, Skeleton } from '../../ui/kit';
+import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
 import { BackupReminder } from './BackupReminder';
 import { SalesList } from './SalesList';
 
@@ -19,15 +21,25 @@ export default function TodayScreen() {
     const from = addDays(day, -1).toISOString();
     const to = addDays(day, 1).toISOString();
     const isToday = offset === 0;
-    const [sales, payments, products, owed] = await Promise.all([
+    const [sales, payments, products, owed, settings] = await Promise.all([
       store.sales.between(from, to),
       store.credit.paymentsBetween(from, to),
       isToday ? store.products.list() : Promise.resolve([]),
       isToday ? store.credit.totalOwed(now) : Promise.resolve(0),
+      store.settings.get(),
     ]);
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return { offset, isToday, view: summariseDayView(sales, payments, day, now), daySales, lowStock: lowStockProducts(products), owed };
+    const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
+    return {
+      offset,
+      isToday,
+      view: summariseDayView(sales, payments, day, now),
+      daySales,
+      lowStock: lowStockProducts(products),
+      owed,
+      shoppingList,
+    };
   }, [store, offset]);
 
   // The header follows the tap immediately; the numbers appear once that day's data is loaded.
@@ -163,6 +175,11 @@ export default function TodayScreen() {
                   </li>
                 ))}
               </ul>
+            )}
+            {data.lowStock.length > 0 && (
+              <LinkButton href={data.shoppingList} className="mt-3">
+                {t.today.shoppingList}
+              </LinkButton>
             )}
           </Card>
         </>

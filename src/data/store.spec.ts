@@ -152,3 +152,12 @@ describe('Store: voiding sales', () => {
     expect(await store.sales.between(to, new Date(Date.now() + 120_000).toISOString())).toHaveLength(0);
   });
 });
+
+describe('Store: reminders', () => {
+  it('remembers when a customer was last reminded', async () => {
+    const c = await store.customers.create('Cliente Exemplo', '923000000');
+    expect(c.lastRemindedAt).toBeUndefined();
+    await store.customers.markReminded(c.id);
+    expect((await store.customers.get(c.id))!.lastRemindedAt).toBeDefined();
+  });
+});

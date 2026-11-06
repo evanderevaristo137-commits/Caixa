@@ -91,3 +91,45 @@ test('the real shop and the demo never share data', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Produto da loja real/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
 });
+
+test('low stock becomes a WhatsApp shopping list', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const href = await page.getByRole('link', { name: 'Enviar lista de compras' }).getAttribute('href');
+  const text = decodeURIComponent(href!.split('text=')[1]!);
+  expect(text).toContain('*Lista de compras — Mercearia da Dona Teresa*');
+  expect(text).toMatch(/• Ovos \(dúzia\): \d+ \(há \d+\)/);
+});
+
+test('a fiado sale receipt shows the total owed, and reminders are remembered', async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Fiado' }).click();
+  await page.getByRole('button', { name: 'Joana Mateus' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  const href = await page.getByRole('link', { name: 'Enviar talão por WhatsApp' }).getAttribute('href');
+  expect(href).toMatch(/^https:\/\/wa\.me\/244923000101\?text=/);
+  expect(decodeURIComponent(href!)).toMatch(/Total em dívida: [\d.]+ Kz/);
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+
+  await nav(page, 'Fiado');
+  await page.getByRole('button', { name: /Joana Mateus/ }).click();
+  const popup = page.context().waitForEvent('page');
+  await page.getByRole('link', { name: 'Lembrar por WhatsApp' }).click();
+  await (await popup).close();
+  await expect(page.getByText('Último lembrete: hoje')).toBeVisible();
+});
+
+test('first use: create the first product straight from the Sell screen', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: '+ Criar o primeiro produto' }).click();
+  await page.getByLabel('Nome').fill('Primeiro produto');
+  await page.getByLabel('Preço (Kz)').fill('250');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('1 artigo')).toBeVisible();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByText('Dica: ponha o nome da sua loja')).toBeVisible();
+});

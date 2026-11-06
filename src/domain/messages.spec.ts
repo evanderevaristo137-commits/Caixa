@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { receiptText, reminderText } from './messages';
+import { receiptText, reminderText, shoppingListText } from './messages';
 import { toWhatsAppNumber, whatsAppLink } from './whatsapp';
 import type { Sale } from './types';
 
@@ -54,5 +54,30 @@ describe('WhatsApp numbers', () => {
   it('builds an encoded wa.me link', () => {
     expect(whatsAppLink('Olá & até já', '923456789')).toBe('https://wa.me/244923456789?text=Ol%C3%A1%20%26%20at%C3%A9%20j%C3%A1');
     expect(whatsAppLink('x')).toBe('https://wa.me/?text=x');
+  });
+});
+
+describe('fiado receipt', () => {
+  it('shows the total owed after the purchase', () => {
+    const credit = { ...sale, method: 'credit' as const, cashReceivedCents: undefined };
+    const text = receiptText(credit, { storeName: 'Loja Exemplo' }, 'Maria Exemplo', 1_675_000);
+    expect(text).toContain('Cliente: Maria Exemplo');
+    expect(text).toContain('Total em dívida: 16.750 Kz');
+    expect(text).toContain('Documento não fiscal');
+    expect(receiptText(sale, { storeName: 'Loja Exemplo' }, undefined, 5)).not.toContain('dívida');
+  });
+});
+
+describe('shoppingListText', () => {
+  it('lists what to buy and what is left', () => {
+    const text = shoppingListText(
+      'Loja Exemplo',
+      [
+        { name: 'Óleo 1 L', stock: 3, suggested: 13 },
+        { name: 'Ovos', stock: -1, suggested: 9 },
+      ],
+      new Date(2026, 10, 6),
+    );
+    expect(text).toBe('*Lista de compras — Loja Exemplo*\n06/11/2026\n\n• Óleo 1 L: 13 (há 3)\n• Ovos: 9 (há 0)');
   });
 });

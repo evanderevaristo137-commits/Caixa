@@ -27,10 +27,21 @@ export function Button({
   );
 }
 
-export function LinkButton({ href, children, className = '' }: { href: string; children: ReactNode; className?: string }) {
+export function LinkButton({
+  href,
+  children,
+  className = '',
+  onClick,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
   return (
     <a
       href={href}
+      onClick={onClick}
       target="_blank"
       rel="noopener noreferrer"
       className={`${VARIANTS.whatsapp} flex min-h-14 items-center justify-center gap-2 rounded-xl px-4 text-lg font-semibold ${className}`}

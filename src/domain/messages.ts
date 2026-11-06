@@ -5,7 +5,13 @@ import { greeting } from './whatsapp';
 import type { Cents, Sale, Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
-export function receiptText(sale: Sale, settings: Pick<Settings, 'storeName' | 'phone' | 'nif'>, customerName?: string): string {
+export function receiptText(
+  sale: Sale,
+  settings: Pick<Settings, 'storeName' | 'phone' | 'nif'>,
+  customerName?: string,
+  /** Fiado only: what the customer owes in total after this purchase. */
+  balanceAfterCents?: Cents,
+): string {
   const lines: string[] = [];
   lines.push(`*${settings.storeName}*`);
   if (settings.phone) lines.push(`Tel.: ${settings.phone}`);
@@ -20,6 +26,9 @@ export function receiptText(sale: Sale, settings: Pick<Settings, 'storeName' | '
   lines.push(`*TOTAL: ${formatKz(sale.totalCents)}*`);
   lines.push(`Pagamento: ${methodLabel[sale.method]}`);
   if (sale.method === 'credit' && customerName) lines.push(`Cliente: ${customerName}`);
+  if (sale.method === 'credit' && balanceAfterCents !== undefined && balanceAfterCents > 0) {
+    lines.push(`Total em dívida: ${formatKz(balanceAfterCents)}`);
+  }
   if (sale.method === 'cash' && sale.cashReceivedCents !== undefined && sale.cashReceivedCents >= sale.totalCents) {
     lines.push(`Recebido: ${formatKz(sale.cashReceivedCents)} — Troco: ${formatKz(sale.cashReceivedCents - sale.totalCents)}`);
   }
@@ -39,4 +48,11 @@ export function reminderText(customerName: string, balanceCents: Cents, since: s
     `Lembramos, com todo o respeito, que tem um valor em aberto de ${formatKz(balanceCents)}${sinceText}. ` +
     `Quando lhe for possível, pode passar pela loja para acertar. Muito obrigado pela confiança!`
   );
+}
+
+/** Shopping list to send to a supplier (or to oneself) by WhatsApp. */
+export function shoppingListText(storeName: string, lines: { name: string; stock: number; suggested: number }[], now: Date): string {
+  const out = [`*Lista de compras — ${storeName}*`, formatDate(now.toISOString()), ''];
+  for (const l of lines) out.push(`• ${l.name}: ${l.suggested} (há ${Math.max(0, l.stock)})`);
+  return out.join('\n');
 }

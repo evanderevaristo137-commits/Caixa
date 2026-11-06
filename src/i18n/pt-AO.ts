@@ -29,7 +29,9 @@ export const t = {
   sell: {
     searchPlaceholder: 'Pesquisar produto ou código',
     scan: 'Ler código',
-    empty: 'Ainda não há produtos. Crie o primeiro no separador Produtos.',
+    empty: 'Ainda não há produtos. Crie o primeiro produto ou veja a demonstração.',
+    firstProduct: 'Criar o primeiro produto',
+    nameHint: 'Dica: ponha o nome da sua loja em «Mais», para aparecer no talão.',
     noResults: 'Nenhum produto encontrado.',
     cartItems: (n: number) => (n === 1 ? '1 artigo' : `${n} artigos`),
     charge: 'Cobrar',
@@ -88,6 +90,8 @@ export const t = {
     newCustomer: 'Novo cliente',
     paid: 'Pagamento registado.',
     inFavour: 'A favor do cliente',
+    lastReminder: (days: number) =>
+      days === 0 ? 'Último lembrete: hoje' : days === 1 ? 'Último lembrete: ontem' : `Último lembrete: há ${days} dias`,
     inFavourShort: (amount: string) => `Saldo a favor: ${amount}`,
     voidedPurchase: 'Compra anulada',
     lastDays: (n: number) => `${n} dias`,
@@ -109,6 +113,7 @@ export const t = {
     byMethod: 'Por meio de pagamento',
     lowStock: 'Stock baixo',
     noLowStock: 'Nenhum produto abaixo do mínimo.',
+    shoppingList: 'Enviar lista de compras',
     creditTotal: 'Total em fiado',
     noSales: 'Ainda não há vendas hoje.',
     noSalesDay: 'Não houve vendas neste dia.',
@@ -169,6 +174,11 @@ export const t = {
     mvEntry: 'Entrada',
     mvAdjust: 'Acerto',
     mvVoid: 'Anulação',
+  },
+  install: {
+    title: 'Instalar no ecrã inicial',
+    hint: 'Fica com um ícone como as outras apps, abre mais depressa e funciona sem internet.',
+    button: 'Instalar app',
   },
   settings: {
     title: 'Definições',

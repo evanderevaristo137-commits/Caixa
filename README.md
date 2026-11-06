@@ -7,7 +7,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 ## Abrir no telemóvel
 
 1. No Chrome do Android, abra: **https://evanderevaristo137-commits.github.io/Caixa/** (com «C» maiúsculo)
-2. Toque nos três pontos (⋮) → **Instalar app** (ou «Adicionar ao ecrã inicial»).
+2. Toque em **Instalar app** (no ecrã «Mais», ou nos três pontos ⋮ do Chrome → «Instalar app» / «Adicionar ao ecrã inicial»).
 3. A partir daí abre pelo ícone «Caixa», mesmo sem internet.
 
 ## Mostrar a um comerciante (modo demonstração)
@@ -23,8 +23,8 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 - **Vender:** toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
   - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
   - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
-- **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp**.
-- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo, total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores.
+- **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a fiado mostra o total em dívida do cliente.
+- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores.
   - Toque numa venda para reenviar o talão ou para a **anular** (engano, desistência, devolução). A venda anulada fica no histórico, mas deixa de contar e o stock volta ao lugar.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
 - **Mais:** nome da loja, telefone, NIF, cópias de segurança (JSON) e exportação para Excel (CSV).

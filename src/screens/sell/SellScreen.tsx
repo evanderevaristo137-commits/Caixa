@@ -8,12 +8,14 @@ import { t } from '../../i18n/pt-AO';
 import { addDays } from '../../lib/dates';
 import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { ProductSheet } from '../products/ProductSheet';
+import { promptInstall, useCanInstall } from '../../lib/install';
 import { CartSheet } from './CartSheet';
 import { CheckoutSheet } from './CheckoutSheet';
 import { Scanner, scannerSupported } from './Scanner';
 
 export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
+  const canInstall = useCanInstall();
   const products = useLiveQuery(() => store.products.list(), [store]);
   // Best sellers of the last 30 days come first. The order is fixed when the screen opens,
   // so products don't jump around while the shopkeeper is tapping.
@@ -126,11 +128,21 @@ export function SellScreen() {
       ) : products.length === 0 ? (
         <Empty
           action={
-            mode === 'store' ? (
-              <Button variant="secondary" onClick={() => void setMode('demo')}>
-                {t.settings.demoOn}
+            <div className="space-y-2">
+              <Button className="w-full" onClick={() => setCreatingCode('')}>
+                + {t.sell.firstProduct}
               </Button>
-            ) : undefined
+              {mode === 'store' && (
+                <Button variant="secondary" className="w-full" onClick={() => void setMode('demo')}>
+                  {t.settings.demoOn}
+                </Button>
+              )}
+              {canInstall && (
+                <Button variant="secondary" className="w-full" onClick={() => void promptInstall()}>
+                  {t.install.button}
+                </Button>
+              )}
+            </div>
           }
         >
           {t.sell.empty}
@@ -208,7 +220,7 @@ export function SellScreen() {
       {creatingCode !== null && (
         <ProductSheet
           productId={null}
-          initialBarcode={creatingCode}
+          initialBarcode={creatingCode || undefined}
           onClose={() => setCreatingCode(null)}
           onCreated={(p) => {
             setCart((c) => addToCart(c, p));
