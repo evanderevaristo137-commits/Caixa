@@ -114,6 +114,7 @@ export const t = {
     lowStock: 'Stock baixo',
     noLowStock: 'Nenhum produto abaixo do mínimo.',
     shoppingList: 'Enviar lista de compras',
+    sendSummary: 'Enviar resumo do dia',
     creditTotal: 'Total em fiado',
     noSales: 'Ainda não há vendas hoje.',
     noSalesDay: 'Não houve vendas neste dia.',

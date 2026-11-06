@@ -24,7 +24,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
   - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
   - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
 - **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a fiado mostra o total em dívida do cliente.
-- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores.
+- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores e **Enviar resumo do dia** para mandar os números ao dono por WhatsApp.
   - Toque numa venda para reenviar o talão ou para a **anular** (engano, desistência, devolução). A venda anulada fica no histórico, mas deixa de contar e o stock volta ao lugar.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
 - **Mais:** nome da loja, telefone, NIF, cópias de segurança (JSON) e exportação para Excel (CSV).

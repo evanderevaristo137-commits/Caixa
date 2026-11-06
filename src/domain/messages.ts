@@ -2,7 +2,8 @@ import { formatDate, formatDateTime } from '../lib/dates';
 import { formatKz } from '../lib/money';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { greeting } from './whatsapp';
-import type { Cents, Sale, Settings } from './types';
+import type { DayView } from './today';
+import { PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
 export function receiptText(
@@ -55,4 +56,21 @@ export function shoppingListText(storeName: string, lines: { name: string; stock
   const out = [`*Lista de compras — ${storeName}*`, formatDate(now.toISOString()), ''];
   for (const l of lines) out.push(`• ${l.name}: ${l.suggested} (há ${Math.max(0, l.stock)})`);
   return out.join('\n');
+}
+
+/** End-of-day summary for the owner (e.g. sent by an employee). */
+export function daySummaryText(storeName: string, dayTitle: string, view: DayView): string {
+  const { day } = view;
+  const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
+  lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
+  lines.push(`${view.comparisonIsSameTime ? 'Ontem até esta hora' : 'Dia anterior'}: ${formatKz(view.comparison.totalCents)}`);
+  lines.push(`Dinheiro na caixa (numerário): ${formatKz(view.cash.totalCents)}`);
+  const methods = PAYMENT_METHODS.filter((m) => day.byMethod[m] > 0);
+  if (methods.length > 0) {
+    lines.push('');
+    for (const m of methods) lines.push(`• ${methodLabel[m]}: ${formatKz(day.byMethod[m])}`);
+  }
+  if (view.creditPaidCents > 0) lines.push(`Fiado recebido: ${formatKz(view.creditPaidCents)}`);
+  if (day.voidedCount > 0) lines.push(`Vendas anuladas: ${day.voidedCount} (${formatKz(day.voidedCents)})`);
+  return lines.join('\n');
 }

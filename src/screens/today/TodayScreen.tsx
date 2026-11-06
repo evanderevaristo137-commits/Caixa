@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { shoppingListText } from '../../domain/messages';
+import { daySummaryText, shoppingListText } from '../../domain/messages';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { addDays, dayLabel, startOfLocalDay } from '../../lib/dates';
+import { addDays, dayLabel, formatDate, startOfLocalDay } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
 import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
 import { BackupReminder } from './BackupReminder';
@@ -31,10 +31,14 @@ export default function TodayScreen() {
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
+    const view = summariseDayView(sales, payments, day, now);
+    const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
+    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view));
     return {
       offset,
       isToday,
-      view: summariseDayView(sales, payments, day, now),
+      view,
+      summaryLink,
       daySales,
       lowStock: lowStockProducts(products),
       owed,
@@ -151,6 +155,8 @@ export default function TodayScreen() {
           </ul>
         )}
       </Card>
+
+      {(day.count > 0 || day.voidedCount > 0) && <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>}
 
       {isToday && (
         <>

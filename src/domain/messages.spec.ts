@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { receiptText, reminderText, shoppingListText } from './messages';
+import { daySummaryText, receiptText, reminderText, shoppingListText } from './messages';
+import { summariseDayView } from './today';
 import { toWhatsAppNumber, whatsAppLink } from './whatsapp';
 import type { Sale } from './types';
 
@@ -79,5 +80,35 @@ describe('shoppingListText', () => {
       new Date(2026, 10, 6),
     );
     expect(text).toBe('*Lista de compras — Loja Exemplo*\n06/11/2026\n\n• Óleo 1 L: 13 (há 3)\n• Ovos: 9 (há 0)');
+  });
+});
+
+describe('daySummaryText', () => {
+  it('summarises the day for the owner', () => {
+    const view = summariseDayView(
+      [
+        { ...sale, method: 'cash', totalCents: 425_000, createdAt: new Date(2026, 10, 6, 9).toISOString() },
+        { ...sale, method: 'kwik', totalCents: 100_000, createdAt: new Date(2026, 10, 6, 10).toISOString() },
+        { ...sale, method: 'cash', totalCents: 50_000, voidedAt: 'x', createdAt: new Date(2026, 10, 6, 11).toISOString() },
+      ],
+      [{ createdAt: new Date(2026, 10, 6, 12).toISOString(), amountCents: 30_000, method: 'cash' }],
+      new Date(2026, 10, 6, 18),
+      new Date(2026, 10, 6, 18),
+    );
+    expect(daySummaryText('Loja Exemplo', 'Hoje, 06/11/2026', view)).toBe(
+      [
+        '*Resumo — Loja Exemplo*',
+        'Hoje, 06/11/2026',
+        '',
+        'Vendido: *5.250 Kz* (2 vendas)',
+        'Ontem até esta hora: 0 Kz',
+        'Dinheiro na caixa (numerário): 4.550 Kz',
+        '',
+        '• Numerário: 4.250 Kz',
+        '• QR KWiK: 1.000 Kz',
+        'Fiado recebido: 300 Kz',
+        'Vendas anuladas: 1 (500 Kz)',
+      ].join('\n'),
+    );
   });
 });

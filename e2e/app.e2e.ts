@@ -133,3 +133,23 @@ test('first use: create the first product straight from the Sell screen', async 
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
   await expect(page.getByText('Dica: ponha o nome da sua loja')).toBeVisible();
 });
+
+test('the day summary can be sent to the owner by WhatsApp', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const href = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
+  const text = decodeURIComponent(href!.split('text=')[1]!);
+  expect(text).toContain('*Resumo — Mercearia da Dona Teresa*');
+  expect(text).toMatch(/Vendido: \*[\d.]+ Kz\* \(\d+ vendas\)/);
+  expect(text).toContain('Dinheiro na caixa (numerário)');
+});
+
+test('a customer name can be corrected', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Fiado');
+  await page.getByRole('button', { name: /Luísa Neto/ }).click();
+  await page.getByLabel('Nome').fill('Luísa Neto Exemplo');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await expect(page.getByRole('button', { name: /Luísa Neto Exemplo/ })).toBeVisible();
+});

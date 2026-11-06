@@ -29,6 +29,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const [method, setMethod] = useState<CreditPayment['method']>('cash');
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
+  const [name, setName] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   if (!data?.customer) return null;
   const { customer, sales, payments, settings } = data;
@@ -45,10 +47,14 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
     showToast(t.credit.paid);
   };
 
-  const savePhone = async () => {
-    if (phone === null) return;
-    await store.customers.update(customer.id, customer.name, phone);
+  const saveDetails = async () => {
+    const nextName = name ?? customer.name;
+    if (!nextName.trim()) return setNameError(t.products.nameRequired);
+    await store.customers.update(customer.id, nextName, phone ?? customer.phone);
     setPhone(null);
+    setName(null);
+    setNameError(null);
+    showToast(t.settings.saved);
   };
 
   const history = [
@@ -140,17 +146,26 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
         </div>
       )}
 
-      <div className="mt-4 flex items-end gap-2">
-        <div className="flex-1">
-          <Field
-            label={t.credit.editPhone}
-            type="tel"
-            inputMode="tel"
-            value={phone ?? customer.phone ?? ''}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-        {phone !== null && <Button onClick={() => void savePhone()}>{t.common.save}</Button>}
+      <div className="mt-4 space-y-3 rounded-xl bg-white p-3">
+        <Field
+          label={t.sell.customerName}
+          value={name ?? customer.name}
+          onChange={(e) => setName(e.target.value)}
+          error={nameError}
+          autoComplete="off"
+        />
+        <Field
+          label={t.credit.editPhone}
+          type="tel"
+          inputMode="tel"
+          value={phone ?? customer.phone ?? ''}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+        {(phone !== null || name !== null) && (
+          <Button className="w-full" onClick={() => void saveDetails()}>
+            {t.common.save}
+          </Button>
+        )}
       </div>
 
       <h3 className="mt-5 mb-2 font-bold">{t.credit.history}</h3>
