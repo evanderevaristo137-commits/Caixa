@@ -52,15 +52,24 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   };
 
   const history = [
-    ...sales.map((s) => ({ at: s.createdAt, kind: 'buy' as const, cents: s.totalCents, label: s.items.map((i) => `${i.quantity}× ${i.name}`).join(', ') })),
-    ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, cents: p.amountCents, label: methodLabel[p.method] })),
+    ...sales.map((s) => ({
+      at: s.createdAt,
+      kind: 'buy' as const,
+      voided: !!s.voidedAt,
+      cents: s.totalCents,
+      label: s.items.map((i) => `${i.quantity}× ${i.name}`).join(', '),
+    })),
+    ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, voided: false, cents: p.amountCents, label: methodLabel[p.method] })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   return (
     <Sheet title={customer.name} onClose={onClose}>
       <div className="text-center">
-        <p className="text-sm font-semibold text-slate-600">{t.credit.owes}</p>
-        <Money cents={Math.max(0, status.balanceCents)} className="block text-4xl font-extrabold" />
+        <p className="text-sm font-semibold text-slate-600">{status.balanceCents < 0 ? t.credit.inFavour : t.credit.owes}</p>
+        <Money
+          cents={Math.abs(status.balanceCents)}
+          className={`block text-4xl font-extrabold ${status.balanceCents < 0 ? 'text-brand-700' : ''}`}
+        />
         {status.daysOutstanding !== undefined && (
           <span className={`mt-2 inline-block rounded-full px-3 py-1 font-semibold ${daysClass(status.daysOutstanding)}`}>
             {t.credit.days(status.daysOutstanding)} · {formatDate(status.oldestUnpaidAt!)}
@@ -71,7 +80,12 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
       {status.balanceCents > 0 && (
         <div className="mt-4 space-y-2">
           {toWhatsAppNumber(customer.phone) ? (
-            <LinkButton href={whatsAppLink(reminderText(customer.name, status.balanceCents, status.oldestUnpaidAt, settings.storeName, now), customer.phone)}>
+            <LinkButton
+              href={whatsAppLink(
+                reminderText(customer.name, status.balanceCents, status.oldestUnpaidAt, settings.storeName, now),
+                customer.phone,
+              )}
+            >
               {t.credit.remind}
             </LinkButton>
           ) : (
@@ -83,11 +97,24 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
             </Button>
           ) : (
             <div className="space-y-3 rounded-xl bg-white p-3">
-              <Field label={t.credit.amount} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="numeric" error={error} autoFocus />
+              <Field
+                label={t.credit.amount}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                inputMode="numeric"
+                error={error}
+                autoFocus
+              />
               <p className="text-sm font-semibold text-slate-700">{t.credit.method}</p>
               <div className="flex flex-wrap gap-2">
                 {PAY_METHODS.map((m) => (
-                  <button key={m} type="button" onClick={() => setMethod(m)} aria-pressed={method === m} className={`min-h-11 rounded-full border-2 px-3 text-sm font-semibold ${method === m ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}>
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMethod(m)}
+                    aria-pressed={method === m}
+                    className={`min-h-11 rounded-full border-2 px-3 text-sm font-semibold ${method === m ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}
+                  >
                     {methodLabel[m]}
                   </button>
                 ))}
@@ -107,7 +134,13 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
 
       <div className="mt-4 flex items-end gap-2">
         <div className="flex-1">
-          <Field label={t.credit.editPhone} type="tel" inputMode="tel" value={phone ?? customer.phone ?? ''} onChange={(e) => setPhone(e.target.value)} />
+          <Field
+            label={t.credit.editPhone}
+            type="tel"
+            inputMode="tel"
+            value={phone ?? customer.phone ?? ''}
+            onChange={(e) => setPhone(e.target.value)}
+          />
         </div>
         {phone !== null && <Button onClick={() => void savePhone()}>{t.common.save}</Button>}
       </div>
@@ -117,10 +150,17 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
         {history.map((h, i) => (
           <li key={i} className="flex items-start justify-between gap-2 p-3">
             <div className="min-w-0">
-              <p className="font-semibold">{h.kind === 'buy' ? t.credit.purchase : t.credit.payment}</p>
-              <p className="truncate text-sm text-slate-500">{formatDateTime(h.at)} · {h.label}</p>
+              <p className="font-semibold">
+                {h.kind === 'pay' ? t.credit.payment : h.voided ? t.credit.voidedPurchase : t.credit.purchase}
+              </p>
+              <p className="truncate text-sm text-slate-500">
+                {formatDateTime(h.at)} · {h.label}
+              </p>
             </div>
-            <Money cents={h.kind === 'buy' ? h.cents : -h.cents} className={`font-bold ${h.kind === 'pay' ? 'text-brand-700' : ''}`} />
+            <Money
+              cents={h.kind === 'buy' ? h.cents : -h.cents}
+              className={`font-bold ${h.kind === 'pay' ? 'text-brand-700' : ''} ${h.voided ? 'text-slate-400 line-through' : ''}`}
+            />
           </li>
         ))}
       </ul>

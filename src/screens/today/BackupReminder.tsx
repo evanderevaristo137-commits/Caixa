@@ -1,10 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useApp } from '../app/context';
-import { makeBackup } from '../app/backup-action';
-import { lastBackupAt } from '../data/backup';
-import { backupReminderDays } from '../domain/backup-reminder';
-import { t } from '../i18n/pt-AO';
-import { Button } from '../ui/kit';
+import { useApp } from '../../app/context';
+import { makeBackup } from '../../app/backup-action';
+import { lastBackupAt } from '../../data/backup';
+import { backupReminderDays } from '../../domain/backup-reminder';
+import { t } from '../../i18n/pt-AO';
+import { Button } from '../../ui/kit';
 
 /** Gentle reminder to back up, only for the real shop (never in the demo). */
 export function BackupReminder() {

@@ -6,7 +6,7 @@ import { SellScreen } from './screens/sell/SellScreen';
 
 // Only "Vender" loads up front; the other screens load when first opened (smaller first download).
 const CreditScreen = lazy(() => import('./screens/credit/CreditScreen'));
-const TodayScreen = lazy(() => import('./screens/TodayScreen'));
+const TodayScreen = lazy(() => import('./screens/today/TodayScreen'));
 const ProductsScreen = lazy(() => import('./screens/products/ProductsScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 
@@ -65,7 +65,16 @@ export function App() {
               aria-current={tab === id ? 'page' : undefined}
               className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${tab === id ? 'text-brand-700' : 'text-slate-500'}`}
             >
-              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={tab === id ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={tab === id ? 2.5 : 2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
                 <path d={ICONS[id]} />
               </svg>
               {t.tabs[id]}
@@ -74,7 +83,10 @@ export function App() {
         </div>
       </nav>
       {toast && (
-        <div role="status" className="fixed inset-x-4 bottom-20 z-50 mx-auto max-w-md rounded-xl bg-slate-900 px-4 py-3 text-center font-semibold text-white shadow-lg">
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-20 z-50 mx-auto max-w-md rounded-xl bg-slate-900 px-4 py-3 text-center font-semibold text-white shadow-lg"
+        >
           {toast}
         </div>
       )}

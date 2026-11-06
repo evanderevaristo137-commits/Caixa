@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DomainError } from '../../data/store';
-import type { Product } from '../../domain/types';
+import type { Product, StockMovementType } from '../../domain/types';
 import { reasonsList, t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Field } from '../../ui/kit';
@@ -14,7 +14,12 @@ const ERRORS: Record<string, string> = {
   no_change: t.products.noChange,
 };
 
-const MV_LABEL = { sale: t.products.mvSale, entry: t.products.mvEntry, adjustment: t.products.mvAdjust };
+const MV_LABEL: Record<StockMovementType, string> = {
+  sale: t.products.mvSale,
+  entry: t.products.mvEntry,
+  adjustment: t.products.mvAdjust,
+  void: t.products.mvVoid,
+};
 
 /** Stock entries, adjustments (with reason) and the movement history of one product. */
 export function StockPanel({ product }: { product: Product }) {
@@ -47,7 +52,13 @@ export function StockPanel({ product }: { product: Product }) {
       {mode === 'none' ? (
         <div className="grid grid-cols-2 gap-2">
           <Button onClick={() => setMode('entry')}>+ {t.products.entry}</Button>
-          <Button variant="secondary" onClick={() => { setQty(String(Math.max(0, product.stock))); setMode('adjust'); }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setQty(String(Math.max(0, product.stock)));
+              setMode('adjust');
+            }}
+          >
             {t.products.adjust}
           </Button>
         </div>
@@ -65,7 +76,13 @@ export function StockPanel({ product }: { product: Product }) {
             <>
               <div className="flex flex-wrap gap-2">
                 {reasonsList.map((r) => (
-                  <button key={r} type="button" onClick={() => setReason(r)} aria-pressed={reason === r} className={`min-h-11 rounded-full border-2 px-3 text-sm font-semibold ${reason === r ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}>
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setReason(r)}
+                    aria-pressed={reason === r}
+                    className={`min-h-11 rounded-full border-2 px-3 text-sm font-semibold ${reason === r ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}
+                  >
                     {r}
                   </button>
                 ))}
@@ -74,7 +91,13 @@ export function StockPanel({ product }: { product: Product }) {
             </>
           )}
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => { setMode('none'); setError(null); }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setMode('none');
+                setError(null);
+              }}
+            >
               {t.common.cancel}
             </Button>
             <Button className="flex-1" onClick={() => void submit()}>
@@ -93,7 +116,9 @@ export function StockPanel({ product }: { product: Product }) {
               {m.reason ? ` · ${m.reason}` : ''}
               <span className="block text-slate-500">{formatDateTime(m.createdAt)}</span>
             </span>
-            <span className={`font-bold tabular-nums ${m.delta < 0 ? 'text-red-700' : 'text-brand-700'}`}>{m.delta > 0 ? `+${m.delta}` : m.delta}</span>
+            <span className={`font-bold tabular-nums ${m.delta < 0 ? 'text-red-700' : 'text-brand-700'}`}>
+              {m.delta > 0 ? `+${m.delta}` : m.delta}
+            </span>
           </li>
         ))}
       </ul>

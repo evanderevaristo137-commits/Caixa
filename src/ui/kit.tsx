@@ -2,11 +2,12 @@ import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes,
 import { registerBackHandler } from './back';
 import { formatKz } from '../lib/money';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'whatsapp';
+type Variant = 'primary' | 'secondary' | 'danger' | 'dangerSolid' | 'ghost' | 'whatsapp';
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-brand-700 text-white active:bg-brand-800 disabled:bg-slate-300 disabled:text-slate-500',
   secondary: 'bg-white text-slate-900 border-2 border-slate-300 active:bg-slate-100',
   danger: 'bg-white text-red-700 border-2 border-red-300 active:bg-red-50',
+  dangerSolid: 'bg-red-700 text-white active:bg-red-800',
   ghost: 'bg-transparent text-brand-700 active:bg-brand-50',
   whatsapp: 'bg-[#1a8d4a] text-white active:bg-[#146f3a]',
 };
@@ -86,7 +87,12 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h2 className="text-lg font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="min-h-12 min-w-12 rounded-full text-2xl text-slate-600 active:bg-slate-200">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="min-h-12 min-w-12 rounded-full text-2xl text-slate-600 active:bg-slate-200"
+          >
             ×
           </button>
         </div>

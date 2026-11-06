@@ -24,21 +24,34 @@ export function CartSheet({
               <p className="truncate font-semibold">{l.name}</p>
               <Money cents={lineTotal(l.unitPriceCents, l.quantity)} className="text-slate-600" />
             </div>
-            <button type="button" aria-label="Menos" onClick={() => step(l.productId, l.quantity - 1)} className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-2xl font-bold active:bg-slate-100">
+            <button
+              type="button"
+              aria-label="Menos"
+              onClick={() => step(l.productId, l.quantity - 1)}
+              className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-2xl font-bold active:bg-slate-100"
+            >
               −
             </button>
             <span className="w-8 text-center text-xl font-bold tabular-nums">{l.quantity}</span>
-            <button type="button" aria-label="Mais" onClick={() => step(l.productId, l.quantity + 1)} className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-2xl font-bold active:bg-slate-100">
+            <button
+              type="button"
+              aria-label="Mais"
+              onClick={() => step(l.productId, l.quantity + 1)}
+              className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-2xl font-bold active:bg-slate-100"
+            >
               +
             </button>
           </li>
         ))}
       </ul>
       <div className="mt-4 flex gap-2">
-        <Button variant="danger" onClick={() => {
+        <Button
+          variant="danger"
+          onClick={() => {
             setCart(() => []);
             onClose();
-          }}>
+          }}
+        >
           {t.sell.clear}
         </Button>
         <Button big className="flex-1" onClick={onCharge}>

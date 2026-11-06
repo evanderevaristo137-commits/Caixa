@@ -37,12 +37,18 @@ export default function ProductsScreen() {
         <ul className="divide-y divide-slate-100 rounded-xl bg-white shadow-sm">
           {list.map((p) => (
             <li key={p.id}>
-              <button type="button" onClick={() => setOpen(p.id)} className="flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setOpen(p.id)}
+                className="flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-50"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold">{p.name}</p>
                   <Money cents={p.priceCents} className="text-slate-600" />
                 </div>
-                <span className={`rounded-full px-2 py-1 text-sm font-bold ${p.stock <= 0 ? 'bg-red-100 text-red-800' : p.stock <= p.minStock ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                <span
+                  className={`rounded-full px-2 py-1 text-sm font-bold ${p.stock <= 0 ? 'bg-red-100 text-red-800' : p.stock <= p.minStock ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}
+                >
                   {t.products.inStock(p.stock)}
                 </span>
               </button>

@@ -1,8 +1,6 @@
 import type { Sale, Settings } from '../domain/types';
 
-export type InvoiceResult =
-  | { status: 'issued'; documentNumber: string; isTest: boolean }
-  | { status: 'unavailable'; reason: string };
+export type InvoiceResult = { status: 'issued'; documentNumber: string; isTest: boolean } | { status: 'unavailable'; reason: string };
 
 /**
  * Certified invoicing. The app itself NEVER issues invoices: only AGT-certified software can.

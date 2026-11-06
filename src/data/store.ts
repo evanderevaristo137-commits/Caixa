@@ -1,15 +1,7 @@
 import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
-import type {
-  AuditEntry,
-  CreditPayment,
-  Customer,
-  PaymentMethod,
-  Product,
-  Sale,
-  Settings,
-  StockMovement,
-} from '../domain/types';
+import { creditBook, totalOutstanding } from '../domain/credit';
+import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
 import { CaixaDB } from './db';
@@ -138,8 +130,7 @@ export class Store {
         if ('error' in result) throw new DomainError(result.error satisfies StockChangeError);
         await this.addMovement({ productId: id, type: 'adjustment', delta: result.delta, reason: reason.trim() });
       }),
-    movements: (productId: string) =>
-      this.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt'),
+    movements: (productId: string) => this.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt'),
   };
 
   private async assertProduct(input: ProductInput, selfId?: string) {
@@ -195,6 +186,28 @@ export class Store {
     since: (iso: string) => this.db.sales.where('createdAt').aboveOrEqual(iso).toArray(),
     byCustomer: (customerId: string) => this.db.sales.where('customerId').equals(customerId).toArray(),
     onCredit: () => this.db.sales.where('method').equals('credit').toArray(),
+    get: (id: string) => this.db.sales.get(id),
+    /** Sales with from <= createdAt < to (ISO strings). */
+    between: (fromIso: string, toIso: string) => this.db.sales.where('createdAt').between(fromIso, toIso, true, false).toArray(),
+    /**
+     * Voids a sale: it stays in history, marked as voided, and stops counting.
+     * The stock comes back through 'void' movements. A reason is mandatory.
+     */
+    void: (id: string, reason: string): Promise<Sale> =>
+      this.db.transaction('rw', [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit], async () => {
+        const before = await this.db.sales.get(id);
+        if (!before) throw new DomainError('not_found');
+        if (before.voidedAt) throw new DomainError('already_voided');
+        if (reason.trim().length < 3) throw new DomainError('reason_required');
+        const at = this.stamp();
+        const after: Sale = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
+        await this.db.sales.put(after);
+        await this.audit({ entity: 'sale', entityId: id, action: 'voided', before, after });
+        for (const item of before.items) {
+          await this.addMovement({ productId: item.productId, type: 'void', delta: item.quantity, reason: reason.trim(), saleId: id });
+        }
+        return after;
+      }),
     /** Saves the sale, lowers stock and writes the audit log, all or nothing. */
     create: (input: NewSale): Promise<Sale> =>
       this.db.transaction(
@@ -238,13 +251,20 @@ export class Store {
   // ---------- Fiado payments ----------
   readonly credit = {
     payments: () => this.db.creditPayments.orderBy('createdAt').toArray(),
+    paymentsBetween: (fromIso: string, toIso: string) =>
+      this.db.creditPayments.where('createdAt').between(fromIso, toIso, true, false).toArray(),
+    /** Total owed by all customers right now. */
+    totalOwed: async (now = new Date()) => {
+      const [customers, sales, payments] = await Promise.all([this.customers.list(), this.sales.onCredit(), this.credit.payments()]);
+      return totalOutstanding(creditBook(customers, sales, payments, now));
+    },
     byCustomer: (customerId: string) => this.db.creditPayments.where('customerId').equals(customerId).toArray(),
     addPayment: (customerId: string, amountCents: number, method: CreditPayment['method']): Promise<CreditPayment> =>
       this.db.transaction('rw', [this.db.creditPayments, this.db.sales, this.db.audit], async () => {
         if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
         const owed =
           (await this.db.sales.where('customerId').equals(customerId).toArray())
-            .filter((s) => s.method === 'credit')
+            .filter((s) => s.method === 'credit' && !s.voidedAt)
             .reduce((a, s) => a + s.totalCents, 0) -
           (await this.db.creditPayments.where('customerId').equals(customerId).toArray()).reduce((a, p) => a + p.amountCents, 0);
         if (amountCents > owed) throw new DomainError('too_much');

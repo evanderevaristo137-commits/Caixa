@@ -33,3 +33,19 @@ export function formatDateTime(iso: string): string {
   const mi = String(d.getMinutes()).padStart(2, '0');
   return `${formatDate(iso)} ${hh}:${mi}`;
 }
+
+export function isSameLocalDay(a: Date, b: Date): boolean {
+  return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();
+}
+
+const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+
+/** "Hoje", "Ontem", or e.g. "qua., 04/11" for older days. */
+export function dayLabel(day: Date, now: Date): string {
+  const diff = calendarDaysBetween(day, now);
+  if (diff === 0) return 'Hoje';
+  if (diff === 1) return 'Ontem';
+  const dd = String(day.getDate()).padStart(2, '0');
+  const mm = String(day.getMonth() + 1).padStart(2, '0');
+  return `${WEEKDAYS[day.getDay()]}, ${dd}/${mm}`;
+}

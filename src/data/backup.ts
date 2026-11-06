@@ -111,7 +111,19 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
   const [sales, customers] = await Promise.all([db.sales.orderBy('createdAt').toArray(), db.customers.toArray()]);
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows: (string | number)[][] = [
-    ['Data', 'Venda n.º', 'Produto', 'Quantidade', 'Preço unitário (Kz)', 'Total linha (Kz)', 'Total venda (Kz)', 'Pagamento', 'Cliente (fiado)'],
+    [
+      'Data',
+      'Venda n.º',
+      'Produto',
+      'Quantidade',
+      'Preço unitário (Kz)',
+      'Total linha (Kz)',
+      'Total venda (Kz)',
+      'Pagamento',
+      'Cliente (fiado)',
+      'Anulada',
+      'Motivo da anulação',
+    ],
   ];
   for (const s of sales) {
     for (const it of s.items) {
@@ -125,6 +137,8 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         kzNumber(s.totalCents),
         methodLabel[s.method],
         s.customerId ? (names.get(s.customerId) ?? '') : '',
+        s.voidedAt ? 'Sim' : '',
+        s.voidReason ?? '',
       ]);
     }
   }

@@ -31,14 +31,7 @@ export interface Customer extends BaseRecord {
   phone?: string;
 }
 
-export const PAYMENT_METHODS = [
-  'cash',
-  'kwik',
-  'multicaixa_express',
-  'unitel_money',
-  'afrimoney',
-  'credit',
-] as const;
+export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'credit'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export interface SaleItem {
@@ -63,6 +56,9 @@ export interface Sale extends BaseRecord {
   paymentRef?: string;
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
+  /** Voided sales stay in history but no longer count (totals, stock, fiado). */
+  voidedAt?: IsoDate;
+  voidReason?: string;
 }
 
 /** A payment towards a customer's fiado balance. */
@@ -72,7 +68,7 @@ export interface CreditPayment extends BaseRecord {
   method: Exclude<PaymentMethod, 'credit'>;
 }
 
-export type StockMovementType = 'sale' | 'entry' | 'adjustment';
+export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void';
 
 export interface StockMovement extends BaseRecord {
   productId: string;
@@ -87,7 +83,7 @@ export interface StockMovement extends BaseRecord {
 export interface AuditEntry extends BaseRecord {
   entity: 'product' | 'customer' | 'sale' | 'credit_payment' | 'stock_movement' | 'settings' | 'data';
   entityId: string;
-  action: 'created' | 'updated' | 'archived' | 'imported' | 'reset';
+  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset';
   before?: unknown;
   after?: unknown;
 }

@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditBook, totalOutstanding } from '../../domain/credit';
 import { t } from '../../i18n/pt-AO';
+import { formatKz } from '../../lib/money';
 import { Button, Card, Empty, Money, Sheet, Skeleton } from '../../ui/kit';
 import { CustomerSheet } from './CustomerSheet';
 import { daysClass } from './days';
@@ -38,13 +39,19 @@ export default function CreditScreen() {
       <ul className="space-y-2">
         {[...owing, ...settled].map((b) => (
           <li key={b.customer.id}>
-            <button type="button" onClick={() => setOpenId(b.customer.id)} className="flex min-h-16 w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-sm active:bg-slate-50">
+            <button
+              type="button"
+              onClick={() => setOpenId(b.customer.id)}
+              className="flex min-h-16 w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-sm active:bg-slate-50"
+            >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-semibold">{b.customer.name}</p>
                 {b.balanceCents > 0 ? (
                   <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-semibold ${daysClass(b.daysOutstanding)}`}>
                     {t.credit.days(b.daysOutstanding ?? 0)}
                   </span>
+                ) : b.balanceCents < 0 ? (
+                  <span className="text-sm font-semibold text-brand-700">{t.credit.inFavourShort(formatKz(-b.balanceCents))}</span>
                 ) : (
                   <span className="text-sm text-slate-500">{t.credit.settled}</span>
                 )}

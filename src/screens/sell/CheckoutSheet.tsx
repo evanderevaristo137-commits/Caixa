@@ -59,7 +59,10 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         <div className="py-2 text-center">
           <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-4xl text-brand-700">✓</div>
           <Money cents={sale.totalCents} className="block text-4xl font-extrabold" />
-          <p className="mt-1 text-lg text-slate-600">{methodLabel[sale.method]}{customer ? ` — ${customer.name}` : ''}</p>
+          <p className="mt-1 text-lg text-slate-600">
+            {methodLabel[sale.method]}
+            {customer ? ` — ${customer.name}` : ''}
+          </p>
           {sale.cashReceivedCents !== undefined && change !== null && (
             <p className="mt-2 text-2xl font-bold text-amber-700">
               {t.sell.change}: <Money cents={change} />
@@ -98,7 +101,13 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
 
       {method === 'cash' && (
         <div className="mt-4">
-          <Field label={t.sell.received} value={received} onChange={(e) => setReceived(e.target.value)} inputMode="numeric" error={received && change === null ? t.sell.notEnough : null} />
+          <Field
+            label={t.sell.received}
+            value={received}
+            onChange={(e) => setReceived(e.target.value)}
+            inputMode="numeric"
+            error={received && change === null ? t.sell.notEnough : null}
+          />
           {change !== null && received && (
             <p className="mt-2 text-xl font-bold text-amber-700">
               {t.sell.change}: <Money cents={change} />

@@ -30,8 +30,22 @@ export function CustomerPicker({ selected, onSelect }: { selected?: string; onSe
   if (creating) {
     return (
       <div className="space-y-3">
-        <Field label={t.sell.customerName} value={name} onChange={(e) => setName(e.target.value)} error={error} autoFocus autoComplete="off" />
-        <Field label={t.sell.customerPhone} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="off" />
+        <Field
+          label={t.sell.customerName}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={error}
+          autoFocus
+          autoComplete="off"
+        />
+        <Field
+          label={t.sell.customerPhone}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          type="tel"
+          inputMode="tel"
+          autoComplete="off"
+        />
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setCreating(false)}>
             {t.common.back}

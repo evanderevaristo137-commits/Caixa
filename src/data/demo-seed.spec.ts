@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDemoData, ensureFreshDemo, seedDemo } from './demo-seed';
 import { creditBook } from '../domain/credit';
-import { summariseToday } from '../domain/today';
+import { lowStockProducts, summariseDayView } from '../domain/today';
 import { CaixaDB } from './db';
 import { Store } from './store';
 
@@ -35,9 +35,8 @@ describe('demo data', () => {
   it('all 5 customers owe something and some products are low', () => {
     const book = creditBook(d.customers, d.sales, d.payments, now);
     expect(book.filter((b) => b.balanceCents > 0)).toHaveLength(5);
-    const s = summariseToday(d.sales, d.products, now);
-    expect(s.lowStock.length).toBeGreaterThanOrEqual(3);
-    expect(s.today.count).toBeGreaterThan(0);
+    expect(lowStockProducts(d.products).length).toBeGreaterThanOrEqual(3);
+    expect(summariseDayView(d.sales, d.payments, now, now).day.count).toBeGreaterThan(0);
   });
 
   it('is only written to the demo database, and new sales continue the numbering', async () => {
@@ -48,7 +47,10 @@ describe('demo data', () => {
     const store = new Store(db);
     expect((await store.settings.get()).storeName).toBe('Mercearia da Dona Teresa');
     const p = (await store.products.list())[0]!;
-    const sale = await store.sales.create({ cart: [{ productId: p.id, name: p.name, unitPriceCents: p.priceCents, quantity: 1 }], method: 'cash' });
+    const sale = await store.sales.create({
+      cart: [{ productId: p.id, name: p.name, unitPriceCents: p.priceCents, quantity: 1 }],
+      method: 'cash',
+    });
     expect(sale.number).toBe(d.sales.length + 1);
     await db.delete();
   });

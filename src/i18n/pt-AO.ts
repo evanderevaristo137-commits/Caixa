@@ -80,6 +80,9 @@ export const t = {
     editPhone: 'Telefone',
     newCustomer: 'Novo cliente',
     paid: 'Pagamento registado.',
+    inFavour: 'A favor do cliente',
+    inFavourShort: (amount: string) => `Saldo a favor: ${amount}`,
+    voidedPurchase: 'Compra anulada',
     lastDays: (n: number) => `${n} dias`,
   },
   backupReminder: {
@@ -101,6 +104,33 @@ export const t = {
     noLowStock: 'Nenhum produto abaixo do mínimo.',
     creditTotal: 'Total em fiado',
     noSales: 'Ainda não há vendas hoje.',
+    noSalesDay: 'Não houve vendas neste dia.',
+    prevDay: 'Dia anterior',
+    nextDay: 'Dia seguinte',
+    comparedPrevDay: 'Dia anterior',
+    voidedLine: (n: number, amount: string) => (n === 1 ? `1 venda anulada (${amount})` : `${n} vendas anuladas (${amount})`),
+    cashTitle: 'Dinheiro na caixa (numerário)',
+    cashSales: 'Vendas',
+    cashCredit: 'Fiado pago',
+    creditPaid: 'Fiado recebido (todos os meios)',
+    salesList: 'Vendas do dia',
+    voidedTag: 'Anulada',
+  },
+  sale: {
+    title: (n: number) => `Venda n.º ${n}`,
+    total: 'Total',
+    method: 'Pagamento',
+    customer: 'Cliente',
+    ref: 'Referência',
+    voidedInfo: (date: string, reason: string) => `Anulada em ${date}. Motivo: ${reason}`,
+    void: 'Anular venda',
+    voidTitle: 'Porque vai anular esta venda?',
+    voidReasons: ['Engano no registo', 'Cliente desistiu', 'Devolução', 'Pagamento falhou'],
+    voidReason: 'Motivo',
+    voidNote: 'A venda fica no histórico como anulada, deixa de contar nos totais e o stock volta ao lugar.',
+    voidConfirm: 'Confirmar anulação',
+    voidDone: 'Venda anulada.',
+    resend: 'Enviar talão por WhatsApp',
   },
   products: {
     title: 'Produtos',
@@ -131,6 +161,7 @@ export const t = {
     mvSale: 'Venda',
     mvEntry: 'Entrada',
     mvAdjust: 'Acerto',
+    mvVoid: 'Anulação',
   },
   settings: {
     title: 'Definições',
@@ -160,7 +191,8 @@ export const t = {
     demo: 'Modo demonstração',
     demoOn: 'Entrar no modo demonstração',
     demoOff: 'Sair da demonstração (voltar à minha loja)',
-    demoNote: 'A demonstração usa dados separados. Os dados da sua loja nunca são tocados. Em cada novo dia, os dados de exemplo renovam-se sozinhos.',
+    demoNote:
+      'A demonstração usa dados separados. Os dados da sua loja nunca são tocados. Em cada novo dia, os dados de exemplo renovam-se sozinhos.',
     demoReset: 'Repor dados da demonstração',
     demoResetConfirm: 'Repor a demonstração ao início?',
     demoResetOk: 'Demonstração reposta.',
@@ -169,3 +201,4 @@ export const t = {
 } as const;
 
 export const reasonsList: readonly string[] = t.products.reasons;
+export const voidReasonsList: readonly string[] = t.sale.voidReasons;

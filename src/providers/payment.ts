@@ -7,9 +7,7 @@ export interface PaymentRequest {
   reference: string;
 }
 
-export type PaymentResult =
-  | { status: 'confirmed'; providerRef: string }
-  | { status: 'failed'; reason: string };
+export type PaymentResult = { status: 'confirmed'; providerRef: string } | { status: 'failed'; reason: string };
 
 /**
  * Electronic payments (QR KWiK, Multicaixa Express, Unitel Money, Afrimoney).

@@ -1,13 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type {
-  AuditEntry,
-  CreditPayment,
-  Customer,
-  Product,
-  Sale,
-  Settings,
-  StockMovement,
-} from '../domain/types';
+import type { AuditEntry, CreditPayment, Customer, Product, Sale, Settings, StockMovement } from '../domain/types';
 
 export type DataMode = 'store' | 'demo';
 
@@ -47,14 +39,5 @@ export class CaixaDB extends Dexie {
   }
 }
 
-export const TABLES = [
-  'products',
-  'customers',
-  'sales',
-  'creditPayments',
-  'stockMovements',
-  'audit',
-  'settings',
-  'meta',
-] as const;
+export const TABLES = ['products', 'customers', 'sales', 'creditPayments', 'stockMovements', 'audit', 'settings', 'meta'] as const;
 export type TableName = (typeof TABLES)[number];

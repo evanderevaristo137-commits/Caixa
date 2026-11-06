@@ -100,7 +100,13 @@ function DataCard() {
       <Button variant="secondary" className="w-full" onClick={() => file.current?.click()}>
         {t.settings.import}
       </Button>
-      <input ref={file} type="file" accept=".txt,.json,text/plain,application/json" className="hidden" onChange={(e) => void onImport(e.target.files?.[0])} />
+      <input
+        ref={file}
+        type="file"
+        accept=".txt,.json,text/plain,application/json"
+        className="hidden"
+        onChange={(e) => void onImport(e.target.files?.[0])}
+      />
       <h3 className="pt-2 font-semibold">{t.settings.exportsTitle}</h3>
       <div className="grid grid-cols-3 gap-2">
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('vendas', () => salesCsv(store.db))}>

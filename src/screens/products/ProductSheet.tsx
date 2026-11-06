@@ -59,7 +59,8 @@ function ProductForm({
       onClose();
     } catch (e) {
       const code = e instanceof DomainError ? e.code : 'unknown';
-      const field = code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
+      const field =
+        code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
       setError({ field, msg: ERRORS[code] ?? String(e) });
     }
   };
@@ -79,7 +80,13 @@ function ProductForm({
         <Field label={t.products.price} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" error={err('price')} />
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Field label={t.products.barcode} value={barcode} onChange={(e) => setBarcode(e.target.value)} inputMode="numeric" error={err('barcode')} />
+            <Field
+              label={t.products.barcode}
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              inputMode="numeric"
+              error={err('barcode')}
+            />
           </div>
           {scannerSupported() && (
             <Button variant="secondary" onClick={() => setScanning(true)}>
@@ -87,8 +94,22 @@ function ProductForm({
             </Button>
           )}
         </div>
-        {!product && <Field label={t.products.stock} value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" error={err('stock')} />}
-        <Field label={t.products.minStock} value={minStock} onChange={(e) => setMinStock(e.target.value)} inputMode="numeric" error={err('min')} />
+        {!product && (
+          <Field
+            label={t.products.stock}
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            inputMode="numeric"
+            error={err('stock')}
+          />
+        )}
+        <Field
+          label={t.products.minStock}
+          value={minStock}
+          onChange={(e) => setMinStock(e.target.value)}
+          inputMode="numeric"
+          error={err('min')}
+        />
         <Button big className="w-full" onClick={() => void save()}>
           {t.common.save}
         </Button>

@@ -10,7 +10,9 @@ describe('FakePaymentProvider', () => {
   });
   it('rejects invalid amounts and can simulate failure', async () => {
     expect((await new FakePaymentProvider().requestPayment({ amountCents: 0, method: 'kwik', reference: 's' })).status).toBe('failed');
-    expect((await new FakePaymentProvider(true).requestPayment({ amountCents: 5, method: 'afrimoney', reference: 's' })).status).toBe('failed');
+    expect((await new FakePaymentProvider(true).requestPayment({ amountCents: 5, method: 'afrimoney', reference: 's' })).status).toBe(
+      'failed',
+    );
   });
 });
 

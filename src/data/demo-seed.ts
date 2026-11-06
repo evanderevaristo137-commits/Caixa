@@ -89,7 +89,7 @@ export interface DemoData {
 /** Builds two weeks of believable sales ending at `now`. Pure function (testable). */
 export function buildDemoData(now: Date): DemoData {
   const rand = mulberry32(20261106);
-  const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]!;
+  const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]!;
   const iso = (d: Date) => d.toISOString();
   const start = addDays(startOfLocalDay(now), -14);
   const createdAt = iso(addDays(start, -1));
@@ -167,7 +167,14 @@ export function buildDemoData(now: Date): DemoData {
     const amountCents = Math.floor((owed * share) / 10_000) * 10_000;
     if (amountCents > 0) {
       const at = iso(addDays(start, 6 + i));
-      payments.push({ id: uuid(), customerId: c.id, amountCents, method: i % 2 ? 'multicaixa_express' : 'cash', createdAt: at, updatedAt: at });
+      payments.push({
+        id: uuid(),
+        customerId: c.id,
+        amountCents,
+        method: i % 2 ? 'multicaixa_express' : 'cash',
+        createdAt: at,
+        updatedAt: at,
+      });
     }
   });
 
@@ -178,12 +185,28 @@ export function buildDemoData(now: Date): DemoData {
   products.forEach((p, i) => {
     const target = PRODUCTS[i]![3];
     const initial = (sold.get(p.id) ?? 0) + target;
-    movements.push({ id: uuid(), productId: p.id, type: 'entry', delta: initial, reason: 'Stock inicial', createdAt, updatedAt: createdAt });
+    movements.push({
+      id: uuid(),
+      productId: p.id,
+      type: 'entry',
+      delta: initial,
+      reason: 'Stock inicial',
+      createdAt,
+      updatedAt: createdAt,
+    });
     p.stock = target;
   });
   for (const s of sales) {
     for (const it of s.items) {
-      movements.push({ id: uuid(), productId: it.productId, type: 'sale', delta: -it.quantity, saleId: s.id, createdAt: s.createdAt, updatedAt: s.createdAt });
+      movements.push({
+        id: uuid(),
+        productId: it.productId,
+        type: 'sale',
+        delta: -it.quantity,
+        saleId: s.id,
+        createdAt: s.createdAt,
+        updatedAt: s.createdAt,
+      });
     }
   }
 

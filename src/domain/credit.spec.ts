@@ -36,7 +36,15 @@ describe('creditStatus', () => {
   });
 
   it('is settled after full payment', () => {
-    const s = creditStatus('c1', [sale('c1', 500_000, 3)], [{ customerId: 'c1', amountCents: 200_000 }, { customerId: 'c1', amountCents: 300_000 }], now);
+    const s = creditStatus(
+      'c1',
+      [sale('c1', 500_000, 3)],
+      [
+        { customerId: 'c1', amountCents: 200_000 },
+        { customerId: 'c1', amountCents: 300_000 },
+      ],
+      now,
+    );
     expect(s.balanceCents).toBe(0);
     expect(s.daysOutstanding).toBeUndefined();
   });
@@ -62,5 +70,21 @@ describe('validateCreditPayment', () => {
     expect(validateCreditPayment(500, 500)).toBe('ok');
     expect(validateCreditPayment(0, 500)).toBe('zero');
     expect(validateCreditPayment(501, 500)).toBe('too_much');
+  });
+});
+
+describe('voided fiado sales', () => {
+  it('do not count towards the balance', () => {
+    const sales = [sale('c1', 500_000, 5), { ...sale('c1', 300_000, 2), voidedAt: daysAgo(1) }];
+    const s = creditStatus('c1', sales, [], now);
+    expect(s.balanceCents).toBe(500_000);
+    expect(s.totalCreditCents).toBe(500_000);
+  });
+  it('can leave the customer with money in their favour', () => {
+    const sales = [{ ...sale('c1', 300_000, 2), voidedAt: daysAgo(1) }];
+    const s = creditStatus('c1', sales, [{ customerId: 'c1', amountCents: 100_000 }], now);
+    expect(s.balanceCents).toBe(-100_000);
+    expect(s.daysOutstanding).toBeUndefined();
+    expect(validateCreditPayment(1, s.balanceCents)).toBe('too_much');
   });
 });

@@ -135,7 +135,9 @@ export function SellScreen() {
                   <span className="line-clamp-2 text-base leading-snug font-semibold">{p.name}</span>
                   <span className="mt-1 flex items-end justify-between gap-1">
                     <Money cents={p.priceCents} className="text-lg font-bold text-brand-800" />
-                    <span className={`text-xs ${p.stock <= 0 ? 'font-bold text-red-700' : low ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>
+                    <span
+                      className={`text-xs ${p.stock <= 0 ? 'font-bold text-red-700' : low ? 'font-semibold text-amber-700' : 'text-slate-500'}`}
+                    >
                       {p.stock <= 0 ? t.sell.outOfStock : t.sell.stockLeft(p.stock)}
                     </span>
                   </span>
@@ -154,7 +156,11 @@ export function SellScreen() {
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-16 z-20 mb-[env(safe-area-inset-bottom)] px-3 pb-2">
           <div className="mx-auto flex max-w-lg gap-2 rounded-2xl bg-slate-900 p-2 shadow-xl">
-            <button type="button" onClick={() => setSheet('cart')} className="flex-1 rounded-xl px-3 text-left text-white active:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => setSheet('cart')}
+              className="flex-1 rounded-xl px-3 text-left text-white active:bg-slate-800"
+            >
               <span className="block text-sm text-slate-300">{t.sell.cartItems(count)}</span>
               <Money cents={total} className="text-xl font-bold" />
             </button>
@@ -166,7 +172,9 @@ export function SellScreen() {
       )}
 
       {sheet === 'scan' && <Scanner onCode={onCode} onClose={() => setSheet('none')} />}
-      {sheet === 'cart' && <CartSheet cart={cart} setCart={setCart} onClose={() => setSheet('none')} onCharge={() => setSheet('checkout')} />}
+      {sheet === 'cart' && (
+        <CartSheet cart={cart} setCart={setCart} onClose={() => setSheet('none')} onCharge={() => setSheet('checkout')} />
+      )}
       {sheet === 'checkout' && (
         <CheckoutSheet
           cart={cart}

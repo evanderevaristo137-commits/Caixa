@@ -33,9 +33,7 @@ describe('Store: products and stock', () => {
     await expect(store.products.create({ name: 'B', priceCents: 100, minStock: 0, barcode: '123' })).rejects.toSatisfy(
       (e) => code(e) === 'duplicate_barcode',
     );
-    await expect(store.products.create({ name: 'C', priceCents: 10.5, minStock: 0 })).rejects.toSatisfy(
-      (e) => code(e) === 'invalid_price',
-    );
+    await expect(store.products.create({ name: 'C', priceCents: 10.5, minStock: 0 })).rejects.toSatisfy((e) => code(e) === 'invalid_price');
   });
 
   it('records entries and adjustments (with mandatory reason)', async () => {
@@ -113,5 +111,44 @@ describe('Store: settings', () => {
     expect(s.storeName).toBe('Loja X');
     expect(s.phone).toBeUndefined();
     expect((await store.auditLog.list()).at(-1)!.entity).toBe('settings');
+  });
+});
+
+describe('Store: voiding sales', () => {
+  it('restores stock, keeps the sale in history and audits the reason', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const sale = await store.sales.create({ cart: addToCart([], a, 3), method: 'cash' });
+    expect((await store.products.get(a.id))!.stock).toBe(7);
+    await expect(store.sales.void(sale.id, ' ')).rejects.toSatisfy((e) => code(e) === 'reason_required');
+    const voided = await store.sales.void(sale.id, 'Engano no registo');
+    expect(voided.voidedAt).toBeDefined();
+    expect(voided.voidReason).toBe('Engano no registo');
+    expect((await store.products.get(a.id))!.stock).toBe(10);
+    expect(await store.sales.list()).toHaveLength(1);
+    const mv = await store.products.movements(a.id);
+    expect(mv.find((m) => m.type === 'void')!.delta).toBe(3);
+    expect((await store.auditLog.list()).some((x) => x.action === 'voided' && x.entityId === sale.id)).toBe(true);
+    await expect(store.sales.void(sale.id, 'Outra vez')).rejects.toSatisfy((e) => code(e) === 'already_voided');
+  });
+
+  it('removes a voided fiado sale from what the customer owes', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const c = await store.customers.create('Cliente Exemplo');
+    const s1 = await store.sales.create({ cart: addToCart([], a, 2), method: 'credit', customerId: c.id });
+    await store.sales.create({ cart: addToCart([], a, 1), method: 'credit', customerId: c.id });
+    await store.sales.void(s1.id, 'Cliente desistiu');
+    const status = creditStatus(c.id, await store.sales.list(), await store.credit.payments(), new Date());
+    expect(status.balanceCents).toBe(10_000);
+    await expect(store.credit.addPayment(c.id, 10_001, 'cash')).rejects.toSatisfy((e) => code(e) === 'too_much');
+    await store.credit.addPayment(c.id, 10_000, 'cash');
+  });
+
+  it('lists the sales of a given period', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 100, minStock: 0 }, 10);
+    await store.sales.create({ cart: addToCart([], a), method: 'cash' });
+    const from = new Date(Date.now() - 60_000).toISOString();
+    const to = new Date(Date.now() + 60_000).toISOString();
+    expect(await store.sales.between(from, to)).toHaveLength(1);
+    expect(await store.sales.between(to, new Date(Date.now() + 120_000).toISOString())).toHaveLength(0);
   });
 });

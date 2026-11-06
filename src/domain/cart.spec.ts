@@ -49,7 +49,10 @@ describe('cart', () => {
 describe('cart persistence helpers', () => {
   it('refreshes prices and drops archived products', () => {
     const cart = addToCart(addToCart([], rice), oil, 2);
-    const products = [{ ...rice, priceCents: 130_000 }, { ...oil, archivedAt: '2026-11-06T10:00:00Z' }];
+    const products = [
+      { ...rice, priceCents: 130_000 },
+      { ...oil, archivedAt: '2026-11-06T10:00:00Z' },
+    ];
     const next = reconcileCart(cart, products);
     expect(next).toEqual([{ productId: 'p1', name: 'Arroz 1 kg', unitPriceCents: 130_000, quantity: 1 }]);
     expect(cartTotal(next)).toBe(130_000);

@@ -1,6 +1,8 @@
 import { calendarDaysBetween } from '../lib/dates';
 import type { Cents, CreditPayment, Customer, Sale } from './types';
 
+export type CreditSale = Pick<Sale, 'customerId' | 'method' | 'totalCents' | 'createdAt' | 'voidedAt'>;
+
 export interface CreditStatus {
   customerId: string;
   /** Total bought on fiado minus total paid back. */
@@ -19,17 +21,15 @@ export interface CreditStatus {
  */
 export function creditStatus(
   customerId: string,
-  sales: Pick<Sale, 'customerId' | 'method' | 'totalCents' | 'createdAt'>[],
+  sales: CreditSale[],
   payments: Pick<CreditPayment, 'customerId' | 'amountCents'>[],
   now: Date,
 ): CreditStatus {
   const creditSales = sales
-    .filter((s) => s.method === 'credit' && s.customerId === customerId)
+    .filter((s) => s.method === 'credit' && s.customerId === customerId && !s.voidedAt)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const totalCreditCents = creditSales.reduce((acc, s) => acc + s.totalCents, 0);
-  const totalPaidCents = payments
-    .filter((p) => p.customerId === customerId)
-    .reduce((acc, p) => acc + p.amountCents, 0);
+  const totalPaidCents = payments.filter((p) => p.customerId === customerId).reduce((acc, p) => acc + p.amountCents, 0);
 
   let remainingPaid = totalPaidCents;
   let oldestUnpaidAt: string | undefined;
@@ -49,8 +49,7 @@ export function creditStatus(
     totalCreditCents,
     totalPaidCents,
     oldestUnpaidAt: balanceCents > 0 ? oldestUnpaidAt : undefined,
-    daysOutstanding:
-      balanceCents > 0 && oldestUnpaidAt ? calendarDaysBetween(new Date(oldestUnpaidAt), now) : undefined,
+    daysOutstanding: balanceCents > 0 && oldestUnpaidAt ? calendarDaysBetween(new Date(oldestUnpaidAt), now) : undefined,
   };
 }
 
@@ -61,7 +60,7 @@ export interface CustomerWithCredit extends CreditStatus {
 /** All customers with their balance, those who owe the most days first. */
 export function creditBook(
   customers: Customer[],
-  sales: Pick<Sale, 'customerId' | 'method' | 'totalCents' | 'createdAt'>[],
+  sales: CreditSale[],
   payments: Pick<CreditPayment, 'customerId' | 'amountCents'>[],
   now: Date,
 ): CustomerWithCredit[] {

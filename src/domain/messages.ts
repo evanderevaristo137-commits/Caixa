@@ -5,11 +5,7 @@ import { greeting } from './whatsapp';
 import type { Cents, Sale, Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
-export function receiptText(
-  sale: Sale,
-  settings: Pick<Settings, 'storeName' | 'phone' | 'nif'>,
-  customerName?: string,
-): string {
+export function receiptText(sale: Sale, settings: Pick<Settings, 'storeName' | 'phone' | 'nif'>, customerName?: string): string {
   const lines: string[] = [];
   lines.push(`*${settings.storeName}*`);
   if (settings.phone) lines.push(`Tel.: ${settings.phone}`);
@@ -34,13 +30,7 @@ export function receiptText(
 }
 
 /** Polite fiado reminder, ready to send. */
-export function reminderText(
-  customerName: string,
-  balanceCents: Cents,
-  since: string | undefined,
-  storeName: string,
-  now: Date,
-): string {
+export function reminderText(customerName: string, balanceCents: Cents, since: string | undefined, storeName: string, now: Date): string {
   const firstName = customerName.trim().split(/\s+/)[0] ?? customerName;
   const sinceText = since ? ` desde ${formatDate(since)}` : '';
   return (
