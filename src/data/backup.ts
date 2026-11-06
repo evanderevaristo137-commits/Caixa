@@ -14,6 +14,22 @@ export interface Backup {
   data: Record<TableName, unknown[]>;
 }
 
+/**
+ * The backup is JSON inside a .txt file: Chrome on Android can share .txt files
+ * (to WhatsApp, e-mail, Drive) but refuses .json. Import reads the content, not the name.
+ */
+export const BACKUP_MIME = 'text/plain';
+export const backupFileName = (prefix: string, stamp: string) => `${prefix}-copia-de-seguranca-${stamp}.txt`;
+
+export async function markBackupDone(db: CaixaDB, now = new Date()): Promise<void> {
+  await db.meta.put({ key: 'lastBackupAt', value: now.toISOString() });
+}
+
+export async function lastBackupAt(db: CaixaDB): Promise<string | undefined> {
+  const row = await db.meta.get('lastBackupAt');
+  return typeof row?.value === 'string' ? row.value : undefined;
+}
+
 export async function exportBackup(db: CaixaDB, now = new Date()): Promise<Backup> {
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) data[name] = await db.table(name).toArray();

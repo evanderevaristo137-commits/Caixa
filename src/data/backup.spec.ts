@@ -67,3 +67,14 @@ describe('CSV', () => {
     expect(await salesCsv(db)).toContain(';Óleo;2;1850,50;3701,00;3701,00;QR KWiK;');
   });
 });
+
+describe('backup bookkeeping', () => {
+  it('remembers when the last backup was made', async () => {
+    const db = newDb('test-bk-mark');
+    const { lastBackupAt, markBackupDone, backupFileName } = await import('./backup');
+    expect(await lastBackupAt(db)).toBeUndefined();
+    await markBackupDone(db, new Date('2026-11-06T10:00:00Z'));
+    expect(await lastBackupAt(db)).toBe('2026-11-06T10:00:00.000Z');
+    expect(backupFileName('caixa', '2026-11-06')).toBe('caixa-copia-de-seguranca-2026-11-06.txt');
+  });
+});

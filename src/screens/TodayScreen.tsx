@@ -6,6 +6,7 @@ import { PAYMENT_METHODS } from '../domain/types';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { addDays, startOfLocalDay } from '../lib/dates';
 import { Card, Money, Skeleton } from '../ui/kit';
+import { BackupReminder } from './BackupReminder';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -32,6 +33,7 @@ export default function TodayScreen() {
 
   return (
     <div className="space-y-3 p-3">
+      <BackupReminder />
       <Card className="bg-brand-700 text-white">
         <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>
         <Money cents={today.totalCents} className="block text-4xl font-extrabold" />

@@ -1,10 +1,14 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../app/context';
-import { creditCsv, exportBackup, importBackup, productsCsv, salesCsv } from '../data/backup';
+import { makeBackup } from '../app/backup-action';
+import { creditCsv, importBackup, lastBackupAt, productsCsv, salesCsv } from '../data/backup';
 import type { Settings } from '../domain/types';
 import { t } from '../i18n/pt-AO';
-import { dateStamp, downloadText } from '../lib/download';
+import { formatDate } from '../lib/dates';
+import { dateStamp } from '../lib/download';
+import { shareOrDownload } from '../lib/share';
+import { isStoragePersisted } from '../lib/storage';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 
 export default function SettingsScreen() {
@@ -49,8 +53,20 @@ function StoreForm({ settings }: { settings: Settings }) {
 function DataCard() {
   const { store, mode, showToast } = useApp();
   const file = useRef<HTMLInputElement>(null);
+  const last = useLiveQuery(() => lastBackupAt(store.db), [store]);
+  const persisted = useLiveQuery(() => isStoragePersisted(), []);
   const prefix = mode === 'demo' ? 'caixa-demonstracao' : 'caixa';
   const stamp = dateStamp();
+
+  const backup = async () => {
+    const result = await makeBackup(store, mode);
+    if (result === 'shared') showToast(t.settings.backupDone);
+    if (result === 'downloaded') showToast(t.settings.backupSaved);
+  };
+
+  const exportCsv = async (name: string, build: () => Promise<string>) => {
+    await shareOrDownload(`${prefix}-${name}-${stamp}.csv`, await build(), 'text/csv', name);
+  };
 
   const onImport = async (f: File | undefined) => {
     if (!f) return;
@@ -70,24 +86,33 @@ function DataCard() {
     <Card className="space-y-2">
       <h2 className="text-lg font-bold">{t.settings.data}</h2>
       <p className="text-sm text-slate-600">{t.settings.dataNote}</p>
-      <Button className="w-full" onClick={async () => downloadText(`${prefix}-copia-${stamp}.json`, JSON.stringify(await exportBackup(store.db)), 'application/json')}>
+      {persisted !== null && persisted !== undefined && (
+        <p className={`rounded-lg p-2 text-sm ${persisted ? 'bg-brand-50 text-brand-800' : 'bg-amber-50 text-amber-900'}`}>
+          {persisted ? t.settings.storageProtected : t.settings.storageNotProtected}
+        </p>
+      )}
+      <Button big className="w-full" onClick={() => void backup()}>
         {t.settings.exportJson}
       </Button>
-      <div className="grid grid-cols-3 gap-2">
-        <Button variant="secondary" className="text-sm" onClick={async () => downloadText(`${prefix}-vendas-${stamp}.csv`, await salesCsv(store.db), 'text/csv')}>
-          {t.settings.exportSales}
-        </Button>
-        <Button variant="secondary" className="text-sm" onClick={async () => downloadText(`${prefix}-produtos-${stamp}.csv`, await productsCsv(store.db), 'text/csv')}>
-          {t.settings.exportProducts}
-        </Button>
-        <Button variant="secondary" className="text-sm" onClick={async () => downloadText(`${prefix}-fiado-${stamp}.csv`, await creditCsv(store.db), 'text/csv')}>
-          {t.settings.exportCredit}
-        </Button>
-      </div>
+      <p className="text-sm text-slate-600">
+        {last ? t.settings.lastBackup(formatDate(last)) : t.settings.noBackupYet} {t.settings.exportJsonHint}
+      </p>
       <Button variant="secondary" className="w-full" onClick={() => file.current?.click()}>
         {t.settings.import}
       </Button>
-      <input ref={file} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void onImport(e.target.files?.[0])} />
+      <input ref={file} type="file" accept=".txt,.json,text/plain,application/json" className="hidden" onChange={(e) => void onImport(e.target.files?.[0])} />
+      <h3 className="pt-2 font-semibold">{t.settings.exportsTitle}</h3>
+      <div className="grid grid-cols-3 gap-2">
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('vendas', () => salesCsv(store.db))}>
+          {t.settings.exportSales}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('produtos', () => productsCsv(store.db))}>
+          {t.settings.exportProducts}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('fiado', () => creditCsv(store.db))}>
+          {t.settings.exportCredit}
+        </Button>
+      </div>
     </Card>
   );
 }

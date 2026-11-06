@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { CaixaDB, DB_NAMES, type DataMode } from '../data/db';
 import { Store } from '../data/store';
 import { FakePaymentProvider, type PaymentProvider } from '../providers/payment';
+import { requestPersistentStorage } from '../lib/storage';
 
 const MODE_KEY = 'caixa.mode';
 
@@ -53,6 +54,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       /* private mode: the choice just isn't remembered */
     }
     setModeState(next);
+  }, []);
+
+  // Ask Chrome to never clear our data when the phone runs out of space.
+  useEffect(() => {
+    void requestPersistentStorage();
   }, []);
 
   // Opening the app in demo mode on a new day renews the example data.
