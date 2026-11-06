@@ -1,0 +1,56 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { CaixaDB } from './db';
+import { Store } from './store';
+import { exportBackup, importBackup, productsCsv, salesCsv, toCsv, validateBackup } from './backup';
+import { addToCart } from '../domain/cart';
+
+const dbs: CaixaDB[] = [];
+const newDb = (name: string) => {
+  const db = new CaixaDB(name);
+  dbs.push(db);
+  return db;
+};
+afterEach(async () => {
+  await Promise.all(dbs.splice(0).map((d) => d.delete()));
+});
+
+describe('backup', () => {
+  it('round-trips all data into another database', async () => {
+    const a = newDb('test-bk-a');
+    const store = new Store(a);
+    const p = await store.products.create({ name: 'Arroz; "bom"', priceCents: 120_050, minStock: 1 }, 5);
+    const c = await store.customers.create('Cliente Exemplo');
+    await store.sales.create({ cart: addToCart([], p, 2), method: 'credit', customerId: c.id });
+    const backup = JSON.parse(JSON.stringify(await exportBackup(a)));
+    expect(validateBackup(backup)).toBeNull();
+
+    const b = newDb('test-bk-b');
+    await new Store(b).products.create({ name: 'Será apagado', priceCents: 1, minStock: 0 });
+    await importBackup(b, backup);
+    const restored = new Store(b);
+    expect((await restored.products.list()).map((x) => x.name)).toEqual(['Arroz; "bom"']);
+    expect((await restored.sales.list())[0]!.totalCents).toBe(240_100);
+    expect((await restored.auditLog.list()).at(-1)!.action).toBe('imported');
+  });
+
+  it('rejects files that are not valid backups, without touching data', async () => {
+    expect(validateBackup({})).toBe('not_a_backup');
+    expect(validateBackup({ app: 'caixa', version: 99, data: {} })).toBe('unsupported_version');
+    const db = newDb('test-bk-c');
+    await new Store(db).products.create({ name: 'Fica', priceCents: 1, minStock: 0 });
+    await expect(importBackup(db, { app: 'caixa', version: 1, data: { products: [{ id: 'x', priceCents: 1.5 }] } })).rejects.toThrow();
+    expect(await db.products.count()).toBe(1);
+  });
+});
+
+describe('CSV', () => {
+  it('escapes separators and quotes and uses decimal commas', async () => {
+    expect(toCsv([['a;b', 'say "hi"', 3]])).toBe('﻿"a;b";"say ""hi""";3\r\n');
+    const db = newDb('test-csv');
+    const store = new Store(db);
+    const p = await store.products.create({ name: 'Óleo', priceCents: 185_050, minStock: 2, barcode: '2000000000017' }, 3);
+    await store.sales.create({ cart: addToCart([], p, 2), method: 'kwik' });
+    expect(await productsCsv(db)).toContain('Óleo;2000000000017;1850,50;1;2');
+    expect(await salesCsv(db)).toContain(';Óleo;2;1850,50;3701,00;3701,00;QR KWiK;');
+  });
+});

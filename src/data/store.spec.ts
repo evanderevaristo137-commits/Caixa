@@ -1,0 +1,117 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CaixaDB } from './db';
+import { DomainError, Store } from './store';
+import { addToCart } from '../domain/cart';
+import { creditStatus } from '../domain/credit';
+
+let db: CaixaDB;
+let store: Store;
+let n = 0;
+
+beforeEach(async () => {
+  db = new CaixaDB(`test-${n++}`);
+  store = new Store(db);
+});
+afterEach(async () => {
+  await db.delete();
+});
+
+const code = (e: unknown) => (e instanceof DomainError ? e.code : String(e));
+
+describe('Store: products and stock', () => {
+  it('creates a product with initial stock, recorded as a movement and audited', async () => {
+    const p = await store.products.create({ name: ' Arroz 1 kg ', priceCents: 120_000, minStock: 5 }, 20);
+    expect(p.name).toBe('Arroz 1 kg');
+    expect((await store.products.get(p.id))!.stock).toBe(20);
+    expect(await store.products.movements(p.id)).toHaveLength(1);
+    const audit = await store.auditLog.list();
+    expect(audit.map((a) => a.entity)).toEqual(['product', 'stock_movement']);
+  });
+
+  it('rejects duplicate barcodes and invalid prices', async () => {
+    await store.products.create({ name: 'A', priceCents: 100, minStock: 0, barcode: '123' });
+    await expect(store.products.create({ name: 'B', priceCents: 100, minStock: 0, barcode: '123' })).rejects.toSatisfy(
+      (e) => code(e) === 'duplicate_barcode',
+    );
+    await expect(store.products.create({ name: 'C', priceCents: 10.5, minStock: 0 })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_price',
+    );
+  });
+
+  it('records entries and adjustments (with mandatory reason)', async () => {
+    const p = await store.products.create({ name: 'Óleo', priceCents: 185_000, minStock: 2 }, 10);
+    await store.products.addEntry(p.id, 6);
+    expect((await store.products.get(p.id))!.stock).toBe(16);
+    await expect(store.products.adjust(p.id, 14, '')).rejects.toSatisfy((e) => code(e) === 'reason_required');
+    await store.products.adjust(p.id, 14, 'Partido');
+    expect((await store.products.get(p.id))!.stock).toBe(14);
+    const mv = await store.products.movements(p.id);
+    expect(mv.map((m) => m.delta).sort((a, b) => a - b)).toEqual([-2, 6, 10]);
+    expect(mv.find((m) => m.type === 'adjustment')!.reason).toBe('Partido');
+  });
+
+  it('archives products without losing them', async () => {
+    const p = await store.products.create({ name: 'Velho', priceCents: 1, minStock: 0, barcode: '9' });
+    await store.products.archive(p.id);
+    expect(await store.products.list()).toHaveLength(0);
+    expect(await store.products.findByBarcode('9')).toBeUndefined();
+    expect(await store.products.get(p.id)).toBeDefined();
+  });
+});
+
+describe('Store: sales', () => {
+  it('saves a 3-product sale, lowers stock and numbers sales sequentially', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const b = await store.products.create({ name: 'B', priceCents: 25_050, minStock: 0 }, 10);
+    const c = await store.products.create({ name: 'C', priceCents: 5_000, minStock: 0 }, 1);
+    let cart = addToCart([], a, 2);
+    cart = addToCart(cart, b);
+    cart = addToCart(cart, c, 3);
+    const sale = await store.sales.create({ cart, method: 'cash', cashReceivedCents: 100_000 });
+    expect(sale.totalCents).toBe(20_000 + 25_050 + 15_000);
+    expect(sale.number).toBe(1);
+    expect((await store.products.get(a.id))!.stock).toBe(8);
+    expect((await store.products.get(c.id))!.stock).toBe(-2); // selling is never blocked
+    const second = await store.sales.create({ cart: addToCart([], a), method: 'kwik', paymentRef: 'T-1' });
+    expect(second.number).toBe(2);
+  });
+
+  it('requires an existing customer for fiado and rolls back everything on failure', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    await expect(store.sales.create({ cart: addToCart([], a), method: 'credit' })).rejects.toSatisfy(
+      (e) => code(e) === 'customer_required',
+    );
+    expect(await store.sales.list()).toHaveLength(0);
+    expect((await store.products.get(a.id))!.stock).toBe(10);
+  });
+
+  it('rejects empty carts', async () => {
+    await expect(store.sales.create({ cart: [], method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'empty_cart');
+  });
+});
+
+describe('Store: fiado', () => {
+  it('tracks balance through sales and partial/total payments', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 50_000, minStock: 0 }, 10);
+    const maria = await store.customers.create('Maria Exemplo', '923000000');
+    await store.sales.create({ cart: addToCart([], a, 3), method: 'credit', customerId: maria.id });
+    await store.credit.addPayment(maria.id, 60_000, 'cash');
+    const status = creditStatus(maria.id, await store.sales.list(), await store.credit.payments(), new Date());
+    expect(status.balanceCents).toBe(90_000);
+    await expect(store.credit.addPayment(maria.id, 90_001, 'cash')).rejects.toSatisfy((e) => code(e) === 'too_much');
+    await store.credit.addPayment(maria.id, 90_000, 'multicaixa_express');
+    const after = creditStatus(maria.id, await store.sales.list(), await store.credit.payments(), new Date());
+    expect(after.balanceCents).toBe(0);
+  });
+});
+
+describe('Store: settings', () => {
+  it('returns defaults and saves with audit', async () => {
+    expect((await store.settings.get()).storeName).toBe('A minha loja');
+    await store.settings.save({ storeName: 'Loja X', phone: ' ', nif: '123' });
+    const s = await store.settings.get();
+    expect(s.storeName).toBe('Loja X');
+    expect(s.phone).toBeUndefined();
+    expect((await store.auditLog.list()).at(-1)!.entity).toBe('settings');
+  });
+});
