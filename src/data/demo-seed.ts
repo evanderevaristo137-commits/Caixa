@@ -210,3 +210,15 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.audit.add({ id: uuid(), entity: 'data', entityId: 'demo', action: 'reset', createdAt: at, updatedAt: at });
   });
 }
+
+/**
+ * Re-seeds the demo when it was generated on another day, so "Hoje" always shows
+ * today's sales during a visit. Returns true when it re-seeded.
+ */
+export async function ensureFreshDemo(db: CaixaDB, now = new Date()): Promise<boolean> {
+  const row = await db.meta.get('demoSeededAt');
+  const seededAt = typeof row?.value === 'string' ? new Date(row.value) : null;
+  if (seededAt && startOfLocalDay(seededAt).getTime() === startOfLocalDay(now).getTime()) return false;
+  await seedDemo(db, now);
+  return true;
+}

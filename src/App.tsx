@@ -47,7 +47,7 @@ export function App() {
         <div className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>
       )}
       <main className="flex-1 pb-24">
-        <Suspense fallback={<Skeleton />}>
+        <Suspense key={mode} fallback={<Skeleton />}>
           {tab === 'sell' && <SellScreen />}
           {tab === 'credit' && <CreditScreen />}
           {tab === 'today' && <TodayScreen />}

@@ -41,11 +41,19 @@ describe('summariseToday', () => {
     expect(s.today.count).toBe(3);
   });
 
-  it('compares with yesterday', () => {
+  it('compares with yesterday up to the same time, and keeps the full day for reference', () => {
     const s = summariseToday(sales, [], now);
+    // Now is 18:00: yesterday's 23:30 sale is not part of the fair comparison.
+    expect(s.yesterdaySoFar.totalCents).toBe(20_000);
+    expect(s.yesterdaySoFar.count).toBe(1);
     expect(s.yesterday.totalCents).toBe(320_000);
     expect(s.yesterday.count).toBe(2);
-    expect(s.diffCents).toBe(80_000);
+    expect(s.diffCents).toBe(400_000 - 20_000);
+  });
+
+  it('counts a sale made exactly at the same minute yesterday', () => {
+    const exact = sale(new Date(2026, 10, 5, 18, 0).toISOString(), 7_000, 'cash');
+    expect(summariseToday([exact], [], now).yesterdaySoFar.totalCents).toBe(7_000);
   });
 
   it('splits by payment method and the split adds up to the total', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDemoData, seedDemo } from './demo-seed';
+import { buildDemoData, ensureFreshDemo, seedDemo } from './demo-seed';
 import { creditBook } from '../domain/credit';
 import { summariseToday } from '../domain/today';
 import { CaixaDB } from './db';
@@ -50,6 +50,20 @@ describe('demo data', () => {
     const p = (await store.products.list())[0]!;
     const sale = await store.sales.create({ cart: [{ productId: p.id, name: p.name, unitPriceCents: p.priceCents, quantity: 1 }], method: 'cash' });
     expect(sale.number).toBe(d.sales.length + 1);
+    await db.delete();
+  });
+});
+
+describe('ensureFreshDemo', () => {
+  it('seeds when empty, keeps same-day data, and renews on a new day', async () => {
+    const db = new CaixaDB('test-demo-fresh');
+    expect(await ensureFreshDemo(db, now)).toBe(true);
+    const store = new Store(db);
+    await store.customers.create('Visita de hoje');
+    expect(await ensureFreshDemo(db, new Date(2026, 10, 6, 21, 0))).toBe(false);
+    expect((await store.customers.list()).some((c) => c.name === 'Visita de hoje')).toBe(true);
+    expect(await ensureFreshDemo(db, new Date(2026, 10, 7, 8, 0))).toBe(true);
+    expect((await store.customers.list()).some((c) => c.name === 'Visita de hoje')).toBe(false);
     await db.delete();
   });
 });

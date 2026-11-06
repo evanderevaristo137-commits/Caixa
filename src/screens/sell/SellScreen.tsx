@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { addToCart, cartCount, cartTotal, type Cart } from '../../domain/cart';
+import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, type Cart } from '../../domain/cart';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { Button, Empty, Money, normalise, Skeleton } from '../../ui/kit';
@@ -12,7 +12,15 @@ import { Scanner, scannerSupported } from './Scanner';
 export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
-  const [cart, setCart] = useState<Cart>([]);
+  // The cart is saved on the phone, so it survives if Android closes the app mid-sale.
+  const cartKey = `caixa.cart.${mode}`;
+  const [cart, setCart] = useState<Cart>(() => {
+    try {
+      return parseStoredCart(localStorage.getItem(cartKey));
+    } catch {
+      return [];
+    }
+  });
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<'none' | 'cart' | 'checkout' | 'scan'>('none');
 
@@ -26,6 +34,20 @@ export function SellScreen() {
   useEffect(() => {
     if (cart.length === 0 && (sheet === 'cart' || sheet === 'checkout')) setSheet('none');
   }, [cart.length, sheet]);
+
+  useEffect(() => {
+    try {
+      if (cart.length === 0) localStorage.removeItem(cartKey);
+      else localStorage.setItem(cartKey, JSON.stringify(cart));
+    } catch {
+      /* storage unavailable: the cart just isn't saved */
+    }
+  }, [cart, cartKey]);
+
+  // Keep names/prices current if a product is edited or archived while it is in the cart.
+  useEffect(() => {
+    if (products) setCart((c) => reconcileCart(c, products));
+  }, [products]);
 
   const qtyIn = useMemo(() => new Map(cart.map((l) => [l.productId, l.quantity])), [cart]);
   const add = (p: Product) => {

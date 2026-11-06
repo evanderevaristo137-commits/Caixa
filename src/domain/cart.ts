@@ -47,3 +47,48 @@ export function cartCount(cart: Cart): number {
 export function changeDue(totalCents: Cents, receivedCents: Cents): Cents | null {
   return receivedCents >= totalCents ? receivedCents - totalCents : null;
 }
+
+/**
+ * Brings a cart up to date with the current products: refreshes name and price,
+ * and drops products that were archived or deleted. Returns the same array when nothing changed.
+ */
+export function reconcileCart(cart: Cart, products: Pick<Product, 'id' | 'name' | 'priceCents' | 'archivedAt'>[]): Cart {
+  const byId = new Map(products.map((p) => [p.id, p]));
+  let changed = false;
+  const next: Cart = [];
+  for (const line of cart) {
+    const p = byId.get(line.productId);
+    if (!p || p.archivedAt) {
+      changed = true;
+      continue;
+    }
+    if (p.name !== line.name || p.priceCents !== line.unitPriceCents) {
+      changed = true;
+      next.push({ ...line, name: p.name, unitPriceCents: p.priceCents });
+    } else {
+      next.push(line);
+    }
+  }
+  return changed ? next : cart;
+}
+
+/** Reads a cart saved on the phone; anything malformed is ignored. */
+export function parseStoredCart(raw: string | null): Cart {
+  if (!raw) return [];
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!Array.isArray(data)) return [];
+    return data.filter(
+      (l): l is CartLine =>
+        typeof l === 'object' &&
+        l !== null &&
+        typeof (l as CartLine).productId === 'string' &&
+        typeof (l as CartLine).name === 'string' &&
+        Number.isInteger((l as CartLine).unitPriceCents) &&
+        Number.isInteger((l as CartLine).quantity) &&
+        (l as CartLine).quantity > 0,
+    );
+  } catch {
+    return [];
+  }
+}

@@ -1,4 +1,5 @@
-import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { registerBackHandler } from './back';
 import { formatKz } from '../lib/money';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'whatsapp';
@@ -63,16 +64,17 @@ export function Money({ cents, className = '' }: { cents: number; className?: st
 
 /** Bottom sheet: slides over the screen, easy to reach with one thumb. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
+    const unregisterBack = registerBackHandler(() => close.current());
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener('keydown', onKey);
+      unregisterBack();
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50" onClick={onClose}>
       <div

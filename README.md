@@ -6,7 +6,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 
 ## Abrir no telemóvel
 
-1. No Chrome do Android, abra: **https://evanderevaristo137-commits.github.io/caixa/**
+1. No Chrome do Android, abra: **https://evanderevaristo137-commits.github.io/Caixa/** (com «C» maiúsculo)
 2. Toque nos três pontos (⋮) → **Instalar app** (ou «Adicionar ao ecrã inicial»).
 3. A partir daí abre pelo ícone «Caixa», mesmo sem internet.
 
@@ -14,14 +14,15 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 
 - Separador **Mais** → **Entrar no modo demonstração**. Aparece a «Mercearia da Dona Teresa» com 30 produtos, 5 clientes no fiado e duas semanas de vendas.
 - Uma faixa amarela no topo lembra que são dados de exemplo.
-- **Repor dados da demonstração** volta tudo ao início, ideal antes de cada visita.
+- Em cada novo dia os dados de exemplo renovam-se sozinhos, para o ecrã «Hoje» ter sempre vendas do dia.
+- **Repor dados da demonstração** volta tudo ao início a qualquer momento.
 - **Sair da demonstração** volta aos dados reais da loja, que nunca são tocados.
 
 ## Como usar
 
 - **Vender:** toque nos produtos (ou pesquise, ou leia o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. No fim pode enviar o talão por WhatsApp.
 - **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp**.
-- **Hoje:** total vendido, número de vendas, comparação com ontem, divisão por meio de pagamento, stock baixo e total em fiado.
+- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, divisão por meio de pagamento, stock baixo e total em fiado.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
 - **Mais:** nome da loja, telefone, NIF, cópias de segurança (JSON) e exportação para Excel (CSV).
 

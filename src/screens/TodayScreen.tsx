@@ -27,7 +27,7 @@ export default function TodayScreen() {
 
   if (!data) return <Skeleton rows={4} />;
   const { summary, owed } = data;
-  const { today, yesterday, diffCents, lowStock } = summary;
+  const { today, yesterday, yesterdaySoFar, diffCents, lowStock } = summary;
   const max = Math.max(1, ...PAYMENT_METHODS.map((m) => today.byMethod[m]));
 
   return (
@@ -36,18 +36,24 @@ export default function TodayScreen() {
         <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>
         <Money cents={today.totalCents} className="block text-4xl font-extrabold" />
         <p className="mt-1 text-lg">{t.today.sales(today.count)}</p>
-        <p className="mt-2 rounded-lg bg-white/15 px-3 py-2 text-base">
-          {t.today.vsYesterday}: <Money cents={yesterday.totalCents} className="font-semibold" /> ({t.today.sales(yesterday.count)})
-          <br />
-          <span className="font-bold">
-            {diffCents === 0 ? t.today.same : (
+        <div className="mt-2 rounded-lg bg-white/15 px-3 py-2 text-base">
+          <p>
+            {t.today.vsYesterday}: <Money cents={yesterdaySoFar.totalCents} className="font-semibold" />
+          </p>
+          <p className="font-bold">
+            {diffCents === 0 ? (
+              t.today.same
+            ) : (
               <>
                 {diffCents > 0 ? '▲ ' : '▼ '}
                 <Money cents={Math.abs(diffCents)} /> {diffCents > 0 ? t.today.more : t.today.less}
               </>
             )}
-          </span>
-        </p>
+          </p>
+          <p className="mt-1 text-sm text-white/90">
+            {t.today.yesterdayFull}: <Money cents={yesterday.totalCents} /> · {t.today.sales(yesterday.count)}
+          </p>
+        </div>
       </Card>
 
       <Card>

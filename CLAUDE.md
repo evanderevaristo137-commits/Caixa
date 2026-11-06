@@ -65,6 +65,11 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Leitor de código de barras nativo do Chrome** (`BarcodeDetector`), sem bibliotecas; onde não existir, pesquisa manual.
 - **Pagamentos electrónicos simulados** pelo `FakePaymentProvider` (referências `TESTE-…`). Nenhum dinheiro real se move.
 - **CSV com `;` e vírgula decimal**, para abrir directamente no Excel em português.
+- **«Hoje» compara com ontem até à mesma hora** (comparação justa); o total do dia inteiro de ontem aparece em baixo, como referência.
+- **Demonstração renova-se sozinha em cada novo dia** (para o «Hoje» nunca aparecer vazio numa visita). Uma cópia de segurança da demonstração não pode ser importada para a loja real.
+- **Botão «voltar» do Android fecha a janela aberta** (carrinho, cobrança, cliente…) em vez de sair da app.
+- **O carrinho fica guardado no telemóvel** até a venda ser confirmada, para não se perder se o Android fechar a app.
+- **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas
 - Comandos: `npm install`, `npm run dev`, `npm test`, `npm run typecheck`, `npm run build`.

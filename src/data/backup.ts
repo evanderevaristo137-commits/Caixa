@@ -2,7 +2,7 @@ import { creditBook } from '../domain/credit';
 import { formatDate, formatDateTime } from '../lib/dates';
 import { methodLabel } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
-import { TABLES, type CaixaDB, type TableName } from './db';
+import { DB_NAMES, TABLES, type CaixaDB, type TableName } from './db';
 
 export const BACKUP_APP = 'caixa';
 export const BACKUP_VERSION = 1;
@@ -45,11 +45,18 @@ export function validateBackup(raw: unknown): string | null {
   return null;
 }
 
+/** True when the backup was made in demo mode (the demo marks itself in the meta table). */
+export function isDemoBackup(backup: Backup): boolean {
+  return backup.data.meta.some((row) => isObj(row) && row.key === 'demoSeededAt');
+}
+
 /** Replaces ALL data in this database with the backup, in one transaction. */
 export async function importBackup(db: CaixaDB, raw: unknown, now = new Date()): Promise<void> {
   const error = validateBackup(raw);
   if (error) throw new Error(error);
   const backup = raw as Backup;
+  // Demo data must never mix with a real shop's data.
+  if (db.name === DB_NAMES.store && isDemoBackup(backup)) throw new Error('demo_into_store');
   await db.transaction('rw', db.tables, async () => {
     for (const name of TABLES) {
       const table = db.table(name);

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { CaixaDB } from './db';
+import { CaixaDB, DB_NAMES } from './db';
+import { seedDemo } from './demo-seed';
 import { Store } from './store';
 import { exportBackup, importBackup, productsCsv, salesCsv, toCsv, validateBackup } from './backup';
 import { addToCart } from '../domain/cart';
@@ -40,6 +41,18 @@ describe('backup', () => {
     await new Store(db).products.create({ name: 'Fica', priceCents: 1, minStock: 0 });
     await expect(importBackup(db, { app: 'caixa', version: 1, data: { products: [{ id: 'x', priceCents: 1.5 }] } })).rejects.toThrow();
     expect(await db.products.count()).toBe(1);
+  });
+});
+
+describe('demo backups', () => {
+  it('can never be imported into the real store', async () => {
+    const demo = newDb('test-bk-demo');
+    await seedDemo(demo, new Date(2026, 10, 6, 12));
+    const backup = JSON.parse(JSON.stringify(await exportBackup(demo)));
+    const real = newDb(DB_NAMES.store);
+    await new Store(real).products.create({ name: 'Produto real', priceCents: 100, minStock: 0 });
+    await expect(importBackup(real, backup)).rejects.toThrow('demo_into_store');
+    expect((await new Store(real).products.list()).map((p) => p.name)).toEqual(['Produto real']);
   });
 });
 

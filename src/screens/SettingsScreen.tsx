@@ -59,8 +59,8 @@ function DataCard() {
       if (!window.confirm(t.settings.importConfirm)) return;
       await importBackup(store.db, raw);
       showToast(t.settings.importOk);
-    } catch {
-      showToast(t.settings.importBad);
+    } catch (e) {
+      showToast(e instanceof Error && e.message === 'demo_into_store' ? t.settings.importDemoBlocked : t.settings.importBad);
     } finally {
       if (file.current) file.current.value = '';
     }
