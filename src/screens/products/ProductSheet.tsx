@@ -77,8 +77,13 @@ function ProductForm({
     if (!product && initial === null) return setError({ field: 'stock', msg: t.products.invalidNumber });
     const input = { name, priceCents, barcode, minStock: min };
     try {
-      if (product) await store.products.update(product.id, input);
-      else onCreated?.(await store.products.create(input, initial ?? 0));
+      if (product) {
+        await store.products.update(product.id, input);
+      } else {
+        // Note: `onCreated?.(await create())` would skip the create when there is no callback.
+        const created = await store.products.create(input, initial ?? 0);
+        onCreated?.(created);
+      }
       showToast(t.settings.saved);
       onClose();
     } catch (e) {
