@@ -92,3 +92,17 @@ export function parseStoredCart(raw: string | null): Cart {
     return [];
   }
 }
+
+/** Angolan notes used to suggest "how much did the customer hand over". */
+const NOTE_STEPS_CENTS = [500, 1_000, 2_000, 5_000, 10_000, 20_000].map((kz) => kz * 100);
+
+/** Likely amounts handed over for a cash payment (above the total), smallest first, at most 3. */
+export function cashSuggestions(totalCents: Cents): Cents[] {
+  if (totalCents <= 0) return [];
+  const values = new Set<Cents>();
+  for (const step of NOTE_STEPS_CENTS) {
+    const rounded = Math.ceil(totalCents / step) * step;
+    if (rounded > totalCents) values.add(rounded);
+  }
+  return [...values].sort((a, b) => a - b).slice(0, 3);
+}

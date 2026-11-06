@@ -18,27 +18,51 @@ const ERRORS: Record<string, string> = {
 
 const toInt = (s: string) => (/^\d+$/.test(s.trim()) ? Number(s.trim()) : null);
 
-export function ProductSheet({ productId, onClose }: { productId: string | null; onClose: () => void }) {
+export function ProductSheet({
+  productId,
+  onClose,
+  initialBarcode,
+  onCreated,
+}: {
+  productId: string | null;
+  onClose: () => void;
+  initialBarcode?: string;
+  onCreated?: (product: Product) => void;
+}) {
   const { store, showToast } = useApp();
   const product = useLiveQuery(() => (productId ? store.products.get(productId) : undefined), [store, productId]);
   if (productId && !product) return null;
-  return <ProductForm key={product?.id ?? 'new'} product={product} onClose={onClose} store={store} showToast={showToast} />;
+  return (
+    <ProductForm
+      key={product?.id ?? 'new'}
+      product={product}
+      initialBarcode={initialBarcode}
+      onCreated={onCreated}
+      onClose={onClose}
+      store={store}
+      showToast={showToast}
+    />
+  );
 }
 
 function ProductForm({
   product,
+  initialBarcode,
+  onCreated,
   onClose,
   store,
   showToast,
 }: {
   product?: Product;
+  initialBarcode?: string;
+  onCreated?: (product: Product) => void;
   onClose: () => void;
   store: ReturnType<typeof useApp>['store'];
   showToast: (m: string) => void;
 }) {
   const [name, setName] = useState(product?.name ?? '');
   const [price, setPrice] = useState(product ? formatKz(product.priceCents).replace(' Kz', '') : '');
-  const [barcode, setBarcode] = useState(product?.barcode ?? '');
+  const [barcode, setBarcode] = useState(product?.barcode ?? initialBarcode ?? '');
   const [stock, setStock] = useState('0');
   const [minStock, setMinStock] = useState(String(product?.minStock ?? 3));
   const [error, setError] = useState<{ field: string; msg: string } | null>(null);
@@ -54,7 +78,7 @@ function ProductForm({
     const input = { name, priceCents, barcode, minStock: min };
     try {
       if (product) await store.products.update(product.id, input);
-      else await store.products.create(input, initial ?? 0);
+      else onCreated?.(await store.products.create(input, initial ?? 0));
       showToast(t.settings.saved);
       onClose();
     } catch (e) {

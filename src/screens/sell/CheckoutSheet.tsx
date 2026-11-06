@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { cartTotal, changeDue, type Cart } from '../../domain/cart';
+import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
 import { receiptText } from '../../domain/messages';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { parseKz } from '../../lib/money';
+import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { CustomerPicker } from './CustomerPicker';
 
@@ -101,8 +101,25 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
 
       {method === 'cash' && (
         <div className="mt-4">
+          <p className="mb-2 text-sm font-semibold text-slate-700">{t.sell.receivedQuick}</p>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            {[total, ...cashSuggestions(total)].map((v, i) => {
+              const text = formatKz(v).replace(' Kz', '');
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setReceived(text)}
+                  aria-pressed={received === text}
+                  className={`min-h-12 rounded-xl border-2 px-2 text-base font-semibold ${received === text ? 'border-brand-700 bg-brand-50' : 'border-slate-300 bg-white'}`}
+                >
+                  {i === 0 ? t.sell.exact : formatKz(v)}
+                </button>
+              );
+            })}
+          </div>
           <Field
-            label={t.sell.received}
+            label={t.sell.otherAmount}
             value={received}
             onChange={(e) => setReceived(e.target.value)}
             inputMode="numeric"

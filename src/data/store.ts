@@ -1,6 +1,7 @@
 import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
 import { creditBook, totalOutstanding } from '../domain/credit';
+import { byName } from '../domain/ranking';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
@@ -59,10 +60,7 @@ export class Store {
 
   // ---------- Products ----------
   readonly products = {
-    list: async (): Promise<Product[]> => {
-      const all = await this.db.products.orderBy('name').toArray();
-      return all.filter((p) => !p.archivedAt);
-    },
+    list: async (): Promise<Product[]> => (await this.db.products.toArray()).filter((p) => !p.archivedAt).sort(byName),
     get: (id: string) => this.db.products.get(id),
     findByBarcode: async (code: string): Promise<Product | undefined> => {
       const matches = await this.db.products.where('barcode').equals(code.trim()).toArray();
@@ -157,7 +155,7 @@ export class Store {
 
   // ---------- Customers ----------
   readonly customers = {
-    list: () => this.db.customers.orderBy('name').toArray(),
+    list: async (): Promise<Customer[]> => (await this.db.customers.toArray()).sort(byName),
     get: (id: string) => this.db.customers.get(id),
     create: (name: string, phone?: string): Promise<Customer> =>
       this.db.transaction('rw', [this.db.customers, this.db.audit], async () => {

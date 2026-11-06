@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { addToCart, cartCount, cartItems, cartTotal, changeDue, parseStoredCart, reconcileCart, setQuantity } from './cart';
+import {
+  addToCart,
+  cartCount,
+  cartItems,
+  cartTotal,
+  cashSuggestions,
+  changeDue,
+  parseStoredCart,
+  reconcileCart,
+  setQuantity,
+} from './cart';
 
 const rice = { id: 'p1', name: 'Arroz 1 kg', priceCents: 120_000 };
 const oil = { id: 'p2', name: 'Óleo 1 L', priceCents: 185_000 };
@@ -69,5 +79,18 @@ describe('cart persistence helpers', () => {
     expect(parseStoredCart('{"a":1}')).toEqual([]);
     const ok = { productId: 'p1', name: 'Arroz', unitPriceCents: 100, quantity: 2 };
     expect(parseStoredCart(JSON.stringify([ok, { ...ok, quantity: 0 }, { ...ok, unitPriceCents: 1.5 }]))).toEqual([ok]);
+  });
+});
+
+describe('cashSuggestions', () => {
+  it('suggests the next likely notes above the total', () => {
+    expect(cashSuggestions(370_000)).toEqual([400_000, 500_000, 1_000_000]);
+    expect(cashSuggestions(120_000)).toEqual([150_000, 200_000, 500_000]);
+    expect(cashSuggestions(50_000)).toEqual([100_000, 200_000, 500_000]);
+  });
+  it('handles totals that are already round', () => {
+    expect(cashSuggestions(1_000_000)).toEqual([2_000_000]);
+    expect(cashSuggestions(500_000)).toEqual([600_000, 1_000_000, 2_000_000]);
+    expect(cashSuggestions(0)).toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cartTotal, setQuantity, type Cart } from '../../domain/cart';
 import { lineTotal } from '../../lib/money';
 import { t } from '../../i18n/pt-AO';
@@ -15,6 +16,11 @@ export function CartSheet({
   onCharge: () => void;
 }) {
   const step = (id: string, qty: number) => setCart((c) => setQuantity(c, id, qty));
+  const [editing, setEditing] = useState<string | null>(null);
+  const commit = (id: string, text: string) => {
+    if (/^\d{1,4}$/.test(text.trim())) step(id, Number(text.trim()));
+    setEditing(null);
+  };
   return (
     <Sheet title={t.sell.cart} onClose={onClose}>
       <ul className="divide-y divide-slate-200">
@@ -32,7 +38,27 @@ export function CartSheet({
             >
               −
             </button>
-            <span className="w-8 text-center text-xl font-bold tabular-nums">{l.quantity}</span>
+            {editing === l.productId ? (
+              <input
+                autoFocus
+                inputMode="numeric"
+                aria-label={t.sell.typeQty}
+                defaultValue={l.quantity}
+                onFocus={(e) => e.target.select()}
+                onBlur={(e) => commit(l.productId, e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className="h-12 w-16 rounded-xl border-2 border-brand-700 text-center text-xl font-bold"
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label={t.sell.typeQty}
+                onClick={() => setEditing(l.productId)}
+                className="h-12 w-12 rounded-xl text-center text-xl font-bold tabular-nums underline decoration-dotted underline-offset-4"
+              >
+                {l.quantity}
+              </button>
+            )}
             <button
               type="button"
               aria-label="Mais"

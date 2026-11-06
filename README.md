@@ -20,15 +20,18 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 
 ## Como usar
 
-- **Vender:** toque nos produtos (ou pesquise, ou leia o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. No fim pode enviar o talão por WhatsApp.
+- **Vender:** toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
+  - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
+  - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
 - **Fiado:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp**.
-- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, divisão por meio de pagamento, stock baixo e total em fiado.
+- **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo, total em fiado e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores.
+  - Toque numa venda para reenviar o talão ou para a **anular** (engano, desistência, devolução). A venda anulada fica no histórico, mas deixa de contar e o stock volta ao lugar.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
 - **Mais:** nome da loja, telefone, NIF, cópias de segurança (JSON) e exportação para Excel (CSV).
 
 ## Cópias de segurança
 
-Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Cópia de segurança (JSON)** guarde um ficheiro com frequência (por exemplo, envie-o para si próprio por WhatsApp ou e-mail). Para recuperar: **Importar cópia de segurança**.
+Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no ecrã «Hoje» quando a última cópia tiver mais de 7 dias. Para recuperar: **Mais → Recuperar uma cópia de segurança** e escolha o ficheiro.
 
 ## Pagamentos
 

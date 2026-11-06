@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, type Cart } from '../../domain/cart';
+import { salesFrequency, sortByFrequency } from '../../domain/ranking';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
-import { Button, Empty, Money, normalise, Skeleton } from '../../ui/kit';
+import { addDays } from '../../lib/dates';
+import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
+import { ProductSheet } from '../products/ProductSheet';
 import { CartSheet } from './CartSheet';
 import { CheckoutSheet } from './CheckoutSheet';
 import { Scanner, scannerSupported } from './Scanner';
@@ -12,6 +15,16 @@ import { Scanner, scannerSupported } from './Scanner';
 export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
+  // Best sellers of the last 30 days come first. The order is fixed when the screen opens,
+  // so products don't jump around while the shopkeeper is tapping.
+  const freq = useLiveQuery(() => store.sales.since(addDays(new Date(), -30).toISOString()).then(salesFrequency), [store]);
+  const frozenFreq = useRef<Map<string, number> | undefined>(undefined);
+  if (freq && !frozenFreq.current) frozenFreq.current = freq;
+  const rankingReady = freq !== undefined;
+  const ordered = useMemo(
+    () => (products && rankingReady ? sortByFrequency(products, frozenFreq.current) : undefined),
+    [products, rankingReady],
+  );
   // The cart is saved on the phone, so it survives if Android closes the app mid-sale.
   const cartKey = `caixa.cart.${mode}`;
   const [cart, setCart] = useState<Cart>(() => {
@@ -23,13 +36,15 @@ export function SellScreen() {
   });
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<'none' | 'cart' | 'checkout' | 'scan'>('none');
+  const [unknownCode, setUnknownCode] = useState<string | null>(null);
+  const [creatingCode, setCreatingCode] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (!products) return [];
+    if (!ordered) return [];
     const q = normalise(query);
-    if (!q) return products;
-    return products.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-  }, [products, query]);
+    if (!q) return ordered;
+    return ordered.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
+  }, [ordered, query]);
 
   useEffect(() => {
     if (cart.length === 0 && (sheet === 'cart' || sheet === 'checkout')) setSheet('none');
@@ -63,7 +78,7 @@ export function SellScreen() {
         setCart((c) => addToCart(c, p));
         showToast(`+1 ${p.name}`);
       } else {
-        showToast(t.scanner.notFound(code));
+        setUnknownCode(code);
       }
     },
     [store, showToast],
@@ -76,6 +91,8 @@ export function SellScreen() {
     if (p) {
       add(p);
       setQuery('');
+    } else {
+      setUnknownCode(code);
     }
   };
 
@@ -104,7 +121,7 @@ export function SellScreen() {
         )}
       </div>
 
-      {!products ? (
+      {!products || !ordered ? (
         <Skeleton rows={6} />
       ) : products.length === 0 ? (
         <Empty
@@ -172,6 +189,33 @@ export function SellScreen() {
       )}
 
       {sheet === 'scan' && <Scanner onCode={onCode} onClose={() => setSheet('none')} />}
+      {unknownCode && (
+        <Sheet title={t.scanner.notFoundTitle} onClose={() => setUnknownCode(null)}>
+          <p className="text-lg font-semibold">{t.scanner.notFound(unknownCode)}</p>
+          <p className="mt-1 text-slate-600">{t.scanner.notFoundHint}</p>
+          <Button
+            big
+            className="mt-4 w-full"
+            onClick={() => {
+              setCreatingCode(unknownCode);
+              setUnknownCode(null);
+            }}
+          >
+            {t.scanner.createProduct}
+          </Button>
+        </Sheet>
+      )}
+      {creatingCode !== null && (
+        <ProductSheet
+          productId={null}
+          initialBarcode={creatingCode}
+          onClose={() => setCreatingCode(null)}
+          onCreated={(p) => {
+            setCart((c) => addToCart(c, p));
+            setQuery('');
+          }}
+        />
+      )}
       {sheet === 'cart' && (
         <CartSheet cart={cart} setCart={setCart} onClose={() => setSheet('none')} onCharge={() => setSheet('checkout')} />
       )}

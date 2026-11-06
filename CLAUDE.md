@@ -79,12 +79,17 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Demonstração renova-se sozinha em cada novo dia** (para o «Hoje» nunca aparecer vazio numa visita). Uma cópia de segurança da demonstração não pode ser importada para a loja real.
 - **Botão «voltar» do Android fecha a janela aberta** (carrinho, cobrança, cliente…) em vez de sair da app.
 - **O carrinho fica guardado no telemóvel** até a venda ser confirmada, para não se perder se o Android fechar a app.
+- **Anular vendas é permitido a qualquer momento, com motivo obrigatório.** A venda fica no histórico marcada como anulada, deixa de contar (totais, fiado), o stock volta por movimentos do tipo `void`, e o «Hoje» mostra quantas vendas foram anuladas, para o dono ver.
+- **Cópia de segurança em `.txt` (conteúdo JSON):** o Chrome do Android só partilha alguns tipos de ficheiro (aceita .txt e .csv, recusa .json). Lembrete no «Hoje» 3 dias depois da primeira venda e depois a cada 7 dias (nunca na demonstração).
+- **No ecrã Vender, os mais vendidos dos últimos 30 dias vêm primeiro;** a ordem fixa-se ao abrir o ecrã para os produtos não mudarem de sítio a meio de uma venda. Ordem alfabética portuguesa (`localeCompare('pt')`).
+- **Dinheiro na caixa = vendas em numerário + fiado pago em numerário** (sem fundo de caixa nesta fase).
 - **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas
 
 - Comandos: `npm install`, `npm run dev`, `npm test`, `npm run typecheck`, `npm run build`.
-- Estrutura: `src/domain` (regras e cálculos puros, com testes), `src/data` (base de dados Dexie e repositórios em `store.ts`), `src/providers` (pagamentos e facturação, só versões de teste), `src/screens` e `src/ui` (ecrãs), `src/i18n/pt-AO.ts` (todos os textos da app).
+- Estrutura: `src/domain` (regras e cálculos puros, com testes), `src/data` (base de dados Dexie e repositórios em `store.ts`), `src/providers` (pagamentos e facturação, só versões de teste), `src/screens` (um ficheiro ou pasta por ecrã) e `src/ui` (componentes base e botão «voltar»), `src/i18n/pt-AO.ts` (todos os textos da app).
+- Formatação: `npm run format` (Prettier).
 - Dinheiro: inteiros em cêntimos (`priceCents`, `totalCents`); formatar só com `formatKz`.
 - Todas as escritas passam por `Store`, dentro de uma transacção, e geram uma linha em `audit`.
 - Publicação: GitHub Actions (`.github/workflows/deploy.yml`) testa, constrói e publica a cada push para `main`.
