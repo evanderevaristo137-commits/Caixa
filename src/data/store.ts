@@ -194,6 +194,7 @@ export class Store {
     list: () => this.db.sales.orderBy('createdAt').toArray(),
     since: (iso: string) => this.db.sales.where('createdAt').aboveOrEqual(iso).toArray(),
     byCustomer: (customerId: string) => this.db.sales.where('customerId').equals(customerId).toArray(),
+    onCredit: () => this.db.sales.where('method').equals('credit').toArray(),
     /** Saves the sale, lowers stock and writes the audit log, all or nothing. */
     create: (input: NewSale): Promise<Sale> =>
       this.db.transaction(

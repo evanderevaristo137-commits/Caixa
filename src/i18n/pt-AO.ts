@@ -51,6 +51,7 @@ export const t = {
     outOfStock: 'Sem stock',
     stockLeft: (n: number) => `${n} em stock`,
     paymentFailed: 'Não foi possível confirmar o pagamento.',
+    simulated: 'Pagamento simulado (teste) — confirme que recebeu o dinheiro.',
   },
   scanner: {
     title: 'Aponte para o código de barras',
@@ -77,6 +78,9 @@ export const t = {
     payment: 'Pagamento',
     owes: 'Deve',
     editPhone: 'Telefone',
+    newCustomer: 'Novo cliente',
+    paid: 'Pagamento registado.',
+    lastDays: (n: number) => `${n} dias`,
   },
   today: {
     title: 'Hoje',
