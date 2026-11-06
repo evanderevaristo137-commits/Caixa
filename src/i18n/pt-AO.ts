@@ -176,6 +176,10 @@ export const t = {
     mvAdjust: 'Acerto',
     mvVoid: 'Anulação',
   },
+  update: {
+    available: 'Há uma versão nova da app.',
+    action: 'Actualizar',
+  },
   install: {
     title: 'Instalar no ecrã inicial',
     hint: 'Fica com um ícone como as outras apps, abre mais depressa e funciona sem internet.',

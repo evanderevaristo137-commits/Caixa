@@ -85,6 +85,8 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Dinheiro na caixa = vendas em numerário + fiado pago em numerário** (sem fundo de caixa nesta fase).
 - **Lista de compras sugerida:** para cada produto com stock baixo, sugere comprar o suficiente para chegar ao dobro do mínimo (pelo menos 1). A pessoa pode mudar as quantidades no WhatsApp antes de enviar.
 - **Talão de venda a fiado mostra o total em dívida** do cliente depois dessa compra.
+- **Sem carregamento de ecrãs «a pedido» (lazy loading):** todos os ecrãs vão no ficheiro principal. Com ecrãs a pedido, uma versão publicada com a app aberta apagava os ficheiros antigos e o ecrã seguinte ficava em branco.
+- **Actualizações nunca recarregam a app sozinhas** (pode estar a meio de uma venda): aparece «Há uma versão nova da app — Actualizar». A app procura versões novas quando volta ao ecrã (no máximo uma vez por hora).
 - **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas

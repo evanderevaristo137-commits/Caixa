@@ -1,14 +1,15 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useApp } from './app/context';
 import { t } from './i18n/pt-AO';
-import { Skeleton } from './ui/kit';
 import { SellScreen } from './screens/sell/SellScreen';
 
-// Only "Vender" loads up front; the other screens load when first opened (smaller first download).
-const CreditScreen = lazy(() => import('./screens/credit/CreditScreen'));
-const TodayScreen = lazy(() => import('./screens/today/TodayScreen'));
-const ProductsScreen = lazy(() => import('./screens/products/ProductsScreen'));
-const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+// All screens are in the main bundle on purpose: with lazy-loaded screens, a new version
+// published while the app is open would delete the old screen files and break the next tap.
+import CreditScreen from './screens/credit/CreditScreen';
+import TodayScreen from './screens/today/TodayScreen';
+import ProductsScreen from './screens/products/ProductsScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import { UpdateBanner } from './app/UpdateBanner';
 
 const TABS = ['sell', 'credit', 'today', 'products', 'settings'] as const;
 type Tab = (typeof TABS)[number];
@@ -46,14 +47,15 @@ export function App() {
       {mode === 'demo' && (
         <div className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>
       )}
+      <UpdateBanner />
       <main className="flex-1 pb-24">
-        <Suspense key={mode} fallback={<Skeleton />}>
+        <Fragment key={mode}>
           {tab === 'sell' && <SellScreen />}
           {tab === 'credit' && <CreditScreen />}
           {tab === 'today' && <TodayScreen />}
           {tab === 'products' && <ProductsScreen />}
           {tab === 'settings' && <SettingsScreen />}
-        </Suspense>
+        </Fragment>
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto grid max-w-lg grid-cols-5">

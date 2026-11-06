@@ -3,6 +3,7 @@ import { CaixaDB, DB_NAMES, type DataMode } from '../data/db';
 import { Store } from '../data/store';
 import { FakePaymentProvider, type PaymentProvider } from '../providers/payment';
 import { requestPersistentStorage } from '../lib/storage';
+import { ensureFreshDemo, seedDemo } from '../data/demo-seed';
 
 const MODE_KEY = 'caixa.mode';
 
@@ -47,7 +48,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setMode = useCallback(async (next: DataMode) => {
-    if (next === 'demo') await (await import('../data/demo-seed')).ensureFreshDemo(storeFor('demo').db);
+    if (next === 'demo') await ensureFreshDemo(storeFor('demo').db);
     try {
       localStorage.setItem(MODE_KEY, next);
     } catch {
@@ -64,11 +65,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Opening the app in demo mode on a new day renews the example data.
   useEffect(() => {
     if (mode !== 'demo') return;
-    void import('../data/demo-seed').then((m) => m.ensureFreshDemo(storeFor('demo').db));
+    void ensureFreshDemo(storeFor('demo').db);
   }, [mode]);
 
   const resetDemo = useCallback(async () => {
-    await (await import('../data/demo-seed')).seedDemo(storeFor('demo').db);
+    await seedDemo(storeFor('demo').db);
   }, []);
 
   const value = useMemo(
