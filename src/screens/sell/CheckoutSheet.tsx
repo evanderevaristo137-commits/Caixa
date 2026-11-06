@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DEFAULT_STORE_NAME } from '../../data/store';
@@ -19,6 +19,8 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [received, setReceived] = useState('');
   const [busy, setBusy] = useState(false);
+  // Guards against a double tap saving the same sale twice (state updates are not instant).
+  const submitting = useRef(false);
   const [sale, setSale] = useState<Sale | null>(null);
   const [balanceAfter, setBalanceAfter] = useState<number | undefined>(undefined);
   const total = cartTotal(cart);
@@ -29,7 +31,8 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
     method !== null && !busy && (method !== 'credit' || customer !== null) && (method !== 'cash' || !received || change !== null);
 
   const confirm = async () => {
-    if (!method || !canConfirm) return;
+    if (!method || !canConfirm || submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     try {
       let paymentRef: string | undefined;
@@ -48,13 +51,19 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         paymentRef,
         cashReceivedCents: method === 'cash' && receivedCents !== null ? receivedCents : undefined,
       });
-      if (saved.method === 'credit' && saved.customerId) {
-        const [sales, credits] = await Promise.all([store.sales.byCustomer(saved.customerId), store.credit.byCustomer(saved.customerId)]);
-        setBalanceAfter(creditStatus(saved.customerId, sales, credits, new Date()).balanceCents);
-      }
       navigator.vibrate?.([40, 60, 40]);
       setSale(saved);
+      // The sale is saved at this point; the fiado balance on the receipt is a bonus that may fail quietly.
+      if (saved.method === 'credit' && saved.customerId) {
+        const customerId = saved.customerId;
+        Promise.all([store.sales.byCustomer(customerId), store.credit.byCustomer(customerId)])
+          .then(([sales, credits]) => setBalanceAfter(creditStatus(customerId, sales, credits, new Date()).balanceCents))
+          .catch(() => undefined);
+      }
+    } catch {
+      showToast(t.errors.saveFailed);
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };

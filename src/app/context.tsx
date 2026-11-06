@@ -3,6 +3,7 @@ import { CaixaDB, DB_NAMES, type DataMode } from '../data/db';
 import { Store } from '../data/store';
 import { FakePaymentProvider, type PaymentProvider } from '../providers/payment';
 import { requestPersistentStorage } from '../lib/storage';
+import { t } from '../i18n/pt-AO';
 import { ensureFreshDemo, seedDemo } from '../data/demo-seed';
 
 const MODE_KEY = 'caixa.mode';
@@ -56,6 +57,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setModeState(next);
   }, []);
+
+  // Safety net: any action that fails unexpectedly tells the user instead of failing silently.
+  useEffect(() => {
+    const onRejection = () => showToast(t.errors.generic);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, [showToast]);
 
   // Ask Chrome to never clear our data when the phone runs out of space.
   useEffect(() => {

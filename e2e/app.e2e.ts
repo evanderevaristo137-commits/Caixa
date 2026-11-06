@@ -108,9 +108,10 @@ test('a fiado sale receipt shows the total owed, and reminders are remembered', 
   await page.getByRole('dialog').getByRole('button', { name: 'Fiado' }).click();
   await page.getByRole('button', { name: 'Joana Mateus' }).click();
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
-  const href = await page.getByRole('link', { name: 'Enviar talão por WhatsApp' }).getAttribute('href');
-  expect(href).toMatch(/^https:\/\/wa\.me\/244923000101\?text=/);
-  expect(decodeURIComponent(href!)).toMatch(/Total em dívida: [\d.]+ Kz/);
+  const receipt = page.getByRole('link', { name: 'Enviar talão por WhatsApp' });
+  await expect(receipt).toHaveAttribute('href', /^https:\/\/wa\.me\/244923000101\?text=/);
+  // The total owed is added to the receipt right after the sale is saved.
+  await expect.poll(async () => decodeURIComponent((await receipt.getAttribute('href'))!)).toMatch(/Total em dívida: [\d.]+ Kz/);
   await page.getByRole('button', { name: 'Nova venda' }).click();
 
   await nav(page, 'Fiado');
@@ -152,4 +153,47 @@ test('a customer name can be corrected', async ({ page }) => {
   await page.getByRole('button', { name: 'Guardar' }).click();
   await page.getByRole('button', { name: 'Fechar' }).click();
   await expect(page.getByRole('button', { name: /Luísa Neto Exemplo/ })).toBeVisible();
+});
+
+test('if saving fails (phone full), the user is told and nothing is half-saved', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const count = page.locator('.bg-brand-700 p.text-lg');
+  const before = await count.textContent();
+  await nav(page, 'Vender');
+  const stockBefore = await page.getByRole('button', { name: /Arroz 5 kg/ }).textContent();
+  // From now on, writing a sale fails like a full phone would.
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.add;
+    IDBObjectStore.prototype.add = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['add']>) {
+      if (this.name === 'sales') throw new DOMException('Disk full', 'QuotaExceededError');
+      return original.apply(this, args);
+    };
+  });
+  await page.getByRole('button', { name: /Arroz 5 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByText('Não foi possível guardar. Tente outra vez.')).toBeVisible();
+  await expect(page.getByText('Venda registada')).toBeHidden();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await expect(page.getByRole('button', { name: /Arroz 5 kg/ })).toHaveText(stockBefore!.replace(/\d+$/, '') + '1');
+  await nav(page, 'Hoje');
+  await expect(count).toHaveText(before!);
+});
+
+test('a double tap on "Confirmar venda" records one sale', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const count = page.locator('.bg-brand-700 p.text-lg');
+  const before = Number((await count.textContent())!.match(/\d+/)![0]);
+  await nav(page, 'Vender');
+  await page.getByRole('button', { name: /Pão/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).dblclick();
+  await expect(page.getByText('Venda registada')).toBeVisible();
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+  await nav(page, 'Hoje');
+  await expect(count).toHaveText(`${before + 1} vendas`);
 });

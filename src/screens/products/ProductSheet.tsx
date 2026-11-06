@@ -90,7 +90,7 @@ function ProductForm({
       const code = e instanceof DomainError ? e.code : 'unknown';
       const field =
         code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
-      setError({ field, msg: ERRORS[code] ?? String(e) });
+      setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
     }
   };
 

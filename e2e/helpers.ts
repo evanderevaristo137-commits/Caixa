@@ -1,7 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 
-export const nav = (page: Page, tab: 'Vender' | 'Fiado' | 'Hoje' | 'Produtos' | 'Mais') =>
-  page.getByRole('navigation').getByRole('button', { name: tab }).click();
+/** Switches tab and waits until that screen is the one shown. */
+export async function nav(page: Page, tab: 'Vender' | 'Fiado' | 'Hoje' | 'Produtos' | 'Mais') {
+  const button = page.getByRole('navigation').getByRole('button', { name: tab });
+  await button.click();
+  await expect(button).toHaveAttribute('aria-current', 'page');
+}
 
 export async function openDemo(page: Page) {
   await page.goto('./');

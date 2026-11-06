@@ -176,6 +176,13 @@ export const t = {
     mvAdjust: 'Acerto',
     mvVoid: 'Anulação',
   },
+  errors: {
+    title: 'Algo correu mal',
+    body: 'Os seus dados estão guardados no telemóvel. Toque em «Recarregar» para continuar.',
+    reload: 'Recarregar',
+    saveFailed: 'Não foi possível guardar. Tente outra vez.',
+    generic: 'Algo correu mal. Tente outra vez.',
+  },
   update: {
     available: 'Há uma versão nova da app.',
     action: 'Actualizar',
