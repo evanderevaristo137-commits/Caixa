@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDemoData, ensureFreshDemo, seedDemo } from './demo-seed';
+import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
 import { lowStockProducts, summariseDayView } from '../domain/today';
 import { CaixaDB } from './db';
@@ -10,8 +11,14 @@ const now = new Date(2026, 10, 6, 16, 0);
 describe('demo data', () => {
   const d = buildDemoData(now);
 
-  it('has 30 products, 5 customers and two weeks of sales', () => {
-    expect(d.products).toHaveLength(30);
+  it('has 33 products (3 sold by weight), 5 customers and two weeks of sales', () => {
+    expect(d.products).toHaveLength(33);
+    expect(d.products.filter((p) => p.soldBy === 'weight').map((p) => p.name)).toEqual([
+      'Arroz a granel',
+      'Feijão a granel',
+      'Açúcar a granel',
+    ]);
+    expect(d.sales.some((s) => s.items.some((i) => i.soldBy === 'weight'))).toBe(true);
     expect(d.customers).toHaveLength(5);
     const days = new Set(d.sales.map((s) => new Date(s.createdAt).toDateString()));
     expect(days.size).toBe(15);
@@ -21,7 +28,7 @@ describe('demo data', () => {
   it('keeps money in integers and totals consistent', () => {
     for (const s of d.sales) {
       expect(Number.isInteger(s.totalCents)).toBe(true);
-      expect(s.totalCents).toBe(s.items.reduce((a, i) => a + i.unitPriceCents * i.quantity, 0));
+      expect(s.totalCents).toBe(s.items.reduce((a, i) => a + lineTotalFor(i.unitPriceCents, i.quantity, i.soldBy), 0));
     }
   });
 

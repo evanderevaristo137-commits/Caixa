@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CaixaDB } from './db';
 import { DomainError, Store } from './store';
-import { addToCart } from '../domain/cart';
+import { addToCart, setWeightLine } from '../domain/cart';
 import { creditStatus } from '../domain/credit';
 
 let db: CaixaDB;
@@ -347,5 +347,37 @@ describe('Store: credit limit', () => {
     await store.settings.save({ creditLimitCents: 0 });
     expect((await store.settings.get()).creditLimitCents).toBeUndefined();
     await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+  });
+});
+
+describe('Store: products sold by weight', () => {
+  it('sells grams, lowers the stock in grams and keeps the line total in whole kwanzas', async () => {
+    const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 5_000, soldBy: 'weight' }, 20_000);
+    expect(beans).toMatchObject({ soldBy: 'weight', stock: 20_000 });
+    const sale = await store.sales.create({ cart: setWeightLine([], beans, 750), method: 'cash' });
+    expect(sale.items[0]).toMatchObject({ quantity: 750, soldBy: 'weight', lineTotalCents: 105_000 });
+    expect((await store.products.get(beans.id))!.stock).toBe(19_250);
+    const byAmount = await store.sales.create({ cart: setWeightLine([], beans, 357, 50_000), method: 'cash' });
+    expect(byAmount.totalCents).toBe(50_000);
+    expect(await store.integrity.check()).toEqual([]);
+  });
+
+  it('a stale cart can never sell a weighed product as units (or the other way round)', async () => {
+    const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 0, soldBy: 'weight' }, 5_000);
+    await expect(store.sales.create({ cart: addToCart([], beans, 2), method: 'cash' })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_quantity',
+    );
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 5);
+    await expect(store.sales.create({ cart: setWeightLine([], rice, 500), method: 'cash' })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_quantity',
+    );
+  });
+
+  it('exports kilos with a decimal comma', async () => {
+    const { productsCsv, salesCsv } = await import('./backup');
+    const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 5_000, soldBy: 'weight' }, 12_500);
+    await store.sales.create({ cart: setWeightLine([], beans, 750), method: 'cash' });
+    expect(await productsCsv(db)).toContain('Feijão a granel;;kg;1400,00;11,75;5');
+    expect(await salesCsv(db)).toContain(';Feijão a granel;0,75;kg;1400,00;1050,00;1050,00;Numerário;');
   });
 });

@@ -8,6 +8,7 @@ import { formatDateTime } from '../../lib/dates';
 import { Button, Field } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { adjustmentDelta } from '../../domain/stock';
+import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
 
 const ERRORS: Record<string, string> = {
   not_whole: t.products.invalidNumber,
@@ -27,6 +28,7 @@ const MV_LABEL: Record<StockMovementType, string> = {
 export function StockPanel({ product }: { product: Product }) {
   const { store, showToast } = useApp();
   const guard = usePinGuard();
+  const byWeight = product.soldBy === 'weight';
   const movements = useLiveQuery(() => store.products.movements(product.id), [store, product.id]);
   const [mode, setMode] = useState<'none' | 'entry' | 'adjust'>('none');
   const [qty, setQty] = useState('');
@@ -34,8 +36,10 @@ export function StockPanel({ product }: { product: Product }) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    const n = /^\d+$/.test(qty.trim()) ? Number(qty.trim()) : NaN;
-    if (Number.isNaN(n)) return setError(t.products.invalidNumber);
+    // Weighed products: kg typed, grams stored.
+    const parsed = byWeight ? parseWeight(qty) : /^\d+$/.test(qty.trim()) ? Number(qty.trim()) : null;
+    if (parsed === null) return setError(byWeight ? t.products.invalidWeight : t.products.invalidNumber);
+    const n = parsed;
     const run = async () => {
       try {
         if (mode === 'entry') await store.products.addEntry(product.id, n);
@@ -58,14 +62,14 @@ export function StockPanel({ product }: { product: Product }) {
 
   return (
     <div className="mt-6">
-      <p className="mb-2 text-center text-2xl font-extrabold">{t.products.inStock(product.stock)}</p>
+      <p className="mb-2 text-center text-2xl font-extrabold">{t.products.inStock(formatQuantity(product.stock, product.soldBy))}</p>
       {mode === 'none' ? (
         <div className="grid grid-cols-2 gap-2">
           <Button onClick={() => setMode('entry')}>+ {t.products.entry}</Button>
           <Button
             variant="secondary"
             onClick={() => {
-              setQty(String(Math.max(0, product.stock)));
+              setQty(byWeight ? formatKg(Math.max(0, product.stock)) : String(Math.max(0, product.stock)));
               setMode('adjust');
             }}
           >
@@ -75,10 +79,18 @@ export function StockPanel({ product }: { product: Product }) {
       ) : (
         <div className="space-y-3 rounded-xl bg-white p-3">
           <Field
-            label={mode === 'entry' ? t.products.entryQty : t.products.adjustQty}
+            label={
+              mode === 'entry'
+                ? byWeight
+                  ? t.products.entryQtyKg
+                  : t.products.entryQty
+                : byWeight
+                  ? t.products.adjustQtyKg
+                  : t.products.adjustQty
+            }
             value={qty}
             onChange={(e) => setQty(e.target.value)}
-            inputMode="numeric"
+            inputMode={byWeight ? 'decimal' : 'numeric'}
             error={error}
             autoFocus
           />
@@ -127,7 +139,8 @@ export function StockPanel({ product }: { product: Product }) {
               <span className="block text-slate-600">{formatDateTime(m.createdAt)}</span>
             </span>
             <span className={`font-bold tabular-nums ${m.delta < 0 ? 'text-red-700' : 'text-brand-700'}`}>
-              {m.delta > 0 ? `+${m.delta}` : m.delta}
+              {m.delta > 0 ? '+' : ''}
+              {formatQuantity(m.delta, product.soldBy)}
             </span>
           </li>
         ))}

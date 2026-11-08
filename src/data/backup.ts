@@ -2,6 +2,7 @@ import { creditBook } from '../domain/credit';
 import { formatDate, formatDateTime } from '../lib/dates';
 import { methodLabel } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
+import { formatKg } from '../domain/quantity';
 import { DB_NAMES, TABLES, type CaixaDB, type TableName } from './db';
 import { PIN_KEYS } from './store';
 
@@ -126,6 +127,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Venda n.º',
       'Produto',
       'Quantidade',
+      'Unidade',
       'Preço unitário (Kz)',
       'Total linha (Kz)',
       'Total venda (Kz)',
@@ -142,7 +144,8 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         formatDateTime(s.createdAt),
         s.number,
         it.name,
-        it.quantity,
+        it.soldBy === 'weight' ? formatKg(it.quantity) : it.quantity,
+        it.soldBy === 'weight' ? 'kg' : 'un',
         kzNumber(it.unitPriceCents),
         kzNumber(it.lineTotalCents),
         kzNumber(s.totalCents),
@@ -160,8 +163,12 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
 export async function productsCsv(db: CaixaDB): Promise<string> {
   const products = (await db.products.orderBy('name').toArray()).filter((p) => !p.archivedAt);
   return toCsv([
-    ['Produto', 'Código de barras', 'Preço (Kz)', 'Stock', 'Stock mínimo'],
-    ...products.map((p) => [p.name, p.barcode ?? '', kzNumber(p.priceCents), p.stock, p.minStock]),
+    ['Produto', 'Código de barras', 'Vende-se por', 'Preço (Kz)', 'Stock', 'Stock mínimo'],
+    ...products.map((p) =>
+      p.soldBy === 'weight'
+        ? [p.name, p.barcode ?? '', 'kg', kzNumber(p.priceCents), formatKg(p.stock), formatKg(p.minStock)]
+        : [p.name, p.barcode ?? '', 'un', kzNumber(p.priceCents), p.stock, p.minStock],
+    ),
   ]);
 }
 

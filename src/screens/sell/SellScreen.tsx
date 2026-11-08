@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, type Cart } from '../../domain/cart';
+import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, setWeightLine, type Cart } from '../../domain/cart';
+import { formatKg, formatQuantity } from '../../domain/quantity';
+import { formatKz } from '../../lib/money';
 import { salesFrequency, sortByFrequency } from '../../domain/ranking';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
@@ -10,6 +12,7 @@ import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { ProductSheet } from '../products/ProductSheet';
 import { promptInstall, useCanInstall } from '../../lib/install';
 import { CartSheet } from './CartSheet';
+import { WeightSheet } from './WeightSheet';
 import { CheckoutSheet } from './CheckoutSheet';
 import { Scanner, scannerSupported } from './Scanner';
 
@@ -67,7 +70,10 @@ export function SellScreen() {
   }, [products]);
 
   const qtyIn = useMemo(() => new Map(cart.map((l) => [l.productId, l.quantity])), [cart]);
+  // Products sold by weight open the weighing sheet; the others go straight into the cart.
+  const [weighing, setWeighing] = useState<Product | null>(null);
   const add = (p: Product) => {
+    if (p.soldBy === 'weight') return setWeighing(p);
     setCart((c) => addToCart(c, p));
     navigator.vibrate?.(15);
   };
@@ -76,7 +82,9 @@ export function SellScreen() {
     async (code: string) => {
       setSheet('none');
       const p = await store.products.findByBarcode(code);
-      if (p) {
+      if (p?.soldBy === 'weight') {
+        setWeighing(p);
+      } else if (p) {
         setCart((c) => addToCart(c, p));
         showToast(`+1 ${p.name}`);
       } else {
@@ -163,16 +171,18 @@ export function SellScreen() {
                 >
                   <span className="line-clamp-2 text-base leading-snug font-semibold">{p.name}</span>
                   <span className="mt-1 flex items-end justify-between gap-1">
-                    <Money cents={p.priceCents} className="text-lg font-bold text-brand-800" />
+                    <span className="text-lg font-bold text-brand-800 tabular-nums">
+                      {p.soldBy === 'weight' ? t.weight.perKg(formatKz(p.priceCents)) : formatKz(p.priceCents)}
+                    </span>
                     <span
                       className={`text-xs ${p.stock <= 0 ? 'font-bold text-red-700' : low ? 'font-semibold text-amber-700' : 'text-slate-600'}`}
                     >
-                      {p.stock <= 0 ? t.sell.outOfStock : t.sell.stockLeft(p.stock)}
+                      {p.stock <= 0 ? t.sell.outOfStock : t.sell.stockLeft(formatQuantity(p.stock, p.soldBy))}
                     </span>
                   </span>
                   {inCart > 0 && (
                     <span className="absolute -top-2 -right-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-2 text-sm font-bold text-white">
-                      {inCart}
+                      {p.soldBy === 'weight' ? `${formatKg(inCart)} kg` : inCart}
                     </span>
                   )}
                 </button>
@@ -201,6 +211,7 @@ export function SellScreen() {
       )}
 
       {sheet === 'scan' && <Scanner onCode={onCode} onClose={() => setSheet('none')} />}
+
       {unknownCode && (
         <Sheet title={t.scanner.notFoundTitle} onClose={() => setUnknownCode(null)}>
           <p className="text-lg font-semibold">{t.scanner.notFound(unknownCode)}</p>
@@ -223,13 +234,23 @@ export function SellScreen() {
           initialBarcode={creatingCode || undefined}
           onClose={() => setCreatingCode(null)}
           onCreated={(p) => {
-            setCart((c) => addToCart(c, p));
             setQuery('');
+            if (p.soldBy === 'weight') setWeighing(p);
+            else setCart((c) => addToCart(c, p));
           }}
         />
       )}
       {sheet === 'cart' && (
-        <CartSheet cart={cart} setCart={setCart} onClose={() => setSheet('none')} onCharge={() => setSheet('checkout')} />
+        <CartSheet
+          cart={cart}
+          setCart={setCart}
+          onClose={() => setSheet('none')}
+          onCharge={() => setSheet('checkout')}
+          onEditWeight={(productId) => {
+            const p = products?.find((x) => x.id === productId);
+            if (p) setWeighing(p);
+          }}
+        />
       )}
       {sheet === 'checkout' && (
         <CheckoutSheet
@@ -239,6 +260,19 @@ export function SellScreen() {
             setCart([]);
             setQuery('');
             setSheet('none');
+          }}
+        />
+      )}
+      {/* Last on purpose: it opens on top of the cart ("Mudar peso"). */}
+      {weighing && (
+        <WeightSheet
+          product={weighing}
+          initialGrams={cart.find((l) => l.productId === weighing.id)?.quantity}
+          onClose={() => setWeighing(null)}
+          onConfirm={(grams, fixedTotalCents) => {
+            setCart((c) => setWeightLine(c, weighing, grams, fixedTotalCents));
+            setWeighing(null);
+            navigator.vibrate?.(15);
           }}
         />
       )}

@@ -1,11 +1,17 @@
-import { lineTotal, sumCents } from '../lib/money';
+import { sumCents } from '../lib/money';
+import { articleCount, lineTotalFor, type SoldBy } from './quantity';
 import type { Cents, Product, SaleItem } from './types';
 
 export interface CartLine {
   productId: string;
   name: string;
+  /** Price per unit, or per kg for products sold by weight. */
   unitPriceCents: Cents;
+  /** Units, or GRAMS for products sold by weight. */
   quantity: number;
+  soldBy?: SoldBy;
+  /** "500 Kz de feijão": the customer asked for an amount, so the line costs exactly that. */
+  fixedTotalCents?: Cents;
 }
 
 export type Cart = CartLine[];
@@ -18,11 +24,40 @@ export function addToCart(cart: Cart, product: Pick<Product, 'id' | 'name' | 'pr
   return [...cart, { productId: product.id, name: product.name, unitPriceCents: product.priceCents, quantity: qty }];
 }
 
+/**
+ * Products sold by weight have one line each: the weight sheet sets the whole weight
+ * (and, when the customer asked for an amount, that exact amount). 0 removes the line.
+ */
+export function setWeightLine(
+  cart: Cart,
+  product: Pick<Product, 'id' | 'name' | 'priceCents'>,
+  grams: number,
+  fixedTotalCents?: Cents,
+): Cart {
+  if (!Number.isInteger(grams)) throw new Error('Weight must be whole grams');
+  if (grams <= 0) return cart.filter((l) => l.productId !== product.id);
+  const line: CartLine = {
+    productId: product.id,
+    name: product.name,
+    unitPriceCents: product.priceCents,
+    quantity: grams,
+    soldBy: 'weight',
+    ...(fixedTotalCents !== undefined ? { fixedTotalCents } : {}),
+  };
+  return cart.some((l) => l.productId === product.id) ? cart.map((l) => (l.productId === product.id ? line : l)) : [...cart, line];
+}
+
 /** Sets a line's quantity; 0 or less removes the line. */
 export function setQuantity(cart: Cart, productId: string, quantity: number): Cart {
   if (!Number.isInteger(quantity)) throw new Error('Quantity must be a whole number');
   if (quantity <= 0) return cart.filter((l) => l.productId !== productId);
-  return cart.map((l) => (l.productId === productId ? { ...l, quantity } : l));
+  // A new weight replaces an amount the customer had asked for.
+  return cart.map((l) => (l.productId === productId ? { ...l, quantity, fixedTotalCents: undefined } : l));
+}
+
+/** What one cart line costs (an amount asked by the customer, or quantity × price). */
+export function lineTotalOf(l: CartLine): Cents {
+  return l.fixedTotalCents ?? lineTotalFor(l.unitPriceCents, l.quantity, l.soldBy);
 }
 
 export function cartItems(cart: Cart): SaleItem[] {
@@ -31,7 +66,8 @@ export function cartItems(cart: Cart): SaleItem[] {
     name: l.name,
     unitPriceCents: l.unitPriceCents,
     quantity: l.quantity,
-    lineTotalCents: lineTotal(l.unitPriceCents, l.quantity),
+    lineTotalCents: lineTotalOf(l),
+    ...(l.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
   }));
 }
 
@@ -39,8 +75,9 @@ export function cartTotal(cart: Cart): Cents {
   return sumCents(cartItems(cart).map((i) => i.lineTotalCents));
 }
 
+/** Articles in the cart: units count one by one, each weighed product counts as one. */
 export function cartCount(cart: Cart): number {
-  return cart.reduce((acc, l) => acc + l.quantity, 0);
+  return articleCount(cart);
 }
 
 /** Change to give back for a cash payment; null if the customer handed over too little. */
@@ -64,7 +101,9 @@ export function reconcileCart(cart: Cart, products: Pick<Product, 'id' | 'name' 
     }
     if (p.name !== line.name || p.priceCents !== line.unitPriceCents) {
       changed = true;
-      next.push({ ...line, name: p.name, unitPriceCents: p.priceCents });
+      // A new price cancels an amount asked by the customer: the weighed quantity stays.
+      const fixed = p.priceCents === line.unitPriceCents ? line.fixedTotalCents : undefined;
+      next.push({ ...line, name: p.name, unitPriceCents: p.priceCents, fixedTotalCents: fixed });
     } else {
       next.push(line);
     }
@@ -86,7 +125,9 @@ export function parseStoredCart(raw: string | null): Cart {
         typeof (l as CartLine).name === 'string' &&
         Number.isInteger((l as CartLine).unitPriceCents) &&
         Number.isInteger((l as CartLine).quantity) &&
-        (l as CartLine).quantity > 0,
+        (l as CartLine).quantity > 0 &&
+        ((l as CartLine).soldBy === undefined || (l as CartLine).soldBy === 'weight' || (l as CartLine).soldBy === 'unit') &&
+        ((l as CartLine).fixedTotalCents === undefined || Number.isInteger((l as CartLine).fixedTotalCents)),
     );
   } catch {
     return [];

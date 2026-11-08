@@ -18,7 +18,9 @@ export interface Product extends BaseRecord {
   name: string;
   priceCents: Cents;
   barcode?: string;
-  /** Current quantity on hand (whole units). Kept in sync with StockMovement. */
+  /** 'weight': sold by the kilo. Price is per kg; stock and minimum are in GRAMS. Chosen at creation. */
+  soldBy?: 'weight';
+  /** Current quantity on hand (whole units, or grams). Kept in sync with StockMovement. */
   stock: number;
   minStock: number;
   /** Soft delete: archived products disappear from lists but keep their history. */
@@ -54,6 +56,8 @@ export interface SaleItem {
   unitPriceCents: Cents;
   quantity: number;
   lineTotalCents: Cents;
+  /** 'weight': quantity is in grams and unitPriceCents is the price per kg. */
+  soldBy?: 'weight';
   // Snapshot of the invoicing data at sale time (an invoice must show what applied that day).
   barcode?: string;
   unit?: string;

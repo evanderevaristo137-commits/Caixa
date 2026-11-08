@@ -19,9 +19,10 @@ export interface InvoiceLine {
   /** Barcode when there is one; otherwise the app's product id. */
   productCode: string;
   description: string;
+  /** Units, or kg with up to 3 decimals for products sold by weight. */
   quantity: number;
   unit: string;
-  /** Price charged per unit, IVA included, in cêntimos. */
+  /** Price charged per unit (or per kg), IVA included, in cêntimos. */
   unitPriceCents: number;
   lineTotalCents: number;
   /** IVA in basis points (1400 = 14%). Missing = not filled in the app; the partner/accountant decides. */
@@ -71,8 +72,9 @@ function lines(sale: Sale): InvoiceLine[] {
     lineNumber: i + 1,
     productCode: item.barcode ?? item.productId,
     description: item.name,
-    quantity: item.quantity,
-    unit: item.unit ?? 'un',
+    // Weighed products: grams become kg (e.g. 750 g → 0.75 kg); the price is per kg.
+    quantity: item.soldBy === 'weight' ? item.quantity / 1000 : item.quantity,
+    unit: item.soldBy === 'weight' ? 'kg' : (item.unit ?? 'un'),
     unitPriceCents: item.unitPriceCents,
     lineTotalCents: item.lineTotalCents,
     taxRateBp: item.taxRateBp,

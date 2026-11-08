@@ -126,3 +126,19 @@ describe('daySummaryText', () => {
     );
   });
 });
+
+describe('weighed products in messages', () => {
+  it('receipt and shopping list show kilos', () => {
+    const weighed: Sale = {
+      ...sale,
+      items: [
+        { productId: 'w', name: 'Feijão a granel', unitPriceCents: 140_000, quantity: 750, lineTotalCents: 105_000, soldBy: 'weight' },
+      ],
+      totalCents: 105_000,
+    };
+    expect(receiptText(weighed, { storeName: 'Loja' })).toContain('0,75 kg x Feijão a granel — 1.050 Kz');
+    expect(
+      shoppingListText('Loja', [{ name: 'Feijão a granel', stock: 500, suggested: 9_500, soldBy: 'weight' }], new Date(2026, 10, 6)),
+    ).toContain('• Feijão a granel: 9,5 kg (há 0,5 kg)');
+  });
+});

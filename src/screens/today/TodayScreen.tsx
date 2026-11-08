@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { daySummaryText, shoppingListText } from '../../domain/messages';
 import { creditAlerts, totalOutstanding } from '../../domain/credit';
+import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
@@ -182,7 +183,7 @@ export default function TodayScreen() {
                   <li key={p.id} className="flex justify-between py-2">
                     <span className="truncate pr-2">{p.name}</span>
                     <span className={`font-bold whitespace-nowrap ${p.stock <= 0 ? 'text-red-700' : 'text-amber-700'}`}>
-                      {p.stock} / {p.minStock}
+                      {formatQuantity(p.stock, p.soldBy)} / {formatQuantity(p.minStock, p.soldBy)}
                     </span>
                   </li>
                 ))}

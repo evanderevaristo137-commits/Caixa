@@ -6,6 +6,7 @@ import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { formatBpAsPercent, parsePercentToBp } from '../../domain/tax';
+import { formatKg, parseWeight } from '../../domain/quantity';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
@@ -67,8 +68,13 @@ function ProductForm({
   const [name, setName] = useState(product?.name ?? '');
   const [price, setPrice] = useState(product ? formatKz(product.priceCents).replace(' Kz', '') : '');
   const [barcode, setBarcode] = useState(product?.barcode ?? initialBarcode ?? '');
+  // How the product is sold is chosen once, when it is created (stock history depends on it).
+  const [soldBy, setSoldBy] = useState<'unit' | 'weight'>(product?.soldBy ?? 'unit');
+  const byWeight = soldBy === 'weight';
   const [stock, setStock] = useState('0');
-  const [minStock, setMinStock] = useState(String(product?.minStock ?? 3));
+  const [minStock, setMinStock] = useState(
+    product ? (product.soldBy === 'weight' ? formatKg(product.minStock) : String(product.minStock)) : '3',
+  );
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [rate, setRate] = useState(product?.taxRateBp === undefined ? '' : formatBpAsPercent(product.taxRateBp));
   const [exemption, setExemption] = useState(product?.taxExemption ?? '');
@@ -78,13 +84,25 @@ function ProductForm({
   const save = async () => {
     const priceCents = parseKz(price);
     if (priceCents === null) return setError({ field: 'price', msg: t.products.invalidPrice });
-    const min = toInt(minStock);
-    if (min === null) return setError({ field: 'min', msg: t.products.invalidNumber });
-    const initial = toInt(stock);
-    if (!product && initial === null) return setError({ field: 'stock', msg: t.products.invalidNumber });
+    // Weighed products: stock and minimum are typed in kg and kept in grams.
+    const toQty = (text: string) => (byWeight ? parseWeight(text) : toInt(text));
+    const qtyError = byWeight ? t.products.invalidWeight : t.products.invalidNumber;
+    const min = toQty(minStock);
+    if (min === null) return setError({ field: 'min', msg: qtyError });
+    const initial = toQty(stock);
+    if (!product && initial === null) return setError({ field: 'stock', msg: qtyError });
     const taxRateBp = parsePercentToBp(rate);
     if (taxRateBp === null) return setError({ field: 'tax', msg: t.invoicing.rateInvalid });
-    const input = { name, priceCents, barcode, minStock: min, unit, taxRateBp, taxExemption: taxRateBp === 0 ? exemption : undefined };
+    const input = {
+      name,
+      priceCents,
+      barcode,
+      minStock: min,
+      unit,
+      taxRateBp,
+      taxExemption: taxRateBp === 0 ? exemption : undefined,
+      ...(byWeight ? { soldBy: 'weight' as const } : {}),
+    };
     const persist = async () => {
       try {
         if (product) {
@@ -130,7 +148,33 @@ function ProductForm({
     <Sheet title={product ? t.products.edit : t.products.add} onClose={onClose}>
       <div className="space-y-3">
         <Field label={t.products.name} value={name} onChange={(e) => setName(e.target.value)} error={err('name')} autoComplete="off" />
-        <Field label={t.products.price} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" error={err('price')} />
+        {product ? (
+          byWeight && <p className="rounded-lg bg-slate-100 p-2 text-sm text-slate-700">{t.products.soldByWeightNote}</p>
+        ) : (
+          <div>
+            <p className="mb-1 text-sm font-semibold text-slate-700">{t.products.soldByTitle}</p>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label={t.products.soldByTitle}>
+              {(['unit', 'weight'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={soldBy === s}
+                  onClick={() => setSoldBy(s)}
+                  className={`min-h-12 rounded-xl border-2 text-base font-semibold ${soldBy === s ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}
+                >
+                  {s === 'unit' ? t.products.byUnit : t.products.byWeight}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <Field
+          label={byWeight ? t.products.pricePerKg : t.products.price}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          inputMode="decimal"
+          error={err('price')}
+        />
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <Field
@@ -149,15 +193,15 @@ function ProductForm({
         </div>
         {!product && (
           <Field
-            label={t.products.stock}
+            label={byWeight ? t.products.stockKg : t.products.stock}
             value={stock}
             onChange={(e) => setStock(e.target.value)}
-            inputMode="numeric"
+            inputMode={byWeight ? 'decimal' : 'numeric'}
             error={err('stock')}
           />
         )}
         <Field
-          label={t.products.minStock}
+          label={byWeight ? t.products.minStockKg : t.products.minStock}
           value={minStock}
           onChange={(e) => setMinStock(e.target.value)}
           inputMode="numeric"

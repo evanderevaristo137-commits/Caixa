@@ -9,6 +9,7 @@ import {
   parseStoredCart,
   reconcileCart,
   setQuantity,
+  setWeightLine,
 } from './cart';
 
 const rice = { id: 'p1', name: 'Arroz 1 kg', priceCents: 120_000 };
@@ -92,5 +93,33 @@ describe('cashSuggestions', () => {
     expect(cashSuggestions(1_000_000)).toEqual([2_000_000]);
     expect(cashSuggestions(500_000)).toEqual([600_000, 1_000_000, 2_000_000]);
     expect(cashSuggestions(0)).toEqual([]);
+  });
+});
+
+describe('cart with products sold by weight', () => {
+  const beans = { id: 'w1', name: 'Feijão a granel', priceCents: 140_000 }; // 1.400 Kz/kg
+
+  it('one line per weighed product, set by the weight sheet', () => {
+    let cart = setWeightLine([], beans, 750);
+    cart = addToCart(cart, rice);
+    expect(cartItems(cart)[0]).toMatchObject({ quantity: 750, soldBy: 'weight', lineTotalCents: 105_000 });
+    cart = setWeightLine(cart, beans, 1_000);
+    expect(cart.filter((l) => l.productId === 'w1')).toHaveLength(1);
+    expect(cartTotal(cart)).toBe(140_000 + 120_000);
+    expect(cartCount(cart)).toBe(2);
+    expect(setWeightLine(cart, beans, 0).some((l) => l.productId === 'w1')).toBe(false);
+  });
+
+  it('"500 Kz de feijão" costs exactly 500 Kz', () => {
+    const cart = setWeightLine([], beans, 357, 50_000);
+    expect(cartTotal(cart)).toBe(50_000);
+    // Changing the weight afterwards goes back to the price per kg.
+    expect(cartTotal(setQuantity(cart, 'w1', 500))).toBe(70_000);
+  });
+
+  it('a new price cancels the asked amount; the saved cart keeps weights', () => {
+    const cart = setWeightLine([], beans, 357, 50_000);
+    expect(cartTotal(reconcileCart(cart, [{ ...beans, priceCents: 150_000 }]))).toBe(53_600);
+    expect(parseStoredCart(JSON.stringify(cart))).toEqual(cart);
   });
 });

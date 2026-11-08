@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditStatus, validateCreditPayment } from '../../domain/credit';
 import { normaliseNif } from '../../domain/nif';
+import { formatQuantity } from '../../domain/quantity';
 import type { CreditPayment } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
@@ -83,7 +84,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
       voided: !!s.voidedAt,
       cents: s.totalCents,
       label:
-        (s.dueDate ? `${t.sell.payBy(formatDateString(s.dueDate))} · ` : '') + s.items.map((i) => `${i.quantity}× ${i.name}`).join(', '),
+        (s.dueDate ? `${t.sell.payBy(formatDateString(s.dueDate))} · ` : '') +
+        s.items.map((i) => `${formatQuantity(i.quantity, i.soldBy)} × ${i.name}`).join(', '),
     })),
     ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, voided: false, cents: p.amountCents, label: methodLabel[p.method] })),
   ].sort((a, b) => b.at.localeCompare(a.at));

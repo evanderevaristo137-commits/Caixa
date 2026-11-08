@@ -39,7 +39,12 @@ export function checkIntegrity(d: IntegrityData): IntegrityIssue[] {
   const numbers = new Map<number, number>();
   for (const s of d.sales) {
     numbers.set(s.number, (numbers.get(s.number) ?? 0) + 1);
-    const linesOk = s.items.every((i) => i.lineTotalCents === lineTotal(i.unitPriceCents, i.quantity));
+    const linesOk = s.items.every((i) =>
+      i.soldBy === 'weight'
+        ? // rounded to the whole kwanza, or an amount asked by the customer: within 1 Kz + one gram's price
+          Math.abs(i.lineTotalCents - (i.unitPriceCents * i.quantity) / 1000) <= 100 + i.unitPriceCents / 1000
+        : i.lineTotalCents === lineTotal(i.unitPriceCents, i.quantity),
+    );
     const sum = s.items.reduce((a, i) => a + i.lineTotalCents, 0);
     if (!linesOk || sum !== s.totalCents) issues.push({ kind: 'sale_total_mismatch', saleId: s.id, number: s.number });
     if (s.method === 'credit' && (!s.customerId || !customerIds.has(s.customerId))) {

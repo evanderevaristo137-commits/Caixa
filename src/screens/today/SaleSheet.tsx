@@ -6,7 +6,8 @@ import { receiptText } from '../../domain/messages';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { methodLabel, t, voidReasonsList } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
-import { lineTotal } from '../../lib/money';
+import { formatKz } from '../../lib/money';
+import { formatQuantity } from '../../domain/quantity';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 
@@ -51,10 +52,16 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
             <span className="min-w-0">
               <span className="block truncate font-semibold">{i.name}</span>
               <span className="text-sm text-slate-600">
-                {i.quantity} × <Money cents={i.unitPriceCents} />
+                {i.soldBy === 'weight' ? (
+                  `${formatQuantity(i.quantity, 'weight')} × ${t.weight.perKg(formatKz(i.unitPriceCents))}`
+                ) : (
+                  <>
+                    {i.quantity} × <Money cents={i.unitPriceCents} />
+                  </>
+                )}
               </span>
             </span>
-            <Money cents={lineTotal(i.unitPriceCents, i.quantity)} className="font-semibold" />
+            <Money cents={i.lineTotalCents} className="font-semibold" />
           </li>
         ))}
       </ul>

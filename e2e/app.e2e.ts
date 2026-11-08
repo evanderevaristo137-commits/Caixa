@@ -456,3 +456,63 @@ test('credit limit: warns, needs explicit confirmation, is logged, and can be sw
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Confirmar venda' })).toBeVisible();
 });
+
+test('selling by weight: by weight or by amount, change the weight, receipt in kg', async ({ page }) => {
+  await openDemo(page);
+  // 500 g of beans at 1.400 Kz/kg = 700 Kz
+  await page.getByRole('button', { name: /Feijão a granel/ }).click();
+  await page.getByRole('button', { name: '500 g', exact: true }).click();
+  await expect(page.getByText('Custa 700 Kz')).toBeVisible();
+  await page.getByRole('button', { name: 'Pôr no carrinho' }).click();
+  // "500 Kz de açúcar" at 1.000 Kz/kg: weigh 0,5 kg, pay exactly 500 Kz
+  await page.getByRole('button', { name: /Açúcar a granel/ }).click();
+  await page.getByRole('button', { name: 'Valor', exact: true }).click();
+  await page.getByRole('button', { name: '500 Kz', exact: true }).click();
+  await expect(page.getByText('Pesar 0,5 kg')).toBeVisible();
+  await page.getByRole('button', { name: 'Pôr no carrinho' }).click();
+  await expect(page.getByText('2 artigos')).toBeVisible();
+
+  // Change the beans to 0,75 kg from the cart.
+  await page.getByRole('button', { name: /2 artigos/ }).click();
+  await expect(page.getByText('0,5 kg × 1.400 Kz/kg = 700 Kz')).toBeVisible();
+  await page.getByRole('listitem').filter({ hasText: 'Feijão a granel' }).getByRole('button', { name: 'Mudar peso' }).click();
+  await page.getByLabel('Peso (kg ou g)').fill('0,75');
+  await page.getByRole('button', { name: 'Actualizar' }).click();
+  await expect(page.getByText('0,75 kg × 1.400 Kz/kg = 1.050 Kz')).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Cobrar/ })
+    .last()
+    .click();
+  await expect(page.getByRole('dialog').getByText('1.550 Kz', { exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  const href = await page.getByRole('link', { name: 'Enviar talão por WhatsApp' }).getAttribute('href');
+  const text = decodeURIComponent(href!.split('text=')[1]!);
+  expect(text).toContain('0,75 kg x Feijão a granel — 1.050 Kz');
+  expect(text).toContain('0,5 kg x Açúcar a granel — 500 Kz');
+});
+
+test('a real shop creates a product sold by the kilo and its stock goes down in kg', async ({ page }) => {
+  await page.goto('./');
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: '+ Novo produto' }).first().click();
+  await page.getByLabel('Nome').fill('Batata a granel');
+  await page.getByRole('button', { name: 'Ao quilo (kg)' }).click();
+  await page.getByLabel('Preço por kg (Kz)').fill('700');
+  await page.getByLabel('Stock inicial (kg)').fill('10');
+  await page.getByLabel('Stock mínimo em kg (avisar quando chegar a)').fill('2,5');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByRole('button', { name: /Batata a granel/ })).toContainText('10 kg em stock');
+
+  await nav(page, 'Vender');
+  await page.getByRole('button', { name: /Batata a granel/ }).click();
+  await page.getByLabel('Peso (kg ou g)').fill('1,5');
+  await expect(page.getByText('Custa 1.050 Kz')).toBeVisible();
+  await page.getByRole('button', { name: 'Pôr no carrinho' }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+  await nav(page, 'Produtos');
+  await expect(page.getByRole('button', { name: /Batata a granel/ })).toContainText('8,5 kg em stock');
+});

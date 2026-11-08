@@ -1,6 +1,7 @@
 import type { CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { openItems } from '../domain/credit';
+import { lineTotalFor } from '../domain/quantity';
 import { addDays, addDaysToDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import { uuid } from '../lib/ids';
 import type { CaixaDB } from './db';
@@ -25,8 +26,9 @@ function demoBarcode(i: number): string {
   return body + String((10 - (sum % 10)) % 10);
 }
 
-// [name, price in Kz, minimum stock, final stock target]
-const PRODUCTS: [string, number, number, number][] = [
+// [name, price in Kz (per kg when sold by weight), minimum stock, final stock target, sold by weight]
+// Stock for weighed products is in grams.
+const PRODUCTS: [string, number, number, number, boolean?][] = [
   ['Arroz 1 kg', 1_200, 10, 34],
   ['Arroz 5 kg', 5_500, 4, 9],
   ['Fuba de milho 1 kg', 800, 10, 28],
@@ -57,6 +59,9 @@ const PRODUCTS: [string, number, number, number][] = [
   ['Pasta de dentes', 900, 4, 9],
   ['Fósforos (caixa)', 100, 10, 50],
   ['Carvão (saco)', 1_500, 4, 8],
+  ['Arroz a granel', 1_100, 10_000, 25_000, true],
+  ['Feijão a granel', 1_400, 5_000, 3_500, true],
+  ['Açúcar a granel', 1_000, 5_000, 12_000, true],
 ];
 
 // Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
@@ -98,11 +103,13 @@ export function buildDemoData(now: Date): DemoData {
   const start = addDays(startOfLocalDay(now), -14);
   const createdAt = iso(addDays(start, -1));
 
-  const products: Product[] = PRODUCTS.map(([name, kz, minStock], i) => ({
+  const products: Product[] = PRODUCTS.map(([name, kz, minStock, , byWeight], i) => ({
     id: uuid(),
     name,
     priceCents: kz * 100,
-    barcode: demoBarcode(i),
+    ...(byWeight ? { soldBy: 'weight' as const } : {}),
+    // Loose goods are weighed, not scanned.
+    barcode: byWeight ? undefined : demoBarcode(i),
     minStock,
     stock: 0,
     createdAt,
@@ -125,6 +132,18 @@ export function buildDemoData(now: Date): DemoData {
       for (let l = 0; l < lines; l++) {
         const p = pick(products);
         if (items.some((it) => it.productId === p.id)) continue;
+        if (p.soldBy === 'weight') {
+          const grams = pick([250, 500, 750, 1_000, 2_000]);
+          items.push({
+            productId: p.id,
+            name: p.name,
+            unitPriceCents: p.priceCents,
+            quantity: grams,
+            soldBy: 'weight',
+            lineTotalCents: lineTotalFor(p.priceCents, grams, 'weight'),
+          });
+          continue;
+        }
         const quantity = 1 + Math.floor(rand() * (p.priceCents <= 50_000 ? 4 : 2));
         items.push({ productId: p.id, name: p.name, unitPriceCents: p.priceCents, quantity, lineTotalCents: p.priceCents * quantity });
       }

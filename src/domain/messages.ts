@@ -3,6 +3,7 @@ import type { DueState } from './credit';
 import { formatKz } from '../lib/money';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { greeting } from './whatsapp';
+import { formatQuantity } from './quantity';
 import type { DayView } from './today';
 import { PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
@@ -22,7 +23,7 @@ export function receiptText(
   lines.push(`Talão n.º ${sale.number} — ${formatDateTime(sale.createdAt)}`);
   lines.push('');
   for (const item of sale.items) {
-    lines.push(`${item.quantity} x ${item.name} — ${formatKz(item.lineTotalCents)}`);
+    lines.push(`${formatQuantity(item.quantity, item.soldBy)} x ${item.name} — ${formatKz(item.lineTotalCents)}`);
   }
   lines.push('');
   lines.push(`*TOTAL: ${formatKz(sale.totalCents)}*`);
@@ -78,9 +79,14 @@ export function reminderText(r: ReminderInput): string {
 }
 
 /** Shopping list to send to a supplier (or to oneself) by WhatsApp. */
-export function shoppingListText(storeName: string, lines: { name: string; stock: number; suggested: number }[], now: Date): string {
+export function shoppingListText(
+  storeName: string,
+  lines: { name: string; stock: number; suggested: number; soldBy?: 'weight' }[],
+  now: Date,
+): string {
   const out = [`*Lista de compras — ${storeName}*`, formatDate(now.toISOString()), ''];
-  for (const l of lines) out.push(`• ${l.name}: ${l.suggested} (há ${Math.max(0, l.stock)})`);
+  for (const l of lines)
+    out.push(`• ${l.name}: ${formatQuantity(l.suggested, l.soldBy)} (há ${formatQuantity(Math.max(0, l.stock), l.soldBy)})`);
   return out.join('\n');
 }
 

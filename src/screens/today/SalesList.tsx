@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { articleCount } from '../../domain/quantity';
 import type { Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { Card, Money } from '../../ui/kit';
@@ -19,7 +20,7 @@ export function SalesList({ sales }: { sales: Sale[] }) {
       </h2>
       <ul className="divide-y divide-slate-100">
         {sales.map((s) => {
-          const units = s.items.reduce((a, i) => a + i.quantity, 0);
+          const units = articleCount(s.items);
           return (
             <li key={s.id}>
               <button

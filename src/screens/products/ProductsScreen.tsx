@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { t } from '../../i18n/pt-AO';
-import { Button, Empty, Money, normalise, Skeleton } from '../../ui/kit';
+import { formatQuantity } from '../../domain/quantity';
+import { formatKz } from '../../lib/money';
+import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
 
 export default function ProductsScreen() {
@@ -44,12 +46,14 @@ export default function ProductsScreen() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold">{p.name}</p>
-                  <Money cents={p.priceCents} className="text-slate-600" />
+                  <span className="text-slate-600 tabular-nums">
+                    {p.soldBy === 'weight' ? t.weight.perKg(formatKz(p.priceCents)) : formatKz(p.priceCents)}
+                  </span>
                 </div>
                 <span
                   className={`rounded-full px-2 py-1 text-sm font-bold ${p.stock <= 0 ? 'bg-red-100 text-red-800' : p.stock <= p.minStock ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}
                 >
-                  {t.products.inStock(p.stock)}
+                  {t.products.inStock(formatQuantity(p.stock, p.soldBy))}
                 </span>
               </button>
             </li>

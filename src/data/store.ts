@@ -4,6 +4,7 @@ import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, total
 import { isValidDateString, toLocalDateString } from '../lib/dates';
 import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
+import { MAX_GRAMS } from '../domain/quantity';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, Settings, StockMovement } from '../domain/types';
@@ -25,6 +26,8 @@ export interface ProductInput {
   unit?: string;
   taxRateBp?: number;
   taxExemption?: string;
+  /** Only used when creating: 'weight' = sold by the kilo (price per kg, stock in grams). */
+  soldBy?: 'weight';
 }
 
 /** IVA in basis points: whole number from 0 to 10000 (0% to 100%). */
@@ -97,6 +100,8 @@ export class Store {
     const products = await this.db.products.bulkGet(items.map((i) => i.productId));
     return items.map((item, i) => {
       const p = products[i];
+      // The product decides how it is sold: a stale cart line can never sell grams as units.
+      if (p && (p.soldBy ?? 'unit') !== (item.soldBy ?? 'unit')) throw new DomainError('invalid_quantity');
       return {
         ...item,
         barcode: p?.barcode,
@@ -138,6 +143,7 @@ export class Store {
           id: uuid(),
           name: input.name.trim(),
           priceCents: input.priceCents,
+          ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
           barcode: clean(input.barcode),
           minStock: input.minStock,
           unit: cleanShort(input.unit, 10),
@@ -152,7 +158,8 @@ export class Store {
         if (initialStock > 0) {
           await this.addMovement({ productId: product.id, type: 'entry', delta: initialStock, reason: 'Stock inicial' });
         }
-        return product;
+        // Return the saved product (with the initial stock already applied).
+        return (await this.db.products.get(product.id))!;
       }),
     update: (id: string, input: ProductInput): Promise<Product> =>
       this.db.transaction('rw', [this.db.products, this.db.audit], async () => {
@@ -202,6 +209,7 @@ export class Store {
 
   private async assertProduct(input: ProductInput, selfId?: string) {
     if (!input.name.trim()) throw new DomainError('name_required');
+    if (input.soldBy !== undefined && input.soldBy !== 'weight') throw new DomainError('invalid_sold_by');
     if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new DomainError('invalid_price');
     if (!Number.isInteger(input.minStock) || input.minStock < 0) throw new DomainError('invalid_stock');
     if (!validTaxRate(input.taxRateBp)) throw new DomainError('invalid_tax');
@@ -317,7 +325,9 @@ export class Store {
         ],
         async () => {
           if (input.cart.length === 0) throw new DomainError('empty_cart');
-          if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0)) throw new DomainError('invalid_quantity');
+          if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0 || l.quantity > MAX_GRAMS)) {
+            throw new DomainError('invalid_quantity');
+          }
           let dueDate: string | undefined;
           let creditLimitOverride: Sale['creditLimitOverride'];
           if (input.method === 'credit') {
