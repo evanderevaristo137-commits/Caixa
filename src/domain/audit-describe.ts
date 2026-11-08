@@ -43,6 +43,10 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         const changes: string[] = [];
         if (before.priceCents !== after.priceCents)
           changes.push(`preço ${formatKz(before.priceCents ?? 0)} → ${formatKz(after.priceCents ?? 0)}`);
+        if (before.costCents !== after.costCents) {
+          const cost = (c: number | undefined) => (c === undefined ? '—' : formatKz(c));
+          changes.push(`preço de custo ${cost(before.costCents)} → ${cost(after.costCents)}`);
+        }
         if (before.name !== after.name) changes.push(`nome «${before.name}» → «${after.name}»`);
         if (before.barcode !== after.barcode) changes.push('código de barras');
         if (before.minStock !== after.minStock) changes.push(`stock mínimo ${before.minStock} → ${after.minStock}`);

@@ -3,6 +3,7 @@ import { formatDate, formatDateTime } from '../lib/dates';
 import { methodLabel } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { formatKg } from '../domain/quantity';
+import { lineCostCents } from '../domain/profit';
 import { DB_NAMES, TABLES, type CaixaDB, type TableName } from './db';
 import { PIN_KEYS } from './store';
 
@@ -136,10 +137,13 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Referência do pagamento',
       'Anulada',
       'Motivo da anulação',
+      'Custo linha (Kz)',
+      'Lucro linha (Kz)',
     ],
   ];
   for (const s of sales) {
     for (const it of s.items) {
+      const cost = lineCostCents(it);
       rows.push([
         formatDateTime(s.createdAt),
         s.number,
@@ -154,6 +158,8 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         s.transactionRef ?? '',
         s.voidedAt ? 'Sim' : '',
         s.voidReason ?? '',
+        cost === undefined ? '' : kzNumber(cost),
+        cost === undefined ? '' : kzNumber(it.lineTotalCents - cost),
       ]);
     }
   }
@@ -163,12 +169,13 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
 export async function productsCsv(db: CaixaDB): Promise<string> {
   const products = (await db.products.orderBy('name').toArray()).filter((p) => !p.archivedAt);
   return toCsv([
-    ['Produto', 'Código de barras', 'Vende-se por', 'Preço (Kz)', 'Stock', 'Stock mínimo'],
-    ...products.map((p) =>
-      p.soldBy === 'weight'
-        ? [p.name, p.barcode ?? '', 'kg', kzNumber(p.priceCents), formatKg(p.stock), formatKg(p.minStock)]
-        : [p.name, p.barcode ?? '', 'un', kzNumber(p.priceCents), p.stock, p.minStock],
-    ),
+    ['Produto', 'Código de barras', 'Vende-se por', 'Preço (Kz)', 'Stock', 'Stock mínimo', 'Preço de custo (Kz)'],
+    ...products.map((p) => {
+      const cost = p.costCents === undefined ? '' : kzNumber(p.costCents);
+      return p.soldBy === 'weight'
+        ? [p.name, p.barcode ?? '', 'kg', kzNumber(p.priceCents), formatKg(p.stock), formatKg(p.minStock), cost]
+        : [p.name, p.barcode ?? '', 'un', kzNumber(p.priceCents), p.stock, p.minStock, cost];
+    }),
   ]);
 }
 

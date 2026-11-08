@@ -5,6 +5,7 @@ import { daySummaryText, shoppingListText } from '../../domain/messages';
 import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
+import { profitByProduct, summariseProfit } from '../../domain/profit';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
@@ -14,6 +15,7 @@ import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
 import { BackupReminder } from './BackupReminder';
 import { SalesList } from './SalesList';
 import { PaymentAlerts } from './PaymentAlerts';
+import { ProfitCard } from './ProfitCard';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -35,12 +37,15 @@ export default function TodayScreen() {
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
     const view = summariseDayView(sales, payments, day, now);
+    const profit = summariseProfit(daySales);
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
-    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view));
+    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view, profit));
     return {
       offset,
       isToday,
       view,
+      profit,
+      topProfit: profitByProduct(daySales).slice(0, 3),
       summaryLink,
       daySales,
       lowStock: lowStockProducts(products),
@@ -124,6 +129,8 @@ export default function TodayScreen() {
           <p className="mt-2 text-sm font-semibold text-amber-200">{t.today.voidedLine(day.voidedCount, formatKz(day.voidedCents))}</p>
         )}
       </Card>
+
+      {day.count > 0 && <ProfitCard profit={data.profit} top={data.topProfit} />}
 
       <Card>
         <h2 className="font-bold">{t.today.cashTitle}</h2>

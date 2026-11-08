@@ -7,6 +7,10 @@ import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { formatBpAsPercent, parsePercentToBp } from '../../domain/tax';
 import { formatKg, parseWeight } from '../../domain/quantity';
+import { formatMargin, unitMargin } from '../../domain/profit';
+import { isInternalBarcode, isValidEan13 } from '../../domain/barcode';
+import { BarcodeSvg } from '../../ui/BarcodeSvg';
+import { LabelsSheet } from './LabelsSheet';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
@@ -15,6 +19,7 @@ import { StockPanel } from './StockPanel';
 const ERRORS: Record<string, string> = {
   name_required: t.products.nameRequired,
   invalid_price: t.products.invalidPrice,
+  invalid_cost: t.products.invalidCost,
   invalid_stock: t.products.invalidNumber,
   duplicate_barcode: t.products.duplicateBarcode,
   invalid_tax: t.invoicing.rateInvalid,
@@ -67,6 +72,8 @@ function ProductForm({
   const guard = usePinGuard();
   const [name, setName] = useState(product?.name ?? '');
   const [price, setPrice] = useState(product ? formatKz(product.priceCents).replace(' Kz', '') : '');
+  const [cost, setCost] = useState(product?.costCents !== undefined ? formatKz(product.costCents).replace(' Kz', '') : '');
+  const [labels, setLabels] = useState(false);
   const [barcode, setBarcode] = useState(product?.barcode ?? initialBarcode ?? '');
   // How the product is sold is chosen once, when it is created (stock history depends on it).
   const [soldBy, setSoldBy] = useState<'unit' | 'weight'>(product?.soldBy ?? 'unit');
@@ -84,6 +91,9 @@ function ProductForm({
   const save = async () => {
     const priceCents = parseKz(price);
     if (priceCents === null) return setError({ field: 'price', msg: t.products.invalidPrice });
+    // Cost price is optional: empty = not known.
+    const costCents = cost.trim() === '' ? undefined : parseKz(cost);
+    if (costCents === null) return setError({ field: 'cost', msg: t.products.invalidCost });
     // Weighed products: stock and minimum are typed in kg and kept in grams.
     const toQty = (text: string) => (byWeight ? parseWeight(text) : toInt(text));
     const qtyError = byWeight ? t.products.invalidWeight : t.products.invalidNumber;
@@ -96,6 +106,7 @@ function ProductForm({
     const input = {
       name,
       priceCents,
+      costCents,
       barcode,
       minStock: min,
       unit,
@@ -121,11 +132,13 @@ function ProductForm({
             ? 'barcode'
             : code === 'invalid_price'
               ? 'price'
-              : code === 'name_required'
-                ? 'name'
-                : code === 'invalid_tax'
-                  ? 'tax'
-                  : 'min';
+              : code === 'invalid_cost'
+                ? 'cost'
+                : code === 'name_required'
+                  ? 'name'
+                  : code === 'invalid_tax'
+                    ? 'tax'
+                    : 'min';
         setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
       }
     };
@@ -175,20 +188,41 @@ function ProductForm({
           inputMode="decimal"
           error={err('price')}
         />
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Field
-              label={t.products.barcode}
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              inputMode="numeric"
-              error={err('barcode')}
-            />
+        <Field
+          label={byWeight ? t.products.costPerKg : t.products.cost}
+          value={cost}
+          onChange={(e) => setCost(e.target.value)}
+          inputMode="decimal"
+          hint={t.products.costHint}
+          error={err('cost')}
+        />
+        <MarginHint price={price} cost={cost} byWeight={byWeight} />
+        <div className="space-y-2">
+          <Field
+            label={t.products.barcode}
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            inputMode="numeric"
+            hint={barcode.trim() ? undefined : t.products.barcodeHint}
+            error={err('barcode')}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            {scannerSupported() && (
+              <Button variant="secondary" onClick={() => setScanning(true)}>
+                {t.sell.scan}
+              </Button>
+            )}
+            {!barcode.trim() && (
+              <Button variant="secondary" onClick={() => void store.products.nextInternalBarcode().then(setBarcode)}>
+                {t.products.generateBarcode}
+              </Button>
+            )}
           </div>
-          {scannerSupported() && (
-            <Button variant="secondary" onClick={() => setScanning(true)}>
-              {t.sell.scan}
-            </Button>
+          {isValidEan13(barcode.trim()) && (
+            <div className="rounded-xl bg-white p-3 text-center">
+              <BarcodeSvg code={barcode.trim()} className="mx-auto h-auto w-56" />
+              {isInternalBarcode(barcode.trim()) && <p className="mt-1 text-sm text-slate-600">{t.products.internalBarcode}</p>}
+            </div>
           )}
         </div>
         {!product && (
@@ -223,6 +257,12 @@ function ProductForm({
         </Button>
       </div>
 
+      {product?.barcode && isValidEan13(product.barcode) && (
+        <Button variant="secondary" className="mt-3 w-full" onClick={() => setLabels(true)}>
+          {t.products.labels}
+        </Button>
+      )}
+
       {product && <StockPanel product={product} />}
 
       {product && (
@@ -230,6 +270,8 @@ function ProductForm({
           {t.products.archive}
         </Button>
       )}
+
+      {labels && product && <LabelsSheet initialIds={[product.id]} onClose={() => setLabels(false)} />}
 
       {scanning && (
         <Scanner
@@ -241,5 +283,21 @@ function ProductForm({
         />
       )}
     </Sheet>
+  );
+}
+
+/** Live "what you earn on each unit" line while the price and cost are typed. */
+function MarginHint({ price, cost, byWeight }: { price: string; cost: string; byWeight: boolean }) {
+  const priceCents = parseKz(price);
+  const costCents = cost.trim() ? parseKz(cost) : null;
+  if (priceCents === null || costCents === null) return null;
+  const m = unitMargin(priceCents, costCents);
+  if (m.profitCents < 0)
+    return <p className="rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-800">{t.products.belowCost(formatKz(-m.profitCents))}</p>;
+  const pct = m.marginBp === undefined ? '—' : formatMargin(m.marginBp);
+  return (
+    <p className="rounded-lg bg-brand-50 p-2 text-sm font-semibold text-brand-800">
+      {byWeight ? t.products.marginKg(formatKz(m.profitCents), pct) : t.products.marginUnit(formatKz(m.profitCents), pct)}
+    </p>
   );
 }

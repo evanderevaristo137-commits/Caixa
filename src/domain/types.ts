@@ -17,6 +17,9 @@ export interface BaseRecord {
 export interface Product extends BaseRecord {
   name: string;
   priceCents: Cents;
+  /** Optional cost price (what the shop pays the supplier), per unit or per kg. Used only for profit. */
+  costCents?: Cents;
+  /** Manufacturer's code, or an in-store code made by the app (EAN-13 starting with 20). */
   barcode?: string;
   /** 'weight': sold by the kilo. Price is per kg; stock and minimum are in GRAMS. Chosen at creation. */
   soldBy?: 'weight';
@@ -58,6 +61,8 @@ export interface SaleItem {
   lineTotalCents: Cents;
   /** 'weight': quantity is in grams and unitPriceCents is the price per kg. */
   soldBy?: 'weight';
+  /** Cost price on the day of the sale (per unit or per kg), for the profit. Never sent to partners. */
+  unitCostCents?: Cents;
   // Snapshot of the invoicing data at sale time (an invoice must show what applied that day).
   barcode?: string;
   unit?: string;

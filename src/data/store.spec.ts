@@ -48,6 +48,41 @@ describe('Store: products and stock', () => {
     expect(mv.find((m) => m.type === 'adjustment')!.reason).toBe('Partido');
   });
 
+  it('keeps an optional cost price, snapshotted on each sale line', async () => {
+    const p = await store.products.create({ name: 'Bolacha', priceCents: 50_000, costCents: 35_000, minStock: 0 }, 10);
+    expect(p.costCents).toBe(35_000);
+    await expect(store.products.create({ name: 'X', priceCents: 100, costCents: -1, minStock: 0 })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_cost',
+    );
+    const sale = await store.sales.create({ cart: addToCart([], p, 2), method: 'cash' });
+    expect(sale.items[0]!.unitCostCents).toBe(35_000);
+    // A new cost does not change past sales; clearing it leaves future lines without cost.
+    await store.products.update(p.id, { name: 'Bolacha', priceCents: 50_000, costCents: 40_000, minStock: 0 });
+    expect((await store.sales.get(sale.id))!.items[0]!.unitCostCents).toBe(35_000);
+    await store.products.update(p.id, { name: 'Bolacha', priceCents: 50_000, costCents: undefined, minStock: 0 });
+    expect((await store.products.get(p.id))!.costCents).toBeUndefined();
+    const later = await store.sales.create({ cart: addToCart([], (await store.products.get(p.id))!, 1), method: 'cash' });
+    expect(later.items[0]!.unitCostCents).toBeUndefined();
+    // Updating without the field keeps the cost.
+    await store.products.update(p.id, { name: 'Bolacha', priceCents: 50_000, costCents: 30_000, minStock: 0 });
+    await store.products.update(p.id, { name: 'Bolacha doce', priceCents: 50_000, minStock: 0 });
+    expect((await store.products.get(p.id))!.costCents).toBe(30_000);
+  });
+
+  it('makes in-store barcodes that are valid, unique and never reused', async () => {
+    await store.products.create({ name: 'Já tem', priceCents: 100, minStock: 0, barcode: '2000000000015' });
+    const first = await store.products.nextInternalBarcode();
+    expect(first).toBe('2000000000022'); // number 1 was taken, so it skips to 2
+    const second = await store.products.nextInternalBarcode();
+    expect(second).toBe('2000000000039');
+    const a = await store.products.create({ name: 'A', priceCents: 100, minStock: 0 });
+    const b = await store.products.create({ name: 'B', priceCents: 100, minStock: 0, barcode: '4006381333931' });
+    expect(await store.products.assignInternalBarcodes([a.id, b.id])).toBe(1);
+    expect((await store.products.get(a.id))!.barcode).toBe('2000000000046');
+    expect((await store.products.get(b.id))!.barcode).toBe('4006381333931');
+    expect((await store.products.findByBarcode('2000000000046'))!.name).toBe('A');
+  });
+
   it('archives products without losing them', async () => {
     const p = await store.products.create({ name: 'Velho', priceCents: 1, minStock: 0, barcode: '9' });
     await store.products.archive(p.id);

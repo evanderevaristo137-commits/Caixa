@@ -6,12 +6,14 @@ import { formatQuantity } from '../../domain/quantity';
 import { formatKz } from '../../lib/money';
 import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
+import { LabelsSheet } from './LabelsSheet';
 
 export default function ProductsScreen() {
   const { store } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | 'new' | null>(null);
+  const [labels, setLabels] = useState(false);
 
   const list = useMemo(() => {
     const q = normalise(query);
@@ -31,6 +33,11 @@ export default function ProductsScreen() {
         />
         <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
       </div>
+      {products && products.length > 0 && (
+        <Button variant="secondary" className="mb-3 w-full" onClick={() => setLabels(true)}>
+          {t.labels.title}
+        </Button>
+      )}
       {!products ? (
         <Skeleton />
       ) : products.length === 0 ? (
@@ -61,6 +68,7 @@ export default function ProductsScreen() {
         </ul>
       )}
       {open && <ProductSheet productId={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
+      {labels && <LabelsSheet onClose={() => setLabels(false)} />}
     </div>
   );
 }

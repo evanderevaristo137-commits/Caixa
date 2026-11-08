@@ -7,6 +7,7 @@ import { normaliseNif } from '../domain/nif';
 import { MAX_GRAMS } from '../domain/quantity';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
+import { internalBarcode } from '../domain/barcode';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
@@ -21,6 +22,8 @@ export class DomainError extends Error {
 export interface ProductInput {
   name: string;
   priceCents: number;
+  /** Optional cost price (per unit, or per kg when sold by weight). Undefined = not known. */
+  costCents?: number;
   barcode?: string;
   minStock: number;
   unit?: string;
@@ -104,6 +107,7 @@ export class Store {
       if (p && (p.soldBy ?? 'unit') !== (item.soldBy ?? 'unit')) throw new DomainError('invalid_quantity');
       return {
         ...item,
+        ...(p?.costCents !== undefined ? { unitCostCents: p.costCents } : {}),
         barcode: p?.barcode,
         unit: p?.unit,
         taxRateBp: p?.taxRateBp ?? settings?.defaultTaxRateBp,
@@ -143,6 +147,7 @@ export class Store {
           id: uuid(),
           name: input.name.trim(),
           priceCents: input.priceCents,
+          ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
           ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
           barcode: clean(input.barcode),
           minStock: input.minStock,
@@ -177,6 +182,11 @@ export class Store {
           taxExemption: cleanShort(input.taxExemption, 120),
           updatedAt: this.stamp(),
         };
+        // The cost price changes only when the form sends it (undefined clears it).
+        if ('costCents' in input) {
+          if (input.costCents === undefined) delete after.costCents;
+          else after.costCents = input.costCents;
+        }
         await this.db.products.put(after);
         await this.audit({ entity: 'product', entityId: id, action: 'updated', before, after });
         return after;
@@ -205,12 +215,46 @@ export class Store {
         await this.addMovement({ productId: id, type: 'adjustment', delta: result.delta, reason: reason.trim() });
       }),
     movements: (productId: string) => this.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt'),
+    /**
+     * Next free in-store barcode (EAN-13 starting with 20). The number is reserved at once,
+     * so two products never get the same code, even if the form is cancelled.
+     */
+    nextInternalBarcode: (): Promise<string> =>
+      this.db.transaction('rw', [this.db.products, this.db.meta], () => this.reserveInternalBarcode()),
+    /** Gives an in-store barcode to each of these products that has none. Audited. Returns how many got one. */
+    assignInternalBarcodes: (ids: string[]): Promise<number> =>
+      this.db.transaction('rw', [this.db.products, this.db.meta, this.db.audit], async () => {
+        let count = 0;
+        for (const id of ids) {
+          const before = await this.db.products.get(id);
+          if (!before || before.archivedAt || clean(before.barcode)) continue;
+          const after: Product = { ...before, barcode: await this.reserveInternalBarcode(), updatedAt: this.stamp() };
+          await this.db.products.put(after);
+          await this.audit({ entity: 'product', entityId: id, action: 'updated', before, after });
+          count += 1;
+        }
+        return count;
+      }),
   };
+
+  /** Call inside a transaction with products and meta. Skips codes already used by any product. */
+  private async reserveInternalBarcode(): Promise<string> {
+    const row = await this.db.meta.get('barcodeSeq');
+    let seq = typeof row?.value === 'number' ? row.value : 0;
+    let code: string;
+    do {
+      seq += 1;
+      code = internalBarcode(seq);
+    } while ((await this.db.products.where('barcode').equals(code).count()) > 0);
+    await this.db.meta.put({ key: 'barcodeSeq', value: seq });
+    return code;
+  }
 
   private async assertProduct(input: ProductInput, selfId?: string) {
     if (!input.name.trim()) throw new DomainError('name_required');
     if (input.soldBy !== undefined && input.soldBy !== 'weight') throw new DomainError('invalid_sold_by');
     if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new DomainError('invalid_price');
+    if (input.costCents !== undefined && (!Number.isInteger(input.costCents) || input.costCents < 0)) throw new DomainError('invalid_cost');
     if (!Number.isInteger(input.minStock) || input.minStock < 0) throw new DomainError('invalid_stock');
     if (!validTaxRate(input.taxRateBp)) throw new DomainError('invalid_tax');
     const code = clean(input.barcode);

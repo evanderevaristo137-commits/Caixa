@@ -5,6 +5,7 @@ import { methodLabel, t } from '../i18n/pt-AO';
 import { greeting } from './whatsapp';
 import { formatQuantity } from './quantity';
 import type { DayView } from './today';
+import { formatMargin, marginBp, type ProfitSummary } from './profit';
 import { PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
@@ -91,10 +92,15 @@ export function shoppingListText(
 }
 
 /** End-of-day summary for the owner (e.g. sent by an employee). */
-export function daySummaryText(storeName: string, dayTitle: string, view: DayView): string {
+export function daySummaryText(storeName: string, dayTitle: string, view: DayView, profit?: ProfitSummary): string {
   const { day } = view;
   const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
   lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
+  const margin = profit ? marginBp(profit) : undefined;
+  if (profit && margin !== undefined) {
+    const partial = profit.unknownLines > 0 ? ' — só dos produtos com preço de custo' : '';
+    lines.push(`Lucro estimado: ${formatKz(profit.profitCents)} (margem de ${formatMargin(margin)})${partial}`);
+  }
   lines.push(`${view.comparisonIsSameTime ? 'Ontem até esta hora' : 'Dia anterior'}: ${formatKz(view.comparison.totalCents)}`);
   lines.push(`Dinheiro na caixa (numerário): ${formatKz(view.cash.totalCents)}`);
   const methods = PAYMENT_METHODS.filter((m) => day.byMethod[m] > 0);

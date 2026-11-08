@@ -26,42 +26,42 @@ function demoBarcode(i: number): string {
   return body + String((10 - (sum % 10)) % 10);
 }
 
-// [name, price in Kz (per kg when sold by weight), minimum stock, final stock target, sold by weight]
-// Stock for weighed products is in grams.
-const PRODUCTS: [string, number, number, number, boolean?][] = [
-  ['Arroz 1 kg', 1_200, 10, 34],
-  ['Arroz 5 kg', 5_500, 4, 9],
-  ['Fuba de milho 1 kg', 800, 10, 28],
-  ['Fuba de bombó 1 kg', 900, 8, 6],
-  ['Feijão manteiga 1 kg', 1_500, 8, 19],
-  ['Açúcar 1 kg', 1_100, 10, 25],
-  ['Óleo vegetal 1 L', 1_850, 8, 3],
-  ['Óleo de palma 1 L', 2_000, 4, 11],
-  ['Sal 1 kg', 300, 5, 22],
-  ['Massa esparguete 500 g', 600, 10, 31],
-  ['Leite em pó 400 g', 3_200, 4, 7],
-  ['Leite UHT 1 L', 1_200, 6, 14],
-  ['Pão (unidade)', 150, 20, 45],
-  ['Ovos (dúzia)', 2_500, 4, 2],
-  ['Sardinha em lata', 650, 10, 26],
-  ['Atum em lata', 900, 6, 13],
-  ['Salsichas em lata', 800, 6, 15],
-  ['Massa de tomate 70 g', 350, 10, 30],
-  ['Cebola 1 kg', 800, 5, 12],
-  ['Batata 1 kg', 700, 5, 16],
-  ['Água 1,5 L', 300, 12, 40],
-  ['Gasosa 330 ml', 400, 12, 36],
-  ['Sumo 1 L', 1_200, 6, 10],
-  ['Cerveja 330 ml', 500, 24, 60],
-  ['Sabão em barra', 400, 8, 21],
-  ['Detergente em pó 500 g', 1_300, 5, 4],
-  ['Papel higiénico (4 rolos)', 1_200, 5, 12],
-  ['Pasta de dentes', 900, 4, 9],
-  ['Fósforos (caixa)', 100, 10, 50],
-  ['Carvão (saco)', 1_500, 4, 8],
-  ['Arroz a granel', 1_100, 10_000, 25_000, true],
-  ['Feijão a granel', 1_400, 5_000, 3_500, true],
-  ['Açúcar a granel', 1_000, 5_000, 12_000, true],
+// [name, price in Kz, cost price in Kz (both per kg when sold by weight), minimum stock, final stock target, sold by weight]
+// Stock for weighed products is in grams. Prices and costs are fictitious but plausible.
+const PRODUCTS: [string, number, number, number, number, boolean?][] = [
+  ['Arroz 1 kg', 1_200, 1_000, 10, 34],
+  ['Arroz 5 kg', 5_500, 4_700, 4, 9],
+  ['Fuba de milho 1 kg', 800, 650, 10, 28],
+  ['Fuba de bombó 1 kg', 900, 720, 8, 6],
+  ['Feijão manteiga 1 kg', 1_500, 1_200, 8, 19],
+  ['Açúcar 1 kg', 1_100, 900, 10, 25],
+  ['Óleo vegetal 1 L', 1_850, 1_550, 8, 3],
+  ['Óleo de palma 1 L', 2_000, 1_600, 4, 11],
+  ['Sal 1 kg', 300, 220, 5, 22],
+  ['Massa esparguete 500 g', 600, 470, 10, 31],
+  ['Leite em pó 400 g', 3_200, 2_700, 4, 7],
+  ['Leite UHT 1 L', 1_200, 980, 6, 14],
+  ['Pão (unidade)', 150, 110, 20, 45],
+  ['Ovos (dúzia)', 2_500, 2_050, 4, 2],
+  ['Sardinha em lata', 650, 500, 10, 26],
+  ['Atum em lata', 900, 720, 6, 13],
+  ['Salsichas em lata', 800, 630, 6, 15],
+  ['Massa de tomate 70 g', 350, 260, 10, 30],
+  ['Cebola 1 kg', 800, 600, 5, 12],
+  ['Batata 1 kg', 700, 520, 5, 16],
+  ['Água 1,5 L', 300, 210, 12, 40],
+  ['Gasosa 330 ml', 400, 290, 12, 36],
+  ['Sumo 1 L', 1_200, 950, 6, 10],
+  ['Cerveja 330 ml', 500, 370, 24, 60],
+  ['Sabão em barra', 400, 300, 8, 21],
+  ['Detergente em pó 500 g', 1_300, 1_050, 5, 4],
+  ['Papel higiénico (4 rolos)', 1_200, 950, 5, 12],
+  ['Pasta de dentes', 900, 700, 4, 9],
+  ['Fósforos (caixa)', 100, 70, 10, 50],
+  ['Carvão (saco)', 1_500, 1_100, 4, 8],
+  ['Arroz a granel', 1_100, 900, 10_000, 25_000, true],
+  ['Feijão a granel', 1_400, 1_100, 5_000, 3_500, true],
+  ['Açúcar a granel', 1_000, 820, 5_000, 12_000, true],
 ];
 
 // Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
@@ -103,10 +103,11 @@ export function buildDemoData(now: Date): DemoData {
   const start = addDays(startOfLocalDay(now), -14);
   const createdAt = iso(addDays(start, -1));
 
-  const products: Product[] = PRODUCTS.map(([name, kz, minStock, , byWeight], i) => ({
+  const products: Product[] = PRODUCTS.map(([name, kz, costKz, minStock, , byWeight], i) => ({
     id: uuid(),
     name,
     priceCents: kz * 100,
+    costCents: costKz * 100,
     ...(byWeight ? { soldBy: 'weight' as const } : {}),
     // Loose goods are weighed, not scanned.
     barcode: byWeight ? undefined : demoBarcode(i),
@@ -141,11 +142,19 @@ export function buildDemoData(now: Date): DemoData {
             quantity: grams,
             soldBy: 'weight',
             lineTotalCents: lineTotalFor(p.priceCents, grams, 'weight'),
+            unitCostCents: p.costCents,
           });
           continue;
         }
         const quantity = 1 + Math.floor(rand() * (p.priceCents <= 50_000 ? 4 : 2));
-        items.push({ productId: p.id, name: p.name, unitPriceCents: p.priceCents, quantity, lineTotalCents: p.priceCents * quantity });
+        items.push({
+          productId: p.id,
+          name: p.name,
+          unitPriceCents: p.priceCents,
+          quantity,
+          lineTotalCents: p.priceCents * quantity,
+          unitCostCents: p.costCents,
+        });
       }
       let r = rand();
       let method: PaymentMethod = 'cash';
@@ -226,7 +235,7 @@ export function buildDemoData(now: Date): DemoData {
   for (const s of sales) for (const it of s.items) sold.set(it.productId, (sold.get(it.productId) ?? 0) + it.quantity);
   const movements: StockMovement[] = [];
   products.forEach((p, i) => {
-    const target = PRODUCTS[i]![3];
+    const target = PRODUCTS[i]![4];
     const initial = (sold.get(p.id) ?? 0) + target;
     movements.push({
       id: uuid(),
@@ -280,6 +289,8 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
       updatedAt: at,
     });
     await db.meta.put({ key: 'saleNumber', value: data.sales.length });
+    // In-store codes made later in the demo start after the demo's own codes.
+    await db.meta.put({ key: 'barcodeSeq', value: PRODUCTS.length });
     await db.meta.put({ key: 'demoSeededAt', value: at });
     await db.audit.add({ id: uuid(), entity: 'data', entityId: 'demo', action: 'reset', createdAt: at, updatedAt: at });
   });

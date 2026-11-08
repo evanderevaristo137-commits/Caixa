@@ -32,6 +32,30 @@ button {
   outline: 3px solid #f59e0b;
   outline-offset: 2px;
 }
+/* Printing labels: only the labels go to paper (or PDF), 3 per row. */
+@media print {
+  @page {
+    margin: 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body > *:not(.print-area) {
+    display: none !important;
+  }
+  .print-area {
+    position: static !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .label-cell {
+    height: 36mm;
+    break-inside: avoid;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

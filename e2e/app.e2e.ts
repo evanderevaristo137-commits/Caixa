@@ -536,3 +536,55 @@ test('the cart button is always there, with the number of articles', async ({ pa
   await page.getByRole('button', { name: 'Limpar' }).click();
   await expect(cart).toHaveAccessibleName('Carrinho: O carrinho está vazio.');
 });
+
+test('cost price gives the day profit; the app makes barcodes and prints labels', async ({ page }) => {
+  // window.print would open the phone's print screen: count the calls instead.
+  await page.addInitScript(() => {
+    const w = window as unknown as { printed: number };
+    w.printed = 0;
+    window.print = () => {
+      w.printed += 1;
+    };
+  });
+  await page.goto('./');
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: '+ Novo produto' }).first().click();
+  await page.getByLabel('Nome').fill('Bolacha Maria');
+  await page.getByLabel('Preço (Kz)').fill('500');
+  await page.getByLabel('Preço de custo (Kz) — opcional').fill('350');
+  await expect(page.getByText('Ganha 150 Kz em cada unidade (margem de 30%).')).toBeVisible();
+  await page.getByRole('button', { name: 'Gerar código' }).click();
+  await expect(page.getByLabel('Código de barras (opcional)')).toHaveValue(/^20\d{11}$/);
+  await expect(page.getByRole('img', { name: /^Código de barras 20\d{11}$/ })).toBeVisible();
+  await expect(page.getByText('Código da loja: só funciona nesta loja.')).toBeVisible();
+  await page.getByLabel('Stock inicial').fill('10');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+
+  await page.getByRole('button', { name: '+ Novo produto' }).first().click();
+  await page.getByLabel('Nome').fill('Pão');
+  await page.getByLabel('Preço (Kz)').fill('100');
+  await page.getByLabel('Stock inicial').fill('20');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByRole('button', { name: /Pão/ })).toBeVisible();
+
+  await sellInCash(page, [/Bolacha Maria/, /Bolacha Maria/, /Pão/]);
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+  await nav(page, 'Hoje');
+  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Lucro estimado das vendas' }) });
+  await expect(card.locator('.text-3xl')).toHaveText('300 Kz');
+  await expect(card).toContainText('Margem de 30% · os produtos custaram 700 Kz');
+  await expect(card).toContainText('1 artigo vendido sem preço de custo não entra nesta conta.');
+  const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
+  expect(decodeURIComponent(summary!)).toContain('Lucro estimado: 300 Kz (margem de 30%) — só dos produtos com preço de custo');
+
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: 'Etiquetas com código de barras' }).click();
+  await page.getByRole('button', { name: 'Gerar código para 1 produto sem código' }).click();
+  await expect(page.getByText('1 código gerado.')).toBeVisible();
+  await page.getByRole('button', { name: 'Mais uma cópia' }).click();
+  await page.getByRole('button', { name: 'Imprimir ou guardar em PDF' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Etiquetas para imprimir' });
+  await expect(sheet).toContainText('4 etiquetas');
+  await expect(sheet.getByRole('img', { name: /^Código de barras 20/ })).toHaveCount(4);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
+});

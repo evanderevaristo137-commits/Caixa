@@ -125,6 +125,17 @@ describe('daySummaryText', () => {
       ].join('\n'),
     );
   });
+
+  it('adds the estimated profit when products have a cost price', () => {
+    const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
+    const profit = { revenueCents: 100_000, costCents: 75_000, profitCents: 25_000, unknownRevenueCents: 0, unknownLines: 0 };
+    expect(daySummaryText('Loja', 'Hoje', view, profit)).toContain('Lucro estimado: 250 Kz (margem de 25%)');
+    expect(daySummaryText('Loja', 'Hoje', view, { ...profit, unknownLines: 2, unknownRevenueCents: 5_000 })).toContain(
+      'Lucro estimado: 250 Kz (margem de 25%) — só dos produtos com preço de custo',
+    );
+    // Without cost prices there is no profit line (the number is never invented).
+    expect(daySummaryText('Loja', 'Hoje', view, { ...profit, revenueCents: 0, costCents: 0, profitCents: 0 })).not.toContain('Lucro');
+  });
 });
 
 describe('weighed products in messages', () => {
