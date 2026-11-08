@@ -723,3 +723,28 @@ test('week and month reports with a chart, and the store sheet for a bank', asyn
   await ficha.getByRole('button', { name: 'Imprimir ou guardar em PDF' }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
 });
+
+test('a sale on hold: serve another customer and come back to it without losing anything', async ({ page }) => {
+  await openDemo(page);
+  const cart = page.getByRole('button', { name: /^Carrinho:/ });
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await cart.click();
+  await page.getByRole('button', { name: 'Pôr em espera (atender outro cliente)' }).click();
+  await expect(page.getByText('Venda posta em espera. Pode atender outro cliente.')).toBeVisible();
+  await expect(cart).toHaveAccessibleName('Carrinho: O carrinho está vazio.');
+  const held = page.getByRole('group', { name: 'Em espera' });
+  await expect(held.getByRole('button')).toHaveCount(1);
+  await expect(held.getByRole('button').first()).toHaveAccessibleName(/2 artigos, 2\.400 Kz/);
+
+  // Another customer buys oil; then the first one comes back.
+  await page.getByRole('button', { name: /Óleo vegetal/ }).click();
+  await held.getByRole('button').first().click();
+  await expect(cart).toHaveAccessibleName('Carrinho: 2 artigos, 2.400 Kz');
+  await expect(held.getByRole('button').first()).toHaveAccessibleName(/1 artigo, 1\.850 Kz/);
+
+  // It survives the app being closed and opened again.
+  await page.reload();
+  await expect(page.getByRole('group', { name: 'Em espera' }).getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Carrinho:/ })).toHaveAccessibleName('Carrinho: 2 artigos, 2.400 Kz');
+});

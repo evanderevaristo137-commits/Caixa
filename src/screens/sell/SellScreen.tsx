@@ -7,7 +7,9 @@ import { formatKz } from '../../lib/money';
 import { salesFrequency, sortByFrequency } from '../../domain/ranking';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
-import { addDays } from '../../lib/dates';
+import { addDays, formatTime } from '../../lib/dates';
+import { hold, parseHeld, resume, type HeldCart } from '../../domain/held';
+import { uuid } from '../../lib/ids';
 import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { ProductSheet } from '../products/ProductSheet';
 import { CartIcon, PlusIcon } from '../../ui/icons';
@@ -40,6 +42,23 @@ export function SellScreen() {
       return [];
     }
   });
+  // Sales on hold (several customers at once), also kept on the phone.
+  const heldKey = `caixa.held.${mode}`;
+  const [held, setHeld] = useState<HeldCart[]>(() => {
+    try {
+      return parseHeld(localStorage.getItem(heldKey));
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      if (held.length === 0) localStorage.removeItem(heldKey);
+      else localStorage.setItem(heldKey, JSON.stringify(held));
+    } catch {
+      /* storage unavailable: held sales just aren't saved */
+    }
+  }, [held, heldKey]);
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<'none' | 'cart' | 'checkout' | 'scan'>('none');
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
@@ -110,6 +129,24 @@ export function SellScreen() {
   const count = cartCount(cart);
   const total = cartTotal(cart);
 
+  const putOnHold = () => {
+    const next = hold(held, cart, uuid(), new Date());
+    if (!next) return showToast(t.sell.heldFull);
+    setHeld(next);
+    setCart([]);
+    setSheet('none');
+    setQuery('');
+    showToast(t.sell.heldDone);
+  };
+  const takeBack = (id: string) => {
+    const r = resume(held, id, cart, uuid(), new Date());
+    if (!r) return;
+    setHeld(r.held);
+    setCart(products ? reconcileCart(r.cart, products) : r.cart);
+    showToast(t.sell.resumed);
+  };
+  const heldText = (h: HeldCart) => [formatTime(h.at), t.sell.cartItems(cartCount(h.cart)), formatKz(cartTotal(h.cart))] as const;
+
   return (
     <div>
       <div className="sticky top-0 z-10 flex gap-2 bg-slate-100 p-3">
@@ -144,6 +181,23 @@ export function SellScreen() {
           )}
         </button>
       </div>
+
+      {held.length > 0 && (
+        <div className="-mt-1 flex items-center gap-2 overflow-x-auto px-3 pb-2" role="group" aria-label={t.sell.heldTitle}>
+          <span className="shrink-0 text-sm font-bold text-amber-800">{t.sell.heldTitle}:</span>
+          {held.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => takeBack(h.id)}
+              aria-label={t.sell.resumeHeld(...heldText(h))}
+              className="min-h-11 shrink-0 rounded-full border-2 border-amber-400 bg-amber-50 px-3 text-sm font-semibold whitespace-nowrap text-amber-950 active:bg-amber-100"
+            >
+              {t.sell.heldChip(...heldText(h))}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!products || !ordered ? (
         <Skeleton rows={6} />
@@ -268,6 +322,7 @@ export function SellScreen() {
           setCart={setCart}
           onClose={() => setSheet('none')}
           onCharge={() => setSheet('checkout')}
+          onHold={putOnHold}
           onEditWeight={(productId) => {
             const p = products?.find((x) => x.id === productId);
             if (p) setWeighing(p);

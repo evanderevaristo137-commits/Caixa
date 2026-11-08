@@ -12,11 +12,14 @@ export function CartSheet({
   onClose,
   onCharge,
   onEditWeight,
+  onHold,
 }: {
   cart: Cart;
   setCart: (fn: (c: Cart) => Cart) => void;
   onClose: () => void;
   onCharge: () => void;
+  /** Puts this sale on hold to serve another customer. */
+  onHold?: () => void;
   /** Opens the weighing sheet for a product sold by weight. */
   onEditWeight: (productId: string) => void;
 }) {
@@ -71,6 +74,11 @@ export function CartSheet({
           {t.sell.charge} <Money cents={cartTotal(cart)} />
         </Button>
       </div>
+      {onHold && (
+        <Button variant="secondary" className="mt-2 w-full" onClick={onHold}>
+          {t.sell.hold}
+        </Button>
+      )}
     </Sheet>
   );
 }
