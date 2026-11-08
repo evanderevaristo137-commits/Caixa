@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { registerBackHandler } from './back';
 import { formatKz } from '../lib/money';
 
@@ -51,22 +51,39 @@ export function LinkButton({
   );
 }
 
+/**
+ * Text field. The label names the field; the hint and the error are linked with aria-describedby
+ * (so a screen reader says "Código, Código errado" instead of reading them as one name).
+ */
 export function Field({
   label,
   error,
   hint,
+  id,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | null; hint?: string }) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const noteId = `${inputId}-note`;
+  const note = error ?? hint;
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-semibold text-slate-700">{label}</span>
+    <div>
+      <label htmlFor={inputId} className="mb-1 block text-sm font-semibold text-slate-700">
+        {label}
+      </label>
       <input
         {...props}
+        id={inputId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={note ? noteId : undefined}
         className={`min-h-12 w-full rounded-xl border-2 bg-white px-3 text-lg ${error ? 'border-red-500' : 'border-slate-300'} focus:border-brand-700 focus:outline-none`}
       />
-      {hint && !error && <span className="mt-1 block text-sm text-slate-600">{hint}</span>}
-      {error && <span className="mt-1 block text-sm font-medium text-red-700">{error}</span>}
-    </label>
+      {note && (
+        <p id={noteId} className={`mt-1 text-sm ${error ? 'font-medium text-red-700' : 'text-slate-600'}`}>
+          {note}
+        </p>
+      )}
+    </div>
   );
 }
 

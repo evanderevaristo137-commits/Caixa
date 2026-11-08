@@ -3,6 +3,7 @@ import { formatDate, formatDateTime } from '../lib/dates';
 import { methodLabel } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { DB_NAMES, TABLES, type CaixaDB, type TableName } from './db';
+import { PIN_KEYS } from './store';
 
 export const BACKUP_APP = 'caixa';
 export const BACKUP_VERSION = 1;
@@ -33,6 +34,8 @@ export async function lastBackupAt(db: CaixaDB): Promise<string | undefined> {
 export async function exportBackup(db: CaixaDB, now = new Date()): Promise<Backup> {
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) data[name] = await db.table(name).toArray();
+  // The owner code stays on this phone.
+  data.meta = (data.meta as { key: string }[]).filter((row) => !(PIN_KEYS as readonly string[]).includes(row.key));
   return { app: BACKUP_APP, version: BACKUP_VERSION, exportedAt: now.toISOString(), data };
 }
 
@@ -74,11 +77,18 @@ export async function importBackup(db: CaixaDB, raw: unknown, now = new Date()):
   // Demo data must never mix with a real shop's data.
   if (db.name === DB_NAMES.store && isDemoBackup(backup)) throw new Error('demo_into_store');
   await db.transaction('rw', db.tables, async () => {
+    // Keep this phone's owner code (backups never carry one).
+    const pinRows = (await db.meta.bulkGet([...PIN_KEYS])).filter((r) => r !== undefined);
     for (const name of TABLES) {
       const table = db.table(name);
       await table.clear();
-      await table.bulkAdd(backup.data[name]);
+      const rows =
+        name === 'meta'
+          ? backup.data.meta.filter((r) => !(PIN_KEYS as readonly string[]).includes((r as { key: string }).key))
+          : backup.data[name];
+      await table.bulkAdd(rows);
     }
+    if (pinRows.length) await db.meta.bulkPut(pinRows);
     const at = now.toISOString();
     await db.audit.add({
       id: uuid(),
@@ -121,6 +131,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Total venda (Kz)',
       'Pagamento',
       'Cliente (a crédito)',
+      'Referência do pagamento',
       'Anulada',
       'Motivo da anulação',
     ],
@@ -137,6 +148,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         kzNumber(s.totalCents),
         methodLabel[s.method],
         s.customerId ? (names.get(s.customerId) ?? '') : '',
+        s.transactionRef ?? '',
         s.voidedAt ? 'Sim' : '',
         s.voidReason ?? '',
       ]);

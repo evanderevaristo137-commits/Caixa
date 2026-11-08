@@ -6,6 +6,8 @@ import type { Product, StockMovementType } from '../../domain/types';
 import { reasonsList, t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Field } from '../../ui/kit';
+import { usePinGuard } from '../../ui/pin';
+import { adjustmentDelta } from '../../domain/stock';
 
 const ERRORS: Record<string, string> = {
   not_whole: t.products.invalidNumber,
@@ -24,6 +26,7 @@ const MV_LABEL: Record<StockMovementType, string> = {
 /** Stock entries, adjustments (with reason) and the movement history of one product. */
 export function StockPanel({ product }: { product: Product }) {
   const { store, showToast } = useApp();
+  const guard = usePinGuard();
   const movements = useLiveQuery(() => store.products.movements(product.id), [store, product.id]);
   const [mode, setMode] = useState<'none' | 'entry' | 'adjust'>('none');
   const [qty, setQty] = useState('');
@@ -33,17 +36,24 @@ export function StockPanel({ product }: { product: Product }) {
   const submit = async () => {
     const n = /^\d+$/.test(qty.trim()) ? Number(qty.trim()) : NaN;
     if (Number.isNaN(n)) return setError(t.products.invalidNumber);
-    try {
-      if (mode === 'entry') await store.products.addEntry(product.id, n);
-      else await store.products.adjust(product.id, n, reason);
-      setMode('none');
-      setQty('');
-      setReason('');
-      setError(null);
-      showToast(t.settings.saved);
-    } catch (e) {
-      setError(e instanceof DomainError ? (ERRORS[e.code] ?? e.code) : String(e));
-    }
+    const run = async () => {
+      try {
+        if (mode === 'entry') await store.products.addEntry(product.id, n);
+        else await store.products.adjust(product.id, n, reason);
+        setMode('none');
+        setQty('');
+        setReason('');
+        setError(null);
+        showToast(t.settings.saved);
+      } catch (e) {
+        setError(e instanceof DomainError ? (ERRORS[e.code] ?? t.errors.saveFailed) : t.errors.saveFailed);
+      }
+    };
+    if (mode === 'entry') return run();
+    // Adjustments need the owner code (when set); check the input first so the code is asked only for a valid adjustment.
+    const check = adjustmentDelta(product.stock, n, reason);
+    if ('error' in check) return setError(ERRORS[check.error] ?? t.errors.saveFailed);
+    await guard(run);
   };
 
   return (

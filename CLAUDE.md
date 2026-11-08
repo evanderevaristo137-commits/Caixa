@@ -93,6 +93,10 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 - **Formas de pagamento:** numerário, QR KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay e cliente (a crédito).
 - **NIF aceita letras e números** (o NIF de pessoa singular segue o BI); guarda-se em maiúsculas, sem espaços. É só um dado: a app não valida nada para efeitos fiscais.
 - **Número de testes do WhatsApp (955 502 264)** usado em todos os clientes da demonstração, a pedido do fundador. Atenção: o repositório e a app são públicos, por isso este número fica visível.
+- **Referência do pagamento (opcional)** nos pagamentos electrónicos e nos pagamentos de clientes (`transactionRef`): o código que aparece no telemóvel do cliente, para conferir com o banco. Cada venda e pagamento guarda também o `deviceId` do telemóvel (para a sincronização da Fase 2).
+- **Código do dono (opcional, desligado por defeito):** 4 a 6 números, guardado só como resumo (SHA-256 com sal) em `meta`. Pedido para anular vendas, mudar preços, acertar stock, arquivar produtos, corrigir stock e recuperar cópias. Nunca vai nas cópias de segurança e recuperar uma cópia mantém o código do telemóvel. É dissuasão, não um cofre: quem controla o telemóvel pode apagar a app.
+- **Verificar os dados:** recalcula a partir dos factos (stock = soma dos movimentos; total = soma das linhas; vendas a crédito e pagamentos com cliente; números de venda únicos). O stock corrige-se com um toque (auditado); o resto só é mostrado.
+- **Registo de alterações** em português simples a partir de `audit` (`src/domain/audit-describe.ts`); por defeito mostra só o importante (anulações, preços, acertos, pagamentos, cópias, código do dono).
 - **Endereço público:** https://evanderevaristo137-commits.github.io/Caixa/ (o «C» maiúsculo conta: a app instalada só funciona nesse endereço exacto).
 
 ## Notas técnicas

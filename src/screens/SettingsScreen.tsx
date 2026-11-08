@@ -12,6 +12,10 @@ import { shareOrDownload } from '../lib/share';
 import { isStoragePersisted } from '../lib/storage';
 import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
+import { OwnerPinCard } from './settings/OwnerPinCard';
+import { IntegrityCard } from './settings/IntegrityCard';
+import { AuditLogCard } from './settings/AuditLogCard';
+import { usePinGuard } from '../ui/pin';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 
 export default function SettingsScreen() {
@@ -23,7 +27,10 @@ export default function SettingsScreen() {
       <InstallCard />
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <CreditSettingsCard settings={settings} />
+      <OwnerPinCard />
       <DataCard />
+      <IntegrityCard />
+      <AuditLogCard />
       <DemoCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
     </div>
@@ -82,6 +89,7 @@ function StoreForm({ settings }: { settings: Settings }) {
 
 function DataCard() {
   const { store, mode, showToast } = useApp();
+  const guard = usePinGuard();
   const file = useRef<HTMLInputElement>(null);
   const last = useLiveQuery(() => lastBackupAt(store.db), [store]);
   const persisted = useLiveQuery(() => isStoragePersisted(), []);
@@ -100,16 +108,23 @@ function DataCard() {
 
   const onImport = async (f: File | undefined) => {
     if (!f) return;
+    if (file.current) file.current.value = '';
+    let raw: unknown;
     try {
-      const raw: unknown = JSON.parse(await f.text());
-      if (!window.confirm(t.settings.importConfirm)) return;
-      await importBackup(store.db, raw);
-      showToast(t.settings.importOk);
-    } catch (e) {
-      showToast(e instanceof Error && e.message === 'demo_into_store' ? t.settings.importDemoBlocked : t.settings.importBad);
-    } finally {
-      if (file.current) file.current.value = '';
+      raw = JSON.parse(await f.text());
+    } catch {
+      return showToast(t.settings.importBad);
     }
+    if (!window.confirm(t.settings.importConfirm)) return;
+    // Replacing all data needs the owner code (when set).
+    await guard(async () => {
+      try {
+        await importBackup(store.db, raw);
+        showToast(t.settings.importOk);
+      } catch (e) {
+        showToast(e instanceof Error && e.message === 'demo_into_store' ? t.settings.importDemoBlocked : t.settings.importBad);
+      }
+    });
   };
 
   return (

@@ -6,6 +6,7 @@ import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Sheet } from '../../ui/kit';
+import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
 
@@ -60,6 +61,7 @@ function ProductForm({
   store: ReturnType<typeof useApp>['store'];
   showToast: (m: string) => void;
 }) {
+  const guard = usePinGuard();
   const [name, setName] = useState(product?.name ?? '');
   const [price, setPrice] = useState(product ? formatKz(product.priceCents).replace(' Kz', '') : '');
   const [barcode, setBarcode] = useState(product?.barcode ?? initialBarcode ?? '');
@@ -76,28 +78,35 @@ function ProductForm({
     const initial = toInt(stock);
     if (!product && initial === null) return setError({ field: 'stock', msg: t.products.invalidNumber });
     const input = { name, priceCents, barcode, minStock: min };
-    try {
-      if (product) {
-        await store.products.update(product.id, input);
-      } else {
-        // Note: `onCreated?.(await create())` would skip the create when there is no callback.
-        const created = await store.products.create(input, initial ?? 0);
-        onCreated?.(created);
+    const persist = async () => {
+      try {
+        if (product) {
+          await store.products.update(product.id, input);
+        } else {
+          // Note: `onCreated?.(await create())` would skip the create when there is no callback.
+          const created = await store.products.create(input, initial ?? 0);
+          onCreated?.(created);
+        }
+        showToast(t.settings.saved);
+        onClose();
+      } catch (e) {
+        const code = e instanceof DomainError ? e.code : 'unknown';
+        const field =
+          code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
+        setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
       }
-      showToast(t.settings.saved);
-      onClose();
-    } catch (e) {
-      const code = e instanceof DomainError ? e.code : 'unknown';
-      const field =
-        code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
-      setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
-    }
+    };
+    // A new price on an existing product needs the owner code (when set).
+    if (product && priceCents !== product.priceCents) await guard(persist);
+    else await persist();
   };
 
   const archive = async () => {
     if (!product || !window.confirm(t.products.archiveConfirm)) return;
-    await store.products.archive(product.id);
-    onClose();
+    await guard(async () => {
+      await store.products.archive(product.id);
+      onClose();
+    });
   };
 
   const err = (f: string) => (error?.field === f ? error.msg : null);

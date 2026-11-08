@@ -329,3 +329,70 @@ test('with the app closed, Android wakes the background check and the shop gets 
   await page.waitForTimeout(500);
   expect(await notifications()).toEqual([]);
 });
+
+test('the owner code protects voids and price changes, and everything shows in the activity log', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Definir código' }).click();
+  await page.getByLabel('Novo código (4 a 6 números)').fill('2580');
+  await page.getByLabel('Repita o novo código').fill('2580');
+  await page.getByRole('button', { name: 'Guardar' }).last().click();
+  await expect(page.getByText('Código activo.')).toBeVisible();
+
+  // Voiding a sale asks for the code.
+  await nav(page, 'Hoje');
+  await page.getByRole('button', { name: /Arroz/ }).first().click();
+  await page.getByRole('button', { name: 'Anular venda' }).click();
+  await page.getByRole('button', { name: 'Engano no registo' }).click();
+  await page.getByRole('button', { name: 'Confirmar anulação' }).click();
+  await expect(page.getByText('Esta acção precisa do código do dono.')).toBeVisible();
+  await page.getByLabel('Código', { exact: true }).fill('1111');
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByText('Código errado.')).toBeVisible();
+  await page.getByLabel('Código', { exact: true }).fill('2580');
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByText(/Anulada em/)).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+
+  // A new price asks for the code too.
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: /Sal 1 kg/ }).click();
+  await page.getByLabel('Preço (Kz)').fill('350');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByLabel('Código', { exact: true }).fill('2580');
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Sal 1 kg/ })).toContainText('350 Kz');
+
+  // Activity log, in plain words.
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Ver registo' }).click();
+  await expect(page.getByText(/Venda n\.º \d+ anulada \([\d.]+ Kz\)\. Motivo: Engano no registo/)).toBeVisible();
+  await expect(page.getByText('Sal 1 kg: preço 300 Kz → 350 Kz')).toBeVisible();
+  await expect(page.getByText('Código do dono definido')).toBeVisible();
+});
+
+test("an electronic payment keeps the reference shown on the customer's phone", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'PayPay' }).click();
+  await page.getByLabel('Referência do pagamento (opcional)').fill('PP-778899');
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  const receipt = page.getByRole('link', { name: 'Enviar talão por WhatsApp' });
+  await expect.poll(async () => decodeURIComponent((await receipt.getAttribute('href'))!)).toContain('Ref. do pagamento: PP-778899');
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+  await nav(page, 'Hoje');
+  await page
+    .getByRole('button', { name: /Arroz 1 kg/ })
+    .first()
+    .click();
+  await expect(page.getByText('Referência do cliente')).toBeVisible();
+  await expect(page.getByText('PP-778899')).toBeVisible();
+});
+
+test('"Verificar os dados" confirms that every number adds up', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Verificar agora' }).click();
+  await expect(page.getByText(/Tudo certo: \d+ vendas e \d+ produtos verificados\./)).toBeVisible();
+});

@@ -27,6 +27,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const [method, setMethod] = useState<CreditPayment['method']>('cash');
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
+  const [transactionRef, setTransactionRef] = useState('');
   const [name, setName] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
@@ -40,7 +41,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const pay = async (cents: number | null) => {
     const check = validateCreditPayment(cents ?? 0, status.balanceCents);
     if (check !== 'ok') return setError(check === 'zero' ? t.credit.zero : t.credit.tooMuch);
-    await store.credit.addPayment(customer.id, cents!, method);
+    await store.credit.addPayment(customer.id, cents!, method, transactionRef);
+    setTransactionRef('');
     setPaying(false);
     setAmount('');
     setError(null);
@@ -129,6 +131,15 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
                   </button>
                 ))}
               </div>
+              {method !== 'cash' && (
+                <Field
+                  label={t.sell.transactionRef}
+                  value={transactionRef}
+                  onChange={(e) => setTransactionRef(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                />
+              )}
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => void pay(status.balanceCents)}>
                   {t.credit.payAll}

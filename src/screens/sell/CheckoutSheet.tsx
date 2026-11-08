@@ -21,6 +21,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [chosenDueDate, setChosenDueDate] = useState<string | null>(null);
   const [received, setReceived] = useState('');
+  const [transactionRef, setTransactionRef] = useState('');
   const [busy, setBusy] = useState(false);
   // Guards against a double tap saving the same sale twice (state updates are not instant).
   const submitting = useRef(false);
@@ -56,6 +57,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         paymentRef,
         cashReceivedCents: method === 'cash' && receivedCents !== null ? receivedCents : undefined,
         dueDate: method === 'credit' ? dueDate : undefined,
+        transactionRef,
       });
       navigator.vibrate?.([40, 60, 40]);
       setSale(saved);
@@ -171,8 +173,18 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         </div>
       )}
 
-      {method && method !== 'cash' && method !== 'credit' && payments.isTest && (
-        <p className="mt-3 rounded-lg bg-slate-200 p-2 text-center text-sm text-slate-700">{t.sell.simulated}</p>
+      {method && method !== 'cash' && method !== 'credit' && (
+        <div className="mt-4 space-y-2">
+          {payments.isTest && <p className="rounded-lg bg-slate-200 p-2 text-center text-sm text-slate-700">{t.sell.simulated}</p>}
+          <Field
+            label={t.sell.transactionRef}
+            hint={t.sell.transactionRefHint}
+            value={transactionRef}
+            onChange={(e) => setTransactionRef(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="characters"
+          />
+        </div>
       )}
 
       <Button big className="mt-4 w-full" disabled={!canConfirm} onClick={() => void confirm()}>

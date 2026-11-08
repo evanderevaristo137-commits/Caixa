@@ -8,10 +8,12 @@ import { methodLabel, t, voidReasonsList } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { lineTotal } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
+import { usePinGuard } from '../../ui/pin';
 
 /** One sale: details, resend the non-fiscal receipt, or void it (with a reason). */
 export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => void }) {
   const { store, showToast } = useApp();
+  const guard = usePinGuard();
   const data = useLiveQuery(async () => {
     const sale = await store.sales.get(saleId);
     const [customer, settings] = await Promise.all([
@@ -28,13 +30,16 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
   const { sale, customer, settings } = data;
 
   const confirmVoid = async () => {
-    try {
-      await store.sales.void(sale.id, reason);
-      showToast(t.sale.voidDone);
-      setVoiding(false);
-    } catch (e) {
-      setError(e instanceof DomainError && e.code === 'reason_required' ? t.products.reasonRequired : String(e));
-    }
+    if (reason.trim().length < 3) return setError(t.products.reasonRequired);
+    await guard(async () => {
+      try {
+        await store.sales.void(sale.id, reason);
+        showToast(t.sale.voidDone);
+        setVoiding(false);
+      } catch (e) {
+        setError(e instanceof DomainError && e.code === 'reason_required' ? t.products.reasonRequired : t.errors.saveFailed);
+      }
+    });
   };
 
   return (
@@ -68,6 +73,12 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
           <div className="flex justify-between">
             <dt className="text-slate-600">{t.sale.customer}</dt>
             <dd className="font-semibold">{customer.name}</dd>
+          </div>
+        )}
+        {sale.transactionRef && (
+          <div className="flex justify-between">
+            <dt className="text-slate-600">{t.sale.transactionRef}</dt>
+            <dd className="font-semibold">{sale.transactionRef}</dd>
           </div>
         )}
         {sale.paymentRef && (

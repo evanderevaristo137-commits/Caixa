@@ -65,9 +65,9 @@ describe('CSV', () => {
     await store.sales.create({ cart: addToCart([], p, 2), method: 'kwik' });
     expect(await productsCsv(db)).toContain('Óleo;2000000000017;1850,50;1;2');
     const sale = (await new Store(db).sales.list())[0]!;
-    expect(await salesCsv(db)).toContain(';Óleo;2;1850,50;3701,00;3701,00;QR KWiK;;;');
+    expect(await salesCsv(db)).toContain(';Óleo;2;1850,50;3701,00;3701,00;QR KWiK;;;;');
     await new Store(db).sales.void(sale.id, 'Engano');
-    expect(await salesCsv(db)).toContain(';QR KWiK;;Sim;Engano');
+    expect(await salesCsv(db)).toContain(';QR KWiK;;;Sim;Engano');
   });
 });
 

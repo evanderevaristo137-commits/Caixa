@@ -27,6 +27,7 @@ export function receiptText(
   lines.push('');
   lines.push(`*TOTAL: ${formatKz(sale.totalCents)}*`);
   lines.push(`Pagamento: ${methodLabel[sale.method]}`);
+  if (sale.transactionRef) lines.push(`Ref. do pagamento: ${sale.transactionRef}`);
   if (sale.method === 'credit' && customerName) lines.push(`Cliente: ${customerName}`);
   if (sale.method === 'credit' && sale.dueDate) lines.push(`Pagar até: ${formatDateString(sale.dueDate)}`);
   if (sale.method === 'credit' && balanceAfterCents !== undefined && balanceAfterCents > 0) {

@@ -225,3 +225,63 @@ describe('database upgrade', () => {
     await upgraded.delete();
   });
 });
+
+describe('Store: recording operations', () => {
+  it('keeps the payment reference for electronic payments only, and the phone id on every sale', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const e = await store.sales.create({ cart: addToCart([], a), method: 'paypay', transactionRef: '  PP 123  456 ' });
+    expect(e.transactionRef).toBe('PP 123 456');
+    const cash = await store.sales.create({ cart: addToCart([], a), method: 'cash', transactionRef: 'x' });
+    expect(cash.transactionRef).toBeUndefined();
+    expect(e.deviceId).toBeDefined();
+    expect(cash.deviceId).toBe(e.deviceId);
+    const c = await store.customers.create('Cliente Exemplo');
+    await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+    const p = await store.credit.addPayment(c.id, 5_000, 'multicaixa_express', 'MCX-998877');
+    expect(p.transactionRef).toBe('MCX-998877');
+    expect(p.deviceId).toBe(e.deviceId);
+  });
+});
+
+describe('Store: owner code', () => {
+  it('sets, verifies, changes (with the current code) and removes it, auditing each step', async () => {
+    expect(await store.security.hasPin()).toBe(false);
+    expect(await store.security.verify('')).toBe(true);
+    await expect(store.security.setPin('12')).rejects.toSatisfy((e) => code(e) === 'invalid_pin');
+    await store.security.setPin('2580');
+    expect(await store.security.hasPin()).toBe(true);
+    expect(await store.security.verify('2580')).toBe(true);
+    expect(await store.security.verify('0000')).toBe(false);
+    await expect(store.security.setPin('1111', '0000')).rejects.toSatisfy((e) => code(e) === 'wrong_pin');
+    await store.security.setPin('1111', '2580');
+    await expect(store.security.removePin('2580')).rejects.toSatisfy((e) => code(e) === 'wrong_pin');
+    await store.security.removePin('1111');
+    expect(await store.security.hasPin()).toBe(false);
+    const pinAudits = (await store.auditLog.list()).filter((x) => x.entityId === 'owner_pin');
+    expect(pinAudits.map((x) => (x.after as { pin: string }).pin)).toEqual(['set', 'set', 'removed']);
+    const raw = JSON.stringify(await db.meta.toArray());
+    expect(raw).not.toContain('2580');
+  });
+
+  it("never travels in a backup, and restoring a backup keeps this phone's code", async () => {
+    const { exportBackup, importBackup } = await import('./backup');
+    await store.security.setPin('2580');
+    const backup = JSON.parse(JSON.stringify(await exportBackup(db)));
+    expect(JSON.stringify(backup)).not.toContain('ownerPin');
+    await importBackup(db, backup);
+    expect(await store.security.verify('2580')).toBe(true);
+  });
+});
+
+describe('Store: checking the numbers', () => {
+  it('finds a stock that no longer matches its movements and puts it right', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    await store.sales.create({ cart: addToCart([], a, 3), method: 'cash' });
+    expect(await store.integrity.check()).toEqual([]);
+    await db.products.update(a.id, { stock: 50 }); // e.g. a bug or a bad restore
+    expect(await store.integrity.check()).toEqual([{ kind: 'stock_mismatch', productId: a.id, name: 'A', recorded: 50, computed: 7 }]);
+    await store.integrity.fixStock(a.id);
+    expect((await store.products.get(a.id))!.stock).toBe(7);
+    expect(await store.integrity.check()).toEqual([]);
+  });
+});

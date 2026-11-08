@@ -4,12 +4,15 @@ import './index.css';
 import { AppProvider } from './app/context';
 import { App } from './App';
 import { ErrorBoundary } from './app/ErrorBoundary';
+import { PinProvider } from './ui/pin';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <AppProvider>
-        <App />
+        <PinProvider>
+          <App />
+        </PinProvider>
       </AppProvider>
     </ErrorBoundary>
   </StrictMode>,

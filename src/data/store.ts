@@ -4,6 +4,8 @@ import { creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from
 import { isValidDateString, toLocalDateString } from '../lib/dates';
 import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
+import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
+import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
@@ -30,6 +32,17 @@ export interface NewSale {
   cashReceivedCents?: number;
   /** Credit sales: "YYYY-MM-DD". When missing, the shop's usual term is used. */
   dueDate?: string;
+  /** Electronic payments: reference typed by the shopkeeper (optional). */
+  transactionRef?: string;
+}
+
+/** Owner code (PIN) is kept in `meta`, only as a salted hash. */
+export const PIN_KEYS = ['ownerPinHash', 'ownerPinSalt'] as const;
+
+/** References typed by people: trimmed, at most 60 characters, empty = none. */
+export function cleanReference(ref: string | undefined): string | undefined {
+  const v = ref?.trim().replace(/\s+/g, ' ');
+  return v ? v.slice(0, 60) : undefined;
 }
 
 export const SETTINGS_ID = 'main';
@@ -56,6 +69,15 @@ export class Store {
 
   private stamp() {
     return this.now().toISOString();
+  }
+
+  /** This phone's id, created once (call inside a transaction that includes `meta`). */
+  private async deviceId(): Promise<string> {
+    const row = await this.db.meta.get('deviceId');
+    if (typeof row?.value === 'string') return row.value;
+    const id = uuid();
+    await this.db.meta.put({ key: 'deviceId', value: id });
+    return id;
   }
 
   private audit(entry: Omit<AuditEntry, 'id' | 'createdAt' | 'updatedAt'>) {
@@ -254,6 +276,8 @@ export class Store {
             customerId: input.method === 'credit' ? input.customerId : undefined,
             dueDate,
             paymentRef: input.paymentRef,
+            transactionRef: input.method !== 'cash' && input.method !== 'credit' ? cleanReference(input.transactionRef) : undefined,
+            deviceId: await this.deviceId(),
             cashReceivedCents: input.method === 'cash' ? input.cashReceivedCents : undefined,
             createdAt: at,
             updatedAt: at,
@@ -281,8 +305,13 @@ export class Store {
     /** Total owed by all customers right now. */
     totalOwed: async (now = new Date()) => totalOutstanding(await this.credit.book(now)),
     byCustomer: (customerId: string) => this.db.creditPayments.where('customerId').equals(customerId).toArray(),
-    addPayment: (customerId: string, amountCents: number, method: CreditPayment['method']): Promise<CreditPayment> =>
-      this.db.transaction('rw', [this.db.creditPayments, this.db.sales, this.db.audit], async () => {
+    addPayment: (
+      customerId: string,
+      amountCents: number,
+      method: CreditPayment['method'],
+      transactionRef?: string,
+    ): Promise<CreditPayment> =>
+      this.db.transaction('rw', [this.db.creditPayments, this.db.sales, this.db.audit, this.db.meta], async () => {
         if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
         const owed =
           (await this.db.sales.where('customerId').equals(customerId).toArray())
@@ -291,7 +320,16 @@ export class Store {
           (await this.db.creditPayments.where('customerId').equals(customerId).toArray()).reduce((a, p) => a + p.amountCents, 0);
         if (amountCents > owed) throw new DomainError('too_much');
         const at = this.stamp();
-        const payment: CreditPayment = { id: uuid(), customerId, amountCents, method, createdAt: at, updatedAt: at };
+        const payment: CreditPayment = {
+          id: uuid(),
+          customerId,
+          amountCents,
+          method,
+          transactionRef: method === 'cash' ? undefined : cleanReference(transactionRef),
+          deviceId: await this.deviceId(),
+          createdAt: at,
+          updatedAt: at,
+        };
         await this.db.creditPayments.add(payment);
         await this.audit({ entity: 'credit_payment', entityId: payment.id, action: 'created', after: payment });
         return payment;
@@ -333,7 +371,65 @@ export class Store {
       }),
   };
 
+  // ---------- Owner code (PIN) ----------
+  readonly security = {
+    hasPin: async () => !!(await this.db.meta.get('ownerPinHash')),
+    verify: async (pin: string): Promise<boolean> => {
+      const [hash, salt] = await Promise.all([this.db.meta.get('ownerPinHash'), this.db.meta.get('ownerPinSalt')]);
+      if (typeof hash?.value !== 'string' || typeof salt?.value !== 'string') return true; // no code set
+      return verifyPin(pin, salt.value, hash.value);
+    },
+    /** Sets or changes the code. Changing requires the current one. */
+    setPin: async (newPin: string, currentPin?: string): Promise<void> => {
+      if (!isValidPin(newPin)) throw new DomainError('invalid_pin');
+      if ((await this.security.hasPin()) && !(await this.security.verify(currentPin ?? ''))) throw new DomainError('wrong_pin');
+      const salt = newSalt();
+      const hash = await hashPin(newPin, salt);
+      await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
+        await this.db.meta.bulkPut([
+          { key: 'ownerPinSalt', value: salt },
+          { key: 'ownerPinHash', value: hash },
+        ]);
+        await this.audit({ entity: 'settings', entityId: 'owner_pin', action: 'updated', after: { pin: 'set' } });
+      });
+    },
+    removePin: async (currentPin: string): Promise<void> => {
+      if (!(await this.security.verify(currentPin))) throw new DomainError('wrong_pin');
+      await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
+        await this.db.meta.bulkDelete([...PIN_KEYS]);
+        await this.audit({ entity: 'settings', entityId: 'owner_pin', action: 'updated', after: { pin: 'removed' } });
+      });
+    },
+  };
+
+  // ---------- Checking the numbers ----------
+  readonly integrity = {
+    check: async (): Promise<IntegrityIssue[]> => {
+      const [products, movements, sales, customers, payments] = await Promise.all([
+        this.db.products.toArray(),
+        this.db.stockMovements.toArray(),
+        this.db.sales.toArray(),
+        this.db.customers.toArray(),
+        this.db.creditPayments.toArray(),
+      ]);
+      return checkIntegrity({ products, movements, sales, customers, payments });
+    },
+    /** Puts a product's stock back to the sum of its movements (the facts). Audited. */
+    fixStock: (productId: string) =>
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
+        const before = await this.db.products.get(productId);
+        if (!before) throw new DomainError('not_found');
+        const computed = (await this.db.stockMovements.where('productId').equals(productId).toArray()).reduce((a, m) => a + m.delta, 0);
+        if (computed === before.stock) return;
+        const after: Product = { ...before, stock: computed, updatedAt: this.stamp() };
+        await this.db.products.put(after);
+        await this.audit({ entity: 'product', entityId: productId, action: 'updated', before, after });
+      }),
+  };
+
   readonly auditLog = {
+    /** Most recent first. */
+    recent: (limit = 300) => this.db.audit.orderBy('createdAt').reverse().limit(limit).toArray(),
     list: () => this.db.audit.orderBy('createdAt').toArray(),
   };
 }

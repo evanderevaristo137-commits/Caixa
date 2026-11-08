@@ -56,6 +56,10 @@ export interface Sale extends BaseRecord {
   customerId?: string;
   /** Reference returned by the PaymentProvider (test-only in phase 1). */
   paymentRef?: string;
+  /** Electronic payments: the reference shown on the customer's phone, typed by the shopkeeper (to check later with the bank). */
+  transactionRef?: string;
+  /** Which phone recorded it (for synchronisation in phase 2). */
+  deviceId?: string;
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
   /** Credit sales only: the day the customer must pay by ("YYYY-MM-DD", the phone's calendar). */
@@ -70,6 +74,9 @@ export interface CreditPayment extends BaseRecord {
   customerId: string;
   amountCents: Cents;
   method: Exclude<PaymentMethod, 'credit'>;
+  /** Electronic payments: reference shown on the customer's phone (optional). */
+  transactionRef?: string;
+  deviceId?: string;
 }
 
 export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void';
