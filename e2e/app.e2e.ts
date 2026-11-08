@@ -676,3 +676,17 @@ test('a purchase on credit raises the stock and the cost; the supplier is paid a
   await nav(page, 'Hoje');
   await expect(page.getByRole('button', { name: /A pagar a fornecedores/ })).toBeVisible();
 });
+
+test('a customer gets the account statement by WhatsApp', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Clientes');
+  await page.getByRole('button', { name: /Joana Mateus/ }).click();
+  const href = await page.getByRole('link', { name: 'Enviar extracto por WhatsApp' }).getAttribute('href');
+  expect(href).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
+  const text = decodeURIComponent(href!.split('text=')[1]!);
+  expect(text).toContain('*Extracto de conta — Mercearia da Dona Teresa*');
+  expect(text).toMatch(/• \d\d\/\d\d — Compra n\.º \d+: [\d.]+ Kz \(.+\) · pagar até \d\d\/\d\d\/\d{4}/);
+  expect(text).toMatch(/\*Total em dívida: [\d.]+ Kz\*/);
+  expect(text).toContain('(em atraso)');
+  expect(text).toContain('Documento não fiscal — não serve de factura.');
+});

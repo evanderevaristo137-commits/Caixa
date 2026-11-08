@@ -10,6 +10,8 @@ import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge, reminderLink } from './due';
+import { statementText } from '../../domain/statement';
+import { whatsAppLink } from '../../domain/whatsapp';
 
 const PAY_METHODS: CreditPayment['method'][] = ['cash', 'multicaixa_express', 'kwik', 'unitel_money', 'afrimoney', 'paypay'];
 
@@ -209,6 +211,15 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           </Button>
         )}
       </div>
+
+      {(sales.length > 0 || payments.length > 0) && (
+        <div className="mt-4 space-y-1">
+          <LinkButton href={whatsAppLink(statementText(customer, settings.storeName, sales, payments, now), customer.phone)}>
+            {t.credit.statement}
+          </LinkButton>
+          <p className="text-center text-sm text-slate-600">{t.credit.statementHint}</p>
+        </div>
+      )}
 
       <h3 className="mt-5 mb-2 font-bold">{t.credit.history}</h3>
       <ul className="divide-y divide-slate-200 rounded-xl bg-white">

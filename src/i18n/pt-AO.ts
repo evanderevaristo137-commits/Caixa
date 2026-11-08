@@ -87,6 +87,8 @@ export const t = {
     settled: 'Sem dívida',
     days: (n: number) => (n === 0 ? 'desde hoje' : n === 1 ? 'há 1 dia' : `há ${n} dias`),
     remind: 'Lembrar por WhatsApp',
+    statement: 'Enviar extracto por WhatsApp',
+    statementHint: 'Compras, pagamentos e o total em dívida, para o cliente conferir a conta.',
     noPhone: 'Sem telefone — adicione um para enviar lembretes.',
     pay: 'Registar pagamento',
     payAll: 'Pagou tudo',
