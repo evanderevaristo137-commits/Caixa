@@ -28,7 +28,7 @@ test('Today matches the sales, and a voided sale stops counting', async ({ page 
   await page.getByRole('button', { name: 'Engano no registo' }).click();
   await page.getByRole('button', { name: 'Confirmar anulação' }).click();
   await expect(page.getByText(/Anulada em/)).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect.poll(async () => kzToCents(await total.textContent())).toBe(before);
   await expect(page.getByText('1 venda anulada (5.500 Kz)')).toBeVisible();
 });
@@ -211,7 +211,7 @@ test('the day summary can be sent to the owner by WhatsApp', async ({ page }) =>
   const text = decodeURIComponent(href!.split('text=')[1]!);
   expect(text).toContain('*Resumo — Mercearia da Dona Teresa*');
   expect(text).toMatch(/Vendido: \*[\d.]+ Kz\* \(\d+ vendas\)/);
-  expect(text).toContain('Dinheiro na caixa (numerário)');
+  expect(text).toContain('Dinheiro que devia estar na caixa');
 });
 
 test('a customer name can be corrected', async ({ page }) => {
@@ -220,7 +220,7 @@ test('a customer name can be corrected', async ({ page }) => {
   await page.getByRole('button', { name: /Luísa Neto/ }).click();
   await page.getByLabel('Nome').fill('Luísa Neto Exemplo');
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(page.getByRole('button', { name: /Luísa Neto Exemplo/ })).toBeVisible();
 });
 
@@ -245,7 +245,7 @@ test('if saving fails (phone full), the user is told and nothing is half-saved',
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
   await expect(page.getByText('Não foi possível guardar. Tente outra vez.')).toBeVisible();
   await expect(page.getByText('Venda registada')).toBeHidden();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(page.getByRole('button', { name: /Arroz 5 kg/ })).toHaveText(stockBefore!.replace(/\d+$/, '') + '1');
   await nav(page, 'Hoje');
   await expect(count).toHaveText(before!);
@@ -352,7 +352,7 @@ test('the owner code protects voids and price changes, and everything shows in t
   await page.getByLabel('Código', { exact: true }).fill('2580');
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByText(/Anulada em/)).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
 
   // A new price asks for the code too.
   await nav(page, 'Produtos');
@@ -434,7 +434,7 @@ test('credit limit: warns, needs explicit confirmation, is logged, and can be sw
   // A customer with overdue payments is flagged.
   await startCreditSale('Joana Mateus', 1);
   await expect(page.getByText('Este cliente tem pagamentos em atraso.')).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await page.getByRole('button', { name: /^Carrinho:/ }).click();
   await page.getByRole('button', { name: 'Limpar' }).click();
 
@@ -449,7 +449,7 @@ test('credit limit: warns, needs explicit confirmation, is logged, and can be sw
   await nav(page, 'Mais');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/Venda n\.º \d+ a crédito acima do limite: 33\.000 Kz/)).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await page.getByRole('group', { name: 'Limite de crédito habitual' }).getByRole('button', { name: 'Sem limite' }).click();
 
   await startCreditSale('Luísa Neto', 6);
@@ -587,4 +587,47 @@ test('cost price gives the day profit; the app makes barcodes and prints labels'
   await expect(sheet).toContainText('4 etiquetas');
   await expect(sheet.getByRole('img', { name: /^Código de barras 20/ })).toHaveCount(4);
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
+});
+
+/** 1.250.000 cêntimos → "12.500" (as a person types it). */
+const kzTyped = (cents: number) => String(cents / 100).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+test('money out and closing the day: expected cash, short or over, and the log', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const cashCard = page
+    .locator('div.rounded-2xl')
+    .filter({ has: page.getByRole('heading', { name: 'Dinheiro que devia estar na caixa' }) });
+  const expected = cashCard.locator('.text-3xl');
+  await expect(cashCard).toContainText('Fundo de caixa5.000 Kz');
+  const before = kzToCents(await expected.textContent());
+
+  await cashCard.getByRole('button', { name: 'Registar saída' }).click();
+  await page.getByRole('button', { name: 'Transporte', exact: true }).click();
+  await page.getByLabel('Valor (Kz)').fill('1.500');
+  await page.getByLabel('Nota (opcional)').fill('Táxi');
+  await page.getByRole('button', { name: 'Guardar saída' }).click();
+  await expect.poll(async () => kzToCents(await expected.textContent())).toBe(before - 150_000);
+  await expect(cashCard.getByRole('button', { name: /Transporte · Táxi Saiu da caixa − 1\.500 Kz/ })).toBeVisible();
+
+  await cashCard.getByRole('button', { name: 'Fechar o dia' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Fechar o dia' });
+  await expect(sheet.getByLabel('Fundo de caixa (troco com que o dia começou)')).toHaveValue('5.000');
+  await sheet.getByLabel('Quanto dinheiro contou na caixa?').fill(kzTyped(before - 150_000 - 20_000));
+  await expect(sheet.getByRole('status')).toHaveText('Faltam 200 Kz.');
+  await sheet.getByLabel('Quanto dinheiro contou na caixa?').fill(kzTyped(before - 150_000));
+  await expect(sheet.getByRole('status')).toHaveText('Bate certo.');
+  await sheet.getByLabel('Quanto dinheiro contou na caixa?').fill(kzTyped(before - 150_000 - 20_000));
+  await sheet.getByRole('button', { name: 'Confirmar fecho' }).click();
+  await expect(cashCard).toContainText(/Dia fechado às \d\d:\d\d: contou [\d.]+ Kz\. Faltam 200 Kz\./);
+  await expect(page.getByText('Despesas do dia')).toBeVisible();
+  await expect(page.getByText('Resultado do dia (lucro − despesas)')).toBeVisible();
+
+  const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
+  expect(decodeURIComponent(summary!)).toMatch(/Fecho: contou [\d.]+ Kz — faltam 200 Kz/);
+
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Ver registo' }).click();
+  await expect(page.getByText(/fechado: contou [\d.]+ Kz, devia ter [\d.]+ Kz — faltam 200 Kz/).first()).toBeVisible();
+  await expect(page.getByText('Saída de dinheiro: Transporte — 1.500 Kz (da caixa) · Táxi')).toBeVisible();
 });

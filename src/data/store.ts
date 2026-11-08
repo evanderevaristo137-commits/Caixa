@@ -1,15 +1,29 @@
 import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
 import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../domain/credit';
-import { isValidDateString, toLocalDateString } from '../lib/dates';
+import { addDays, isValidDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
+import { drawer, closeResult, summariseOutflows, type Drawer } from '../domain/cash';
 import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
 import { MAX_GRAMS } from '../domain/quantity';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
 import { internalBarcode } from '../domain/barcode';
-import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, Settings, StockMovement } from '../domain/types';
-import { CURRENCY } from '../domain/types';
+import type {
+  AuditEntry,
+  CashClose,
+  CreditPayment,
+  Customer,
+  Expense,
+  ExpenseCategory,
+  PaymentMethod,
+  Product,
+  Sale,
+  SaleItem,
+  Settings,
+  StockMovement,
+} from '../domain/types';
+import { CURRENCY, EXPENSE_CATEGORIES } from '../domain/types';
 import { uuid } from '../lib/ids';
 import { CaixaDB } from './db';
 
@@ -468,6 +482,101 @@ export class Store {
       }),
   };
 
+  // ---------- Money out: expenses and the owner's withdrawals ----------
+  readonly expenses = {
+    list: () => this.db.expenses.orderBy('createdAt').toArray(),
+    /** Records with from <= createdAt < to (ISO strings). */
+    between: (fromIso: string, toIso: string) => this.db.expenses.where('createdAt').between(fromIso, toIso, true, false).toArray(),
+    create: (input: { category: ExpenseCategory; amountCents: number; fromCash: boolean; note?: string }): Promise<Expense> =>
+      this.db.transaction('rw', [this.db.expenses, this.db.audit, this.db.meta], async () => {
+        if (!(EXPENSE_CATEGORIES as readonly string[]).includes(input.category)) throw new DomainError('invalid_category');
+        if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new DomainError('invalid_amount');
+        const at = this.stamp();
+        const expense: Expense = {
+          id: uuid(),
+          category: input.category,
+          amountCents: input.amountCents,
+          fromCash: input.fromCash,
+          note: cleanShort(input.note, 120),
+          deviceId: await this.deviceId(),
+          createdAt: at,
+          updatedAt: at,
+        };
+        await this.db.expenses.add(expense);
+        await this.audit({ entity: 'expense', entityId: expense.id, action: 'created', after: expense });
+        return expense;
+      }),
+    /** A mistake stays in the history, marked as voided, and stops counting. A reason is mandatory. */
+    void: (id: string, reason: string): Promise<Expense> =>
+      this.db.transaction('rw', [this.db.expenses, this.db.audit], async () => {
+        const before = await this.db.expenses.get(id);
+        if (!before) throw new DomainError('not_found');
+        if (before.voidedAt) throw new DomainError('already_voided');
+        if (reason.trim().length < 3) throw new DomainError('reason_required');
+        const at = this.stamp();
+        const after: Expense = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
+        await this.db.expenses.put(after);
+        await this.audit({ entity: 'expense', entityId: id, action: 'voided', before, after });
+        return after;
+      }),
+  };
+
+  // ---------- Cash in the till and the end-of-day count ----------
+  readonly cash = {
+    /** What the till should have on that local day (from the facts), with this opening float. */
+    drawer: (day: Date, floatCents: number): Promise<Drawer> =>
+      this.db.transaction('r', [this.db.sales, this.db.creditPayments, this.db.expenses], () => this.drawerOn(day, floatCents)),
+    /** Records the count. Expected cash is computed here, from the facts, never typed. Audited. */
+    close: (input: { floatCents: number; countedCents: number; note?: string; day?: Date }): Promise<CashClose> =>
+      this.db.transaction(
+        'rw',
+        [this.db.cashCloses, this.db.sales, this.db.creditPayments, this.db.expenses, this.db.audit, this.db.meta],
+        async () => {
+          if (!Number.isInteger(input.floatCents) || input.floatCents < 0) throw new DomainError('invalid_float');
+          if (!Number.isInteger(input.countedCents) || input.countedCents < 0) throw new DomainError('invalid_amount');
+          const day = input.day ?? this.now();
+          const d = await this.drawerOn(day, input.floatCents);
+          const at = this.stamp();
+          const close: CashClose = {
+            id: uuid(),
+            day: toLocalDateString(day),
+            floatCents: input.floatCents,
+            expectedCents: d.expectedCents,
+            countedCents: input.countedCents,
+            differenceCents: closeResult(d.expectedCents, input.countedCents).differenceCents,
+            note: cleanShort(input.note, 120),
+            deviceId: await this.deviceId(),
+            createdAt: at,
+            updatedAt: at,
+          };
+          await this.db.cashCloses.add(close);
+          await this.audit({ entity: 'cash_close', entityId: close.id, action: 'created', after: close });
+          return close;
+        },
+      ),
+    /** The latest count of a local day ("YYYY-MM-DD"): if the day is closed twice, the last one counts. */
+    lastClose: async (day: string): Promise<CashClose | undefined> =>
+      (await this.db.cashCloses.where('day').equals(day).sortBy('createdAt')).at(-1),
+    closes: () => this.db.cashCloses.orderBy('createdAt').toArray(),
+  };
+
+  /** Call inside a transaction that reads sales, creditPayments and expenses. */
+  private async drawerOn(day: Date, floatCents: number): Promise<Drawer> {
+    const from = startOfLocalDay(day).toISOString();
+    const to = addDays(startOfLocalDay(day), 1).toISOString();
+    const [sales, payments, expenses] = await Promise.all([
+      this.db.sales.where('createdAt').between(from, to, true, false).toArray(),
+      this.db.creditPayments.where('createdAt').between(from, to, true, false).toArray(),
+      this.db.expenses.where('createdAt').between(from, to, true, false).toArray(),
+    ]);
+    return drawer({
+      floatCents,
+      cashSalesCents: sales.filter((s) => s.method === 'cash' && !s.voidedAt).reduce((a, s) => a + s.totalCents, 0),
+      cashCreditPaymentsCents: payments.filter((p) => p.method === 'cash').reduce((a, p) => a + p.amountCents, 0),
+      cashOutCents: summariseOutflows(expenses).cashOutCents,
+    });
+  }
+
   // ---------- Settings ----------
   readonly settings = {
     get: async (): Promise<Settings> => {
@@ -479,7 +588,18 @@ export class Store {
     /** Updates only the fields given (so saving the shop name never erases the payment term). */
     save: (
       input: Partial<
-        Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays' | 'creditLimitCents' | 'address' | 'vatRegime' | 'defaultTaxRateBp'>
+        Pick<
+          Settings,
+          | 'storeName'
+          | 'phone'
+          | 'nif'
+          | 'creditTermDays'
+          | 'creditLimitCents'
+          | 'address'
+          | 'vatRegime'
+          | 'defaultTaxRateBp'
+          | 'cashFloatCents'
+        >
       >,
     ): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
@@ -507,6 +627,12 @@ export class Store {
           if (limit !== undefined && (!Number.isInteger(limit) || limit < 0)) throw new DomainError('invalid_limit');
           if (limit) after.creditLimitCents = limit;
           else delete after.creditLimitCents; // 0 or none = no limit
+        }
+        if ('cashFloatCents' in input) {
+          const float = input.cashFloatCents;
+          if (float !== undefined && (!Number.isInteger(float) || float < 0)) throw new DomainError('invalid_float');
+          if (float) after.cashFloatCents = float;
+          else delete after.cashFloatCents; // 0 or none = no float
         }
         if ('creditTermDays' in input) {
           const days = input.creditTermDays;

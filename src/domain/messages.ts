@@ -6,6 +6,8 @@ import { greeting } from './whatsapp';
 import { formatQuantity } from './quantity';
 import type { DayView } from './today';
 import { formatMargin, marginBp, type ProfitSummary } from './profit';
+import type { Drawer, OutflowSummary } from './cash';
+import type { CashClose } from './types';
 import { PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
@@ -92,8 +94,17 @@ export function shoppingListText(
 }
 
 /** End-of-day summary for the owner (e.g. sent by an employee). */
-export function daySummaryText(storeName: string, dayTitle: string, view: DayView, profit?: ProfitSummary): string {
+export interface DaySummaryExtras {
+  profit?: ProfitSummary;
+  /** Cash the till should have (with the float and the money that went out). */
+  drawer?: Drawer;
+  outflows?: OutflowSummary;
+  close?: CashClose;
+}
+
+export function daySummaryText(storeName: string, dayTitle: string, view: DayView, extras: DaySummaryExtras = {}): string {
   const { day } = view;
+  const { profit, drawer, outflows, close } = extras;
   const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
   lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
   const margin = profit ? marginBp(profit) : undefined;
@@ -102,7 +113,14 @@ export function daySummaryText(storeName: string, dayTitle: string, view: DayVie
     lines.push(`Lucro estimado: ${formatKz(profit.profitCents)} (margem de ${formatMargin(margin)})${partial}`);
   }
   lines.push(`${view.comparisonIsSameTime ? 'Ontem até esta hora' : 'Dia anterior'}: ${formatKz(view.comparison.totalCents)}`);
-  lines.push(`Dinheiro na caixa (numerário): ${formatKz(view.cash.totalCents)}`);
+  if (outflows && outflows.expensesCents > 0) lines.push(`Despesas: ${formatKz(outflows.expensesCents)}`);
+  if (outflows && outflows.withdrawalsCents > 0) lines.push(`Retiradas do dono: ${formatKz(outflows.withdrawalsCents)}`);
+  lines.push(`Dinheiro que devia estar na caixa: ${formatKz(drawer?.expectedCents ?? view.cash.totalCents)}`);
+  if (close) {
+    const d = close.differenceCents;
+    const result = d === 0 ? 'bate certo' : d > 0 ? `sobram ${formatKz(d)}` : `faltam ${formatKz(-d)}`;
+    lines.push(`Fecho: contou ${formatKz(close.countedCents)} — ${result}`);
+  }
   const methods = PAYMENT_METHODS.filter((m) => day.byMethod[m] > 0);
   if (methods.length > 0) {
     lines.push('');

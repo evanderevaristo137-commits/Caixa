@@ -6,16 +6,18 @@ import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { profitByProduct, summariseProfit } from '../../domain/profit';
+import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { addDays, dayLabel, formatDate, startOfLocalDay } from '../../lib/dates';
+import { addDays, dayLabel, formatDate, startOfLocalDay, toLocalDateString } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
 import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
 import { BackupReminder } from './BackupReminder';
 import { SalesList } from './SalesList';
 import { PaymentAlerts } from './PaymentAlerts';
 import { ProfitCard } from './ProfitCard';
+import { CashCard } from './CashCard';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -26,25 +28,39 @@ export default function TodayScreen() {
     const from = addDays(day, -1).toISOString();
     const to = addDays(day, 1).toISOString();
     const isToday = offset === 0;
-    const [sales, payments, products, book, settings] = await Promise.all([
+    const [sales, payments, products, book, settings, dayExpenses, lastClose] = await Promise.all([
       store.sales.between(from, to),
       store.credit.paymentsBetween(from, to),
       isToday ? store.products.list() : Promise.resolve([]),
       isToday ? store.credit.book(now) : Promise.resolve([]),
       store.settings.get(),
+      store.expenses.between(day.toISOString(), to),
+      store.cash.lastClose(toLocalDateString(day)),
     ]);
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
     const view = summariseDayView(sales, payments, day, now);
     const profit = summariseProfit(daySales);
+    const outflows = summariseOutflows(dayExpenses);
+    const drawer = drawerOf({
+      floatCents: lastClose?.floatCents ?? settings.cashFloatCents ?? 0,
+      cashSalesCents: view.cash.salesCents,
+      cashCreditPaymentsCents: view.cash.creditPaymentsCents,
+      cashOutCents: outflows.cashOutCents,
+    });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
-    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view, profit));
+    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose }));
     return {
       offset,
       isToday,
       view,
       profit,
+      outflows,
+      drawer,
+      lastClose,
+      dayExpenses: dayExpenses.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      defaultFloatCents: settings.cashFloatCents ?? 0,
       topProfit: profitByProduct(daySales).slice(0, 3),
       summaryLink,
       daySales,
@@ -130,21 +146,18 @@ export default function TodayScreen() {
         )}
       </Card>
 
-      {day.count > 0 && <ProfitCard profit={data.profit} top={data.topProfit} />}
+      {(day.count > 0 || data.outflows.expensesCents > 0) && (
+        <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
+      )}
 
-      <Card>
-        <h2 className="font-bold">{t.today.cashTitle}</h2>
-        <Money cents={view.cash.totalCents} className="block text-3xl font-extrabold" />
-        <p className="mt-1 text-sm text-slate-600">
-          {t.today.cashSales}: <Money cents={view.cash.salesCents} /> · {t.today.cashCredit}:{' '}
-          <Money cents={view.cash.creditPaymentsCents} />
-        </p>
-        {view.creditPaidCents > 0 && (
-          <p className="text-sm text-slate-600">
-            {t.today.creditPaid}: <Money cents={view.creditPaidCents} />
-          </p>
-        )}
-      </Card>
+      <CashCard
+        drawer={data.drawer}
+        expenses={data.dayExpenses}
+        lastClose={data.lastClose}
+        creditPaidCents={view.creditPaidCents}
+        isToday={isToday}
+        defaultFloatCents={data.defaultFloatCents}
+      />
 
       <Card>
         <h2 className="mb-2 font-bold">{t.today.byMethod}</h2>

@@ -120,8 +120,42 @@ export interface StockMovement extends BaseRecord {
   saleId?: string;
 }
 
+/**
+ * Money leaving the shop. Expenses lower the day's result; the owner's withdrawal does not
+ * (it is the owner's money), but both lower the cash expected in the till when paid from it.
+ */
+export const EXPENSE_CATEGORIES = ['transport', 'rent', 'energy', 'water', 'salary', 'fees', 'phone', 'other', 'withdrawal'] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+export interface Expense extends BaseRecord {
+  category: ExpenseCategory;
+  amountCents: Cents;
+  /** True when the money came out of the till. */
+  fromCash: boolean;
+  note?: string;
+  deviceId?: string;
+  /** Mistakes are voided with a reason, never deleted. */
+  voidedAt?: IsoDate;
+  voidReason?: string;
+}
+
+/** End-of-day count: the cash the till should have against the cash counted. */
+export interface CashClose extends BaseRecord {
+  /** The local day that was closed, "YYYY-MM-DD". */
+  day: string;
+  /** Opening float: the change the till started the day with (0 = none). */
+  floatCents: Cents;
+  /** Float + cash sales + customers' cash payments − money out of the till. */
+  expectedCents: Cents;
+  countedCents: Cents;
+  /** Counted − expected: above zero = money left over, below zero = money missing. */
+  differenceCents: Cents;
+  note?: string;
+  deviceId?: string;
+}
+
 export interface AuditEntry extends BaseRecord {
-  entity: 'product' | 'customer' | 'sale' | 'credit_payment' | 'stock_movement' | 'settings' | 'data';
+  entity: 'product' | 'customer' | 'sale' | 'credit_payment' | 'stock_movement' | 'settings' | 'data' | 'expense' | 'cash_close';
   entityId: string;
   action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset';
   before?: unknown;
@@ -150,6 +184,8 @@ export interface Settings extends BaseRecord {
   creditTermDays?: number;
   /** Usual credit limit per customer; none = no limit (the owner chooses it). */
   creditLimitCents?: Cents;
+  /** Usual opening float: the change the till starts each day with (none = no float). */
+  cashFloatCents?: Cents;
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;

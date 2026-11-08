@@ -1,10 +1,10 @@
 import { creditBook } from '../domain/credit';
 import { formatDate, formatDateTime } from '../lib/dates';
-import { methodLabel } from '../i18n/pt-AO';
+import { methodLabel, t } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { formatKg } from '../domain/quantity';
 import { lineCostCents } from '../domain/profit';
-import { DB_NAMES, TABLES, type CaixaDB, type TableName } from './db';
+import { DB_NAMES, LATER_TABLES, TABLES, type CaixaDB, type TableName } from './db';
 import { PIN_KEYS } from './store';
 
 export const BACKUP_APP = 'caixa';
@@ -53,6 +53,8 @@ export function validateBackup(raw: unknown): string | null {
   const data = raw.data;
   for (const name of TABLES) {
     const rows = data[name];
+    // Backups made before a table existed simply don't have it.
+    if (rows === undefined && LATER_TABLES.includes(name)) continue;
     if (!Array.isArray(rows)) return `missing_${name}`;
     const keyField = name === 'meta' ? 'key' : 'id';
     if (!rows.every((r) => isObj(r) && isStr(r[keyField]))) return `bad_${name}`;
@@ -87,7 +89,7 @@ export async function importBackup(db: CaixaDB, raw: unknown, now = new Date()):
       const rows =
         name === 'meta'
           ? backup.data.meta.filter((r) => !(PIN_KEYS as readonly string[]).includes((r as { key: string }).key))
-          : backup.data[name];
+          : (backup.data[name] ?? []);
       await table.bulkAdd(rows);
     }
     if (pinRows.length) await db.meta.bulkPut(pinRows);
@@ -176,6 +178,22 @@ export async function productsCsv(db: CaixaDB): Promise<string> {
         ? [p.name, p.barcode ?? '', 'kg', kzNumber(p.priceCents), formatKg(p.stock), formatKg(p.minStock), cost]
         : [p.name, p.barcode ?? '', 'un', kzNumber(p.priceCents), p.stock, p.minStock, cost];
     }),
+  ]);
+}
+
+export async function expensesCsv(db: CaixaDB): Promise<string> {
+  const expenses = await db.expenses.orderBy('createdAt').toArray();
+  return toCsv([
+    ['Data', 'Tipo', 'Valor (Kz)', 'Saiu da caixa', 'Nota', 'Anulada', 'Motivo da anulação'],
+    ...expenses.map((e) => [
+      formatDateTime(e.createdAt),
+      t.expenses.categories[e.category],
+      kzNumber(e.amountCents),
+      e.fromCash ? 'Sim' : 'Não',
+      e.note ?? '',
+      e.voidedAt ? 'Sim' : '',
+      e.voidReason ?? '',
+    ]),
   ]);
 }
 

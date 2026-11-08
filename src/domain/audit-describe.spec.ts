@@ -73,4 +73,42 @@ describe('describeAudit — credit limit', () => {
       important: true,
     });
   });
+  it('describes money out, voided money out and the end-of-day count as important', () => {
+    expect(
+      describeAudit(
+        entry({ entity: 'expense', after: { category: 'energy', amountCents: 400_000, fromCash: true, note: 'Gasóleo do gerador' } }),
+        names,
+      ),
+    ).toEqual({ text: 'Saída de dinheiro: Luz e gerador — 4.000 Kz (da caixa) · Gasóleo do gerador', important: true });
+    expect(
+      describeAudit(
+        entry({
+          entity: 'expense',
+          action: 'voided',
+          after: { category: 'withdrawal', amountCents: 2_000_000, voidReason: 'Valor errado' },
+        }),
+        names,
+      ),
+    ).toEqual({ text: 'Saída anulada: Retirada do dono — 20.000 Kz. Motivo: Valor errado', important: true });
+    expect(
+      describeAudit(
+        entry({
+          entity: 'cash_close',
+          after: { day: '2026-11-08', expectedCents: 1_250_000, countedCents: 1_230_000, differenceCents: -20_000 },
+        }),
+        names,
+      ),
+    ).toEqual({ text: 'Dia 08/11/2026 fechado: contou 12.300 Kz, devia ter 12.500 Kz — faltam 200 Kz', important: true });
+    expect(
+      describeAudit(
+        entry({
+          entity: 'product',
+          action: 'updated',
+          before: { name: 'Bolacha', priceCents: 500, costCents: 350 },
+          after: { name: 'Bolacha', priceCents: 500 },
+        }),
+        names,
+      )?.text,
+    ).toBe('Bolacha: preço de custo 3,50 Kz → —');
+  });
 });

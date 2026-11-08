@@ -39,6 +39,25 @@ describe('demo data', () => {
     }
   });
 
+  it('has money out and an end-of-day count for every past day that adds up', () => {
+    expect(d.expenses.some((e) => e.category === 'withdrawal')).toBe(true);
+    expect(d.expenses.some((e) => e.category === 'rent' && !e.fromCash)).toBe(true);
+    expect(d.closes).toHaveLength(14);
+    expect(d.closes.map((c) => c.day)).not.toContain('2026-11-06'); // today stays open
+    for (const c of d.closes) {
+      const inDay = (x: { createdAt: string }) => {
+        const dt = new Date(x.createdAt);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}` === c.day;
+      };
+      const cashSales = d.sales.filter((s) => inDay(s) && s.method === 'cash').reduce((a, s) => a + s.totalCents, 0);
+      const cashPaid = d.payments.filter((p) => inDay(p) && p.method === 'cash').reduce((a, p) => a + p.amountCents, 0);
+      const cashOut = d.expenses.filter((e) => inDay(e) && e.fromCash).reduce((a, e) => a + e.amountCents, 0);
+      expect(c.expectedCents).toBe(c.floatCents + cashSales + cashPaid - cashOut);
+      expect(c.differenceCents).toBe(c.countedCents - c.expectedCents);
+    }
+    expect(d.closes.some((c) => c.differenceCents < 0)).toBe(true);
+  });
+
   it('all 5 customers owe something and some products are low', () => {
     const book = creditBook(d.customers, d.sales, d.payments, now);
     expect(book.filter((b) => b.balanceCents > 0)).toHaveLength(5);

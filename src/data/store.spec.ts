@@ -416,3 +416,65 @@ describe('Store: products sold by weight', () => {
     expect(await salesCsv(db)).toContain(';Feijão a granel;0,75;kg;1400,00;1050,00;1050,00;Numerário;');
   });
 });
+
+describe('Store: money out and the end-of-day count', () => {
+  const fixed = new Date(2026, 10, 8, 18, 0);
+  // A clock that moves one second per call, so records keep their order.
+  let tick = 0;
+  const clock = () => new Date(fixed.getTime() + tick++ * 1000);
+
+  it('records expenses and withdrawals, audited; voids need a reason', async () => {
+    const st = new Store(db, clock);
+    const e = await st.expenses.create({ category: 'transport', amountCents: 150_000, fromCash: true, note: ' Táxi ' });
+    expect(e.note).toBe('Táxi');
+    await expect(st.expenses.create({ category: 'transport', amountCents: 0, fromCash: true })).rejects.toSatisfy(
+      (x) => code(x) === 'invalid_amount',
+    );
+    await expect(st.expenses.create({ category: 'bribe' as unknown as 'other', amountCents: 100, fromCash: true })).rejects.toSatisfy(
+      (x) => code(x) === 'invalid_category',
+    );
+    await expect(st.expenses.void(e.id, '')).rejects.toSatisfy((x) => code(x) === 'reason_required');
+    const v = await st.expenses.void(e.id, 'Engano no registo');
+    expect(v.voidedAt).toBeDefined();
+    await expect(st.expenses.void(e.id, 'Outra vez')).rejects.toSatisfy((x) => code(x) === 'already_voided');
+    expect((await st.auditLog.list()).filter((a) => a.entity === 'expense').map((a) => a.action)).toEqual(['created', 'voided']);
+  });
+
+  it('expects float + cash sales + customers paying in cash − money out of the till, and records the count', async () => {
+    const st = new Store(db, clock);
+    const p = await st.products.create({ name: 'Arroz', priceCents: 120_000, minStock: 0 }, 50);
+    const c = await st.customers.create('Joana');
+    await st.sales.create({ cart: addToCart([], p, 10), method: 'cash' }); // 12.000
+    await st.sales.create({ cart: addToCart([], p, 2), method: 'multicaixa_express' }); // not cash
+    await st.sales.create({ cart: addToCart([], p, 5), method: 'credit', customerId: c.id }); // 6.000 on credit
+    const voided = await st.sales.create({ cart: addToCart([], p, 1), method: 'cash' });
+    await st.sales.void(voided.id, 'Engano');
+    await st.credit.addPayment(c.id, 200_000, 'cash'); // 2.000 in cash
+    await st.expenses.create({ category: 'transport', amountCents: 150_000, fromCash: true });
+    await st.expenses.create({ category: 'rent', amountCents: 3_000_000, fromCash: false });
+    await st.expenses.create({ category: 'withdrawal', amountCents: 500_000, fromCash: true });
+
+    const d = await st.cash.drawer(fixed, 500_000);
+    expect(d).toEqual({
+      floatCents: 500_000,
+      cashSalesCents: 1_200_000,
+      cashCreditPaymentsCents: 200_000,
+      cashOutCents: 650_000,
+      expectedCents: 1_250_000,
+    });
+    const close = await st.cash.close({ floatCents: 500_000, countedCents: 1_230_000, note: 'Notas velhas' });
+    expect(close).toMatchObject({ day: '2026-11-08', expectedCents: 1_250_000, countedCents: 1_230_000, differenceCents: -20_000 });
+    // Closing again (after more sales) keeps both; the last one counts.
+    await st.sales.create({ cart: addToCart([], p, 1), method: 'cash' });
+    const again = await st.cash.close({ floatCents: 500_000, countedCents: 1_370_000 });
+    expect(again.differenceCents).toBe(0);
+    expect((await st.cash.lastClose('2026-11-08'))!.id).toBe(again.id);
+    await expect(st.cash.close({ floatCents: -1, countedCents: 0 })).rejects.toSatisfy((x) => code(x) === 'invalid_float');
+  });
+
+  it('keeps the usual float in the settings (0 = none)', async () => {
+    expect((await store.settings.save({ cashFloatCents: 500_000 })).cashFloatCents).toBe(500_000);
+    expect((await store.settings.save({ cashFloatCents: 0 })).cashFloatCents).toBeUndefined();
+    await expect(store.settings.save({ cashFloatCents: 10.5 })).rejects.toSatisfy((x) => code(x) === 'invalid_float');
+  });
+});

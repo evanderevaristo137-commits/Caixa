@@ -34,6 +34,12 @@ export function formatDateTime(iso: string): string {
   return `${formatDate(iso)} ${hh}:${mi}`;
 }
 
+/** "09:05" */
+export function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function isSameLocalDay(a: Date, b: Date): boolean {
   return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();
 }

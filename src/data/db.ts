@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { dueDateOf } from '../domain/credit';
-import type { AuditEntry, CreditPayment, Customer, Product, Sale, Settings, StockMovement } from '../domain/types';
+import type { AuditEntry, CashClose, CreditPayment, Customer, Expense, Product, Sale, Settings, StockMovement } from '../domain/types';
 
 export type DataMode = 'store' | 'demo';
 
@@ -24,6 +24,8 @@ export class CaixaDB extends Dexie {
   audit!: Table<AuditEntry, string>;
   settings!: Table<Settings, string>;
   meta!: Table<MetaRow, string>;
+  expenses!: Table<Expense, string>;
+  cashCloses!: Table<CashClose, string>;
 
   constructor(name: string) {
     super(name);
@@ -48,8 +50,26 @@ export class CaixaDB extends Dexie {
             if (s.method === 'credit' && !s.dueDate) s.dueDate = dueDateOf(s);
           }),
       );
+    // v3: money going out of the shop (expenses, owner's withdrawals) and end-of-day cash counts.
+    this.version(3).stores({
+      expenses: 'id, createdAt, category, updatedAt',
+      cashCloses: 'id, day, createdAt',
+    });
   }
 }
 
-export const TABLES = ['products', 'customers', 'sales', 'creditPayments', 'stockMovements', 'audit', 'settings', 'meta'] as const;
+export const TABLES = [
+  'products',
+  'customers',
+  'sales',
+  'creditPayments',
+  'stockMovements',
+  'audit',
+  'settings',
+  'meta',
+  'expenses',
+  'cashCloses',
+] as const;
+/** Tables added after the first version: older backups do not have them (read as empty). */
+export const LATER_TABLES: readonly TableName[] = ['expenses', 'cashCloses'];
 export type TableName = (typeof TABLES)[number];

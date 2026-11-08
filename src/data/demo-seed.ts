@@ -1,4 +1,5 @@
-import type { CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, StockMovement } from '../domain/types';
+import type { CashClose, CreditPayment, Customer, Expense, PaymentMethod, Product, Sale, SaleItem, StockMovement } from '../domain/types';
+import { closeResult, drawer, summariseOutflows } from '../domain/cash';
 import { CURRENCY } from '../domain/types';
 import { openItems } from '../domain/credit';
 import { lineTotalFor } from '../domain/quantity';
@@ -86,6 +87,8 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 ];
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
+/** The demo till starts each day with 5.000 Kz of change. */
+export const DEMO_FLOAT_CENTS = 500_000;
 
 export interface DemoData {
   products: Product[];
@@ -93,6 +96,9 @@ export interface DemoData {
   sales: Sale[];
   payments: CreditPayment[];
   movements: StockMovement[];
+  expenses: Expense[];
+  /** One end-of-day count for each past day (today is left open, to show closing in a visit). */
+  closes: CashClose[];
 }
 
 /** Builds two weeks of believable sales ending at `now`. Pure function (testable). */
@@ -230,6 +236,52 @@ export function buildDemoData(now: Date): DemoData {
     }
   });
 
+  // Money out: transport most mornings, generator fuel every 3 days, the rent once, the owner's weekly withdrawal.
+  const expenses: Expense[] = [];
+  const addExpense = (dayIndex: number, hour: number, category: Expense['category'], kz: number, fromCash: boolean, note?: string) => {
+    const at = addDays(start, dayIndex);
+    at.setHours(hour, 15);
+    if (at > now) return;
+    expenses.push({ id: uuid(), category, amountCents: kz * 100, fromCash, note, createdAt: iso(at), updatedAt: iso(at) });
+  };
+  for (let day = 0; day <= 14; day++) {
+    if (rand() < 0.8) addExpense(day, 8, 'transport', pick([1_000, 1_500]), true, 'Táxi para o armazém');
+    if (day % 3 === 1) addExpense(day, 18, 'energy', pick([3_000, 4_000, 5_000]), true, 'Gasóleo do gerador');
+    if (day === 6 || day === 13) addExpense(day, 19, 'withdrawal', 20_000, true);
+  }
+  addExpense(2, 10, 'rent', 30_000, false, 'Renda do mês');
+
+  // End-of-day counts for the past days: mostly right, sometimes a little over or short.
+  const closes: CashClose[] = [];
+  const differences = [0, 0, -20_000, 0, 10_000, 0, 0, -50_000, 0, 0, 0, 20_000, 0, -10_000];
+  for (let day = 0; day < 14; day++) {
+    const from = addDays(start, day).getTime();
+    const to = addDays(start, day + 1).getTime();
+    const inDay = (x: { createdAt: string }) => {
+      const tm = new Date(x.createdAt).getTime();
+      return tm >= from && tm < to;
+    };
+    const d = drawer({
+      floatCents: DEMO_FLOAT_CENTS,
+      cashSalesCents: sales.filter((s) => inDay(s) && s.method === 'cash').reduce((a, s) => a + s.totalCents, 0),
+      cashCreditPaymentsCents: payments.filter((p) => inDay(p) && p.method === 'cash').reduce((a, p) => a + p.amountCents, 0),
+      cashOutCents: summariseOutflows(expenses.filter(inDay)).cashOutCents,
+    });
+    const countedCents = d.expectedCents + differences[day]!;
+    const at = addDays(start, day);
+    at.setHours(20, 30);
+    closes.push({
+      id: uuid(),
+      day: toLocalDateString(at),
+      floatCents: DEMO_FLOAT_CENTS,
+      expectedCents: d.expectedCents,
+      countedCents,
+      differenceCents: closeResult(d.expectedCents, countedCents).differenceCents,
+      createdAt: iso(at),
+      updatedAt: iso(at),
+    });
+  }
+
   // Stock: initial delivery = what was sold + the target left on the shelf today.
   const sold = new Map<string, number>();
   for (const s of sales) for (const it of s.items) sold.set(it.productId, (sold.get(it.productId) ?? 0) + it.quantity);
@@ -262,7 +314,7 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
 
-  return { products, customers, sales, payments, movements };
+  return { products, customers, sales, payments, movements, expenses, closes };
 }
 
 /** Wipes the demo database and fills it again. Only ever called on the demo database. */
@@ -279,12 +331,15 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.sales.bulkAdd(data.sales);
     await db.creditPayments.bulkAdd(data.payments);
     await db.stockMovements.bulkAdd(data.movements);
+    await db.expenses.bulkAdd(data.expenses);
+    await db.cashCloses.bulkAdd(data.closes);
     await db.settings.put({
       id: SETTINGS_ID,
       storeName: DEMO_STORE_NAME,
       phone: '923 000 000',
       creditTermDays: 15,
       creditLimitCents: 3_000_000,
+      cashFloatCents: DEMO_FLOAT_CENTS,
       createdAt: at,
       updatedAt: at,
     });

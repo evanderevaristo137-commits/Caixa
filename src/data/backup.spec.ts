@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { CaixaDB, DB_NAMES } from './db';
 import { seedDemo } from './demo-seed';
 import { Store } from './store';
-import { exportBackup, importBackup, productsCsv, salesCsv, toCsv, validateBackup } from './backup';
+import { expensesCsv, exportBackup, importBackup, productsCsv, salesCsv, toCsv, validateBackup } from './backup';
 import { addToCart } from '../domain/cart';
 
 const dbs: CaixaDB[] = [];
@@ -56,6 +56,28 @@ describe('demo backups', () => {
   });
 });
 
+describe('backups and the tables added later', () => {
+  it('imports a backup made before expenses existed, and carries expenses and counts', async () => {
+    const db = newDb('test-bk-later');
+    const store = new Store(db);
+    await store.expenses.create({ category: 'energy', amountCents: 400_000, fromCash: true });
+    await store.cash.close({ floatCents: 0, countedCents: 0 });
+    const backup = await exportBackup(db);
+    expect(backup.data.expenses).toHaveLength(1);
+    expect(backup.data.cashCloses).toHaveLength(1);
+
+    const old = JSON.parse(JSON.stringify(backup));
+    delete old.data.expenses;
+    delete old.data.cashCloses;
+    expect(validateBackup(old)).toBeNull();
+    await importBackup(db, old);
+    expect(await db.expenses.count()).toBe(0);
+    await importBackup(db, backup);
+    expect(await db.expenses.count()).toBe(1);
+    expect(await db.cashCloses.count()).toBe(1);
+  });
+});
+
 describe('CSV', () => {
   it('escapes separators and quotes and uses decimal commas', async () => {
     expect(toCsv([['a;b', 'say "hi"', 3]])).toBe('﻿"a;b";"say ""hi""";3\r\n');
@@ -73,6 +95,12 @@ describe('CSV', () => {
     await store.sales.create({ cart: addToCart([], b, 3), method: 'cash' });
     expect(await productsCsv(db)).toContain('Bolacha;;un;500,00;2;0;350,00\r\n');
     expect(await salesCsv(db)).toContain(';Bolacha;3;un;500,00;1500,00;1500,00;Numerário;;;;;1050,00;450,00\r\n');
+    const e = await store.expenses.create({ category: 'energy', amountCents: 400_000, fromCash: true, note: 'Gasóleo; 20 L' });
+    await store.expenses.void(e.id, 'Valor errado');
+    await store.expenses.create({ category: 'rent', amountCents: 3_000_000, fromCash: false });
+    const csv = await expensesCsv(db);
+    expect(csv).toContain(';Luz e gerador;4000,00;Sim;"Gasóleo; 20 L";Sim;Valor errado\r\n');
+    expect(csv).toContain(';Renda;30000,00;Não;;;\r\n');
   });
 });
 

@@ -1,6 +1,8 @@
 import { methodLabel } from '../i18n/pt-AO';
 import { formatKz } from '../lib/money';
-import type { AuditEntry, CreditPayment, Customer, Product, Sale, Settings, StockMovement } from './types';
+import type { AuditEntry, CashClose, CreditPayment, Customer, Expense, Product, Sale, Settings, StockMovement } from './types';
+import { t } from '../i18n/pt-AO';
+import { formatDateString } from '../lib/dates';
 
 export interface AuditLine {
   text: string;
@@ -88,10 +90,33 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       }
       const before = obj<Settings>(e.before);
       const after = obj<Settings>(e.after);
+      if (before.cashFloatCents !== after.cashFloatCents) {
+        return {
+          text: after.cashFloatCents ? `Fundo de caixa: ${formatKz(after.cashFloatCents)}` : 'Sem fundo de caixa',
+          important: false,
+        };
+      }
       if (before.creditTermDays !== after.creditTermDays && after.creditTermDays) {
         return { text: `Prazo habitual para clientes: ${after.creditTermDays} dias`, important: false };
       }
       return { text: 'Dados da loja alterados', important: false };
+    }
+    case 'expense': {
+      const x = obj<Expense>(e.after);
+      const what = x.category ? t.expenses.categories[x.category] : 'Saída';
+      const amount = formatKz(x.amountCents ?? 0);
+      if (e.action === 'voided') return { text: `Saída anulada: ${what} — ${amount}. Motivo: ${x.voidReason ?? '—'}`, important: true };
+      const where = x.fromCash ? 'da caixa' : 'paga de outra forma';
+      return { text: `Saída de dinheiro: ${what} — ${amount} (${where})${x.note ? ` · ${x.note}` : ''}`, important: true };
+    }
+    case 'cash_close': {
+      const c = obj<CashClose>(e.after);
+      const diff = c.differenceCents ?? 0;
+      const result = diff === 0 ? 'bate certo' : diff > 0 ? `sobram ${formatKz(diff)}` : `faltam ${formatKz(-diff)}`;
+      return {
+        text: `Dia ${c.day ? formatDateString(c.day) : ''} fechado: contou ${formatKz(c.countedCents ?? 0)}, devia ter ${formatKz(c.expectedCents ?? 0)} — ${result}`,
+        important: true,
+      };
     }
     case 'data':
       if (e.action === 'imported') return { text: 'Cópia de segurança recuperada (todos os dados substituídos)', important: true };

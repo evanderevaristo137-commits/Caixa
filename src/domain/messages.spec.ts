@@ -116,7 +116,7 @@ describe('daySummaryText', () => {
         '',
         'Vendido: *5.250 Kz* (2 vendas)',
         'Ontem até esta hora: 0 Kz',
-        'Dinheiro na caixa (numerário): 4.550 Kz',
+        'Dinheiro que devia estar na caixa: 4.550 Kz',
         '',
         '• Numerário: 4.250 Kz',
         '• QR KWiK: 1.000 Kz',
@@ -129,12 +129,35 @@ describe('daySummaryText', () => {
   it('adds the estimated profit when products have a cost price', () => {
     const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
     const profit = { revenueCents: 100_000, costCents: 75_000, profitCents: 25_000, unknownRevenueCents: 0, unknownLines: 0 };
-    expect(daySummaryText('Loja', 'Hoje', view, profit)).toContain('Lucro estimado: 250 Kz (margem de 25%)');
-    expect(daySummaryText('Loja', 'Hoje', view, { ...profit, unknownLines: 2, unknownRevenueCents: 5_000 })).toContain(
+    expect(daySummaryText('Loja', 'Hoje', view, { profit })).toContain('Lucro estimado: 250 Kz (margem de 25%)');
+    expect(daySummaryText('Loja', 'Hoje', view, { profit: { ...profit, unknownLines: 2, unknownRevenueCents: 5_000 } })).toContain(
       'Lucro estimado: 250 Kz (margem de 25%) — só dos produtos com preço de custo',
     );
     // Without cost prices there is no profit line (the number is never invented).
-    expect(daySummaryText('Loja', 'Hoje', view, { ...profit, revenueCents: 0, costCents: 0, profitCents: 0 })).not.toContain('Lucro');
+    expect(daySummaryText('Loja', 'Hoje', view, { profit: { ...profit, revenueCents: 0, costCents: 0, profitCents: 0 } })).not.toContain(
+      'Lucro',
+    );
+  });
+
+  it('adds money out, the float and the end-of-day count', () => {
+    const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
+    const text = daySummaryText('Loja', 'Hoje', view, {
+      outflows: { expensesCents: 150_000, withdrawalsCents: 2_000_000, cashOutCents: 2_150_000, byCategory: {}, count: 2 },
+      drawer: { floatCents: 500_000, cashSalesCents: 0, cashCreditPaymentsCents: 0, cashOutCents: 0, expectedCents: 500_000 },
+      close: {
+        id: 'c',
+        day: '2026-11-06',
+        floatCents: 500_000,
+        expectedCents: 500_000,
+        countedCents: 480_000,
+        differenceCents: -20_000,
+        createdAt: '',
+        updatedAt: '',
+      },
+    });
+    expect(text).toContain(
+      'Despesas: 1.500 Kz\nRetiradas do dono: 20.000 Kz\nDinheiro que devia estar na caixa: 5.000 Kz\nFecho: contou 4.800 Kz — faltam 200 Kz',
+    );
   });
 });
 

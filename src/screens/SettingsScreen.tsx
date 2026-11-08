@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../app/context';
 import { makeBackup } from '../app/backup-action';
-import { creditCsv, importBackup, lastBackupAt, productsCsv, salesCsv } from '../data/backup';
+import { creditCsv, expensesCsv, importBackup, lastBackupAt, productsCsv, salesCsv } from '../data/backup';
 import { normaliseNif } from '../domain/nif';
 import type { Settings } from '../domain/types';
 import { t } from '../i18n/pt-AO';
@@ -12,6 +12,7 @@ import { shareOrDownload } from '../lib/share';
 import { isStoragePersisted } from '../lib/storage';
 import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
+import { CashFloatCard } from './settings/CashFloatCard';
 import { InvoicingCard } from './settings/InvoicingCard';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
       <InstallCard />
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <CreditSettingsCard settings={settings} />
+      <CashFloatCard key={`float-${store.db.name}`} settings={settings} />
       <InvoicingCard settings={settings} />
       <OwnerPinCard />
       <DataCard />
@@ -155,7 +157,7 @@ function DataCard() {
         onChange={(e) => void onImport(e.target.files?.[0])}
       />
       <h3 className="pt-2 font-semibold">{t.settings.exportsTitle}</h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('vendas', () => salesCsv(store.db))}>
           {t.settings.exportSales}
         </Button>
@@ -164,6 +166,9 @@ function DataCard() {
         </Button>
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('clientes', () => creditCsv(store.db))}>
           {t.settings.exportCredit}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('saidas', () => expensesCsv(store.db))}>
+          {t.settings.exportExpenses}
         </Button>
       </div>
     </Card>
