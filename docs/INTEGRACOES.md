@@ -63,6 +63,7 @@ Todos os exemplos usam **dados fictícios**.
 }
 ```
 
+- **Produtos vendidos ao quilo:** `quantity` em kg com até 3 casas decimais (por exemplo `0.75`), `unit: "kg"` e `unitPriceCents` é o preço **por kg**. O total da linha (`lineTotalCents`) vem arredondado ao kwanza inteiro, ou é exactamente o valor que o cliente pediu («500 Kz de feijão»); é esse o valor cobrado.
 - `taxRateBp`: taxa de IVA em pontos base (`1400` = 14%). Se faltar, a loja ainda não a indicou; o parceiro ou o contabilista confirma.
 - `taxExemption`: motivo de isenção, quando a taxa é 0.
 - `buyer`: «Consumidor final», ou nome e NIF do cliente quando a loja os tem. **Nunca enviamos telefones de clientes.**
