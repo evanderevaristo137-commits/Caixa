@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditStatus, validateCreditPayment } from '../../domain/credit';
-import { reminderText } from '../../domain/messages';
-import { toWhatsAppNumber, whatsAppLink } from '../../domain/whatsapp';
 import type { CreditPayment } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { calendarDaysBetween, formatDate, formatDateTime } from '../../lib/dates';
+import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
 import { parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
-import { daysClass } from './days';
+import { dueBadge, reminderLink } from './due';
 
 const PAY_METHODS: CreditPayment['method'][] = ['cash', 'multicaixa_express', 'kwik', 'unitel_money', 'afrimoney', 'paypay'];
 
@@ -36,6 +34,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const { customer, sales, payments, settings } = data;
   const now = new Date();
   const status = creditStatus(customer.id, sales, payments, now);
+  const badge = status.balanceCents > 0 ? dueBadge(status) : null;
+  const remind = reminderLink(status, customer, settings.storeName, now);
 
   const pay = async (cents: number | null) => {
     const check = validateCreditPayment(cents ?? 0, status.balanceCents);
@@ -63,7 +63,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
       kind: 'buy' as const,
       voided: !!s.voidedAt,
       cents: s.totalCents,
-      label: s.items.map((i) => `${i.quantity}× ${i.name}`).join(', '),
+      label:
+        (s.dueDate ? `${t.sell.payBy(formatDateString(s.dueDate))} · ` : '') + s.items.map((i) => `${i.quantity}× ${i.name}`).join(', '),
     })),
     ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, voided: false, cents: p.amountCents, label: methodLabel[p.method] })),
   ].sort((a, b) => b.at.localeCompare(a.at));
@@ -76,24 +77,19 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           cents={Math.abs(status.balanceCents)}
           className={`block text-4xl font-extrabold ${status.balanceCents < 0 ? 'text-brand-700' : ''}`}
         />
-        {status.daysOutstanding !== undefined && (
-          <span className={`mt-2 inline-block rounded-full px-3 py-1 font-semibold ${daysClass(status.daysOutstanding)}`}>
-            {t.credit.days(status.daysOutstanding)} · {formatDate(status.oldestUnpaidAt!)}
-          </span>
+        {badge && <span className={`mt-2 inline-block rounded-full px-3 py-1 font-semibold ${badge.className}`}>{badge.text}</span>}
+        {status.dueNowCents > 0 && status.dueNowCents < status.balanceCents && (
+          <p className="mt-2 font-semibold text-red-800">
+            {t.credit.dueNow}: <Money cents={status.dueNowCents} />
+          </p>
         )}
       </div>
 
       {status.balanceCents > 0 && (
         <div className="mt-4 space-y-2">
-          {toWhatsAppNumber(customer.phone) ? (
+          {remind ? (
             <>
-              <LinkButton
-                href={whatsAppLink(
-                  reminderText(customer.name, status.balanceCents, status.oldestUnpaidAt, settings.storeName, now),
-                  customer.phone,
-                )}
-                onClick={() => void store.customers.markReminded(customer.id)}
-              >
+              <LinkButton href={remind} onClick={() => void store.customers.markReminded(customer.id)}>
                 {t.credit.remind}
               </LinkButton>
               {customer.lastRemindedAt && (

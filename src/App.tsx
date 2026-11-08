@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from './app/context';
+import { creditAlerts } from './domain/credit';
 import { t } from './i18n/pt-AO';
 import { SellScreen } from './screens/sell/SellScreen';
 
@@ -28,7 +30,9 @@ function readTab(): Tab {
 }
 
 export function App() {
-  const { mode, toast } = useApp();
+  const { mode, toast, store } = useApp();
+  // Red number on "Clientes": customers who are late or must pay today.
+  const urgent = useLiveQuery(async () => creditAlerts(await store.credit.book()).urgentCount, [store]) ?? 0;
   const [tab, setTab] = useState<Tab>(readTab);
 
   useEffect(() => {
@@ -65,7 +69,7 @@ export function App() {
               type="button"
               onClick={() => go(id)}
               aria-current={tab === id ? 'page' : undefined}
-              className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${tab === id ? 'text-brand-700' : 'text-slate-600'}`}
+              className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${tab === id ? 'text-brand-700' : 'text-slate-600'}`}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -80,6 +84,11 @@ export function App() {
                 <path d={ICONS[id]} />
               </svg>
               {t.tabs[id]}
+              {id === 'credit' && urgent > 0 && (
+                <span className="absolute top-1.5 left-1/2 ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                  {urgent}
+                </span>
+              )}
             </button>
           ))}
         </div>

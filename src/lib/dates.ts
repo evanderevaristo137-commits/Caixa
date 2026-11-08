@@ -49,3 +49,48 @@ export function dayLabel(day: Date, now: Date): string {
   const mm = String(day.getMonth() + 1).padStart(2, '0');
   return `${WEEKDAYS[day.getDay()]}, ${dd}/${mm}`;
 }
+
+// ---- Calendar dates without time ("YYYY-MM-DD", the phone's local calendar) ----
+// Used for payment due dates: a due date is a day, not an instant.
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+export function toLocalDateString(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function isValidDateString(s: string | undefined): s is string {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = fromLocalDateString(s);
+  return toLocalDateString(d) === s;
+}
+
+/** Local midnight of a "YYYY-MM-DD" date. */
+export function fromLocalDateString(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y!, m! - 1, d!);
+}
+
+export function addDaysToDateString(s: string, days: number): string {
+  return toLocalDateString(addDays(fromLocalDateString(s), days));
+}
+
+/** Whole days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetweenDateStrings(from: string, to: string): number {
+  return calendarDaysBetween(fromLocalDateString(from), fromLocalDateString(to));
+}
+
+export function endOfMonthDateString(d: Date): string {
+  return toLocalDateString(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+
+/** "21/11/2026" */
+export function formatDateString(s: string): string {
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** "sex., 21/11/2026" */
+export function formatDateStringLong(s: string): string {
+  return `${WEEKDAYS[fromLocalDateString(s).getDay()]}, ${formatDateString(s)}`;
+}

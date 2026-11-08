@@ -33,15 +33,84 @@ test('Today matches the sales, and a voided sale stops counting', async ({ page 
   await expect(page.getByText('1 venda anulada (5.500 Kz)')).toBeVisible();
 });
 
-test('fiado shows who owes and the reminder opens WhatsApp with a polite message', async ({ page }) => {
+test('customers show who is late, due today or soon, and reminders follow the due date', async ({ page }) => {
   await openDemo(page);
+  // Red number on the tab: 2 late + 1 due today.
+  await expect(page.getByRole('navigation').getByRole('button', { name: /Clientes/ })).toContainText('3');
   await nav(page, 'Clientes');
   await expect(page.getByText('A receber de clientes')).toBeVisible();
+  const row = (name: string) => page.getByRole('listitem').filter({ hasText: name });
+  await expect(row('Joana Mateus')).toContainText(/Atrasado \d+ dias?/);
+  await expect(row('António Kiala')).toContainText(/Atrasado \d+ dias?/);
+  await expect(row('Esperança Domingos')).toContainText('Vence hoje');
+  await expect(row('Manuel Sebastião')).toContainText('Vence em 2 dias');
+  await expect(row('Luísa Neto')).toContainText(/Vence a \d\d\/\d\d\/\d{4}/);
+  await expect(row('Luísa Neto').getByRole('link')).toHaveCount(0);
+
+  const quick = await row('Esperança Domingos')
+    .getByRole('link', { name: /Lembrar/ })
+    .getAttribute('href');
+  expect(quick).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
+  expect(decodeURIComponent(quick!)).toContain('vence hoje');
+
   await page.getByRole('button', { name: /Joana Mateus/ }).click();
-  await expect(page.getByText(/há \d+ dias/).first()).toBeVisible();
   const href = await page.getByRole('link', { name: 'Lembrar por WhatsApp' }).getAttribute('href');
-  expect(href).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
-  expect(decodeURIComponent(href!)).toContain('com todo o respeito');
+  expect(decodeURIComponent(href!)).toMatch(/com todo o respeito, que o pagamento de [\d.]+ Kz venceu a \d\d\/\d\d\/\d{4}/);
+});
+
+const inDays = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
+
+test('a credit sale has a payment term: the usual one is pre-selected, another can be chosen', async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cliente (a crédito)' }).click();
+  await page.getByRole('button', { name: 'Luísa Neto' }).click();
+  await expect(page.getByRole('button', { name: '15 dias' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText(/^Pagar até [a-zçá]+\.,/)).toContainText(inDays(15));
+  await page.getByRole('button', { name: '7 dias' }).click();
+  await expect(page.getByText(/^Pagar até [a-zçá]+\.,/)).toContainText(inDays(7));
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByText('Venda registada')).toBeVisible();
+  await expect(page.getByText(/^Pagar até [a-zçá]+\.,/)).toContainText(inDays(7));
+  const receipt = page.getByRole('link', { name: 'Enviar talão por WhatsApp' });
+  await expect.poll(async () => decodeURIComponent((await receipt.getAttribute('href'))!)).toContain(`Pagar até: ${inDays(7)}`);
+});
+
+test('Today lists the customers to remind', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  await expect(page.getByRole('heading', { name: 'Pagamentos de clientes' })).toBeVisible();
+  await expect(page.getByText('Em atraso: 2')).toBeVisible();
+  await expect(page.getByText('Vencem hoje: 1')).toBeVisible();
+  await expect(page.getByText('Nos próximos 2 dias: 1')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lembrar Esperança Domingos' })).toBeVisible();
+});
+
+test('the usual payment term and payment notifications are set in Mais', async ({ page, context }) => {
+  await context.grantPermissions(['notifications']);
+  await openDemo(page);
+  await nav(page, 'Mais');
+  const terms = page.getByRole('group', { name: 'Prazo habitual para os clientes pagarem' });
+  await expect(terms.getByRole('button', { name: '15 dias' })).toHaveAttribute('aria-pressed', 'true');
+  await terms.getByRole('button', { name: '30 dias' }).click();
+  await expect(terms.getByRole('button', { name: '30 dias' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Avisos activos.')).toBeVisible();
+  await page.getByRole('button', { name: 'Testar aviso' }).click();
+  await expect
+    .poll(() => page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => n.title)))
+    .toContain('Pagamentos de clientes');
+
+  await nav(page, 'Vender');
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cliente (a crédito)' }).click();
+  await page.getByRole('button', { name: 'Luísa Neto' }).click();
+  await expect(page.getByRole('button', { name: '30 dias' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('the Android back button closes the open window and keeps the cart', async ({ page }) => {
@@ -196,4 +265,67 @@ test('a double tap on "Confirmar venda" records one sale', async ({ page }) => {
   await page.getByRole('button', { name: 'Nova venda' }).click();
   await nav(page, 'Hoje');
   await expect(count).toHaveText(`${before + 1} vendas`);
+});
+
+test('with the app closed, Android wakes the background check and the shop gets one notification a day', async ({ page, context }) => {
+  await context.grantPermissions(['notifications']);
+  await page.goto('./');
+  // Real shop: a credit sale due today.
+  await page.getByRole('button', { name: '+ Criar o primeiro produto' }).click();
+  await page.getByLabel('Nome').fill('Produto de teste');
+  await page.getByLabel('Preço (Kz)').fill('1.000');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cliente (a crédito)' }).click();
+  await page.getByRole('button', { name: '+ Novo cliente' }).click();
+  await page.getByLabel('Nome').fill('Cliente de teste');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByRole('button', { name: 'Outra data' }).click();
+  const today = await page.evaluate(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  await page.getByLabel('Outra data').fill(today);
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByText('Venda registada')).toBeVisible();
+
+  // The app keeps the short list the background checker reads.
+  const readMeta = (key: string) =>
+    page.evaluate(
+      (k) =>
+        new Promise<string | undefined>((resolve) => {
+          const r = indexedDB.open('caixa-loja');
+          r.onsuccess = () => {
+            const q = r.result.transaction('meta').objectStore('meta').get(k);
+            q.onsuccess = () => resolve(q.result?.value);
+          };
+        }),
+      key,
+    );
+  await expect.poll(() => readMeta('creditAlertItems')).toContain('Cliente de teste');
+
+  // Android wakes the service worker (Periodic Background Sync).
+  const cdp = await context.newCDPSession(page);
+  const registrations: string[] = [];
+  cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => e.registrations.forEach((r) => registrations.push(r.registrationId)));
+  await cdp.send('ServiceWorker.enable');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await expect.poll(() => registrations.length).toBeGreaterThan(0);
+  const origin = new URL(page.url()).origin;
+  const wake = () =>
+    cdp.send('ServiceWorker.dispatchPeriodicSyncEvent', { origin, registrationId: registrations[0]!, tag: 'caixa-credit-alerts' });
+  const notifications = () =>
+    page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}: ${n.body}`));
+
+  await wake();
+  await expect.poll(notifications).toEqual(['Pagamentos de clientes: 1 vence hoje. Toque para ver e lembrar os clientes.']);
+  await expect.poll(() => readMeta('alertsNotifiedOn')).toBe(today);
+
+  // Woken again the same day: no second notification.
+  await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).forEach((n) => n.close()));
+  await wake();
+  await page.waitForTimeout(500);
+  expect(await notifications()).toEqual([]);
 });

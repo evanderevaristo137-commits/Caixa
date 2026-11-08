@@ -1,6 +1,7 @@
 import type { CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
-import { addDays, startOfLocalDay } from '../lib/dates';
+import { openItems } from '../domain/credit';
+import { addDays, addDaysToDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import { uuid } from '../lib/ids';
 import type { CaixaDB } from './db';
 import { SETTINGS_ID } from './store';
@@ -181,6 +182,26 @@ export function buildDemoData(now: Date): DemoData {
     }
   });
 
+  // Payment terms: each credit sale gets 7 or 15 days. Then the oldest open purchase of each
+  // customer is moved so the demo shows every situation: overdue, due today, due soon, later.
+  for (const s of sales) {
+    if (s.method === 'credit') s.dueDate = toLocalDateString(addDays(new Date(s.createdAt), rand() < 0.5 ? 7 : 15));
+  }
+  const today = toLocalDateString(now);
+  const firstDueOffset = [-4, -9, 0, 2, 9]; // Joana, António: overdue · Esperança: today · Manuel: soon · Luísa: later
+  customers.forEach((c, i) => {
+    const open = openItems(c.id, sales, payments);
+    if (open.length === 0) return;
+    const firstSale = sales.find((s) => s.id === open[0]!.saleId)!;
+    const bought = toLocalDateString(new Date(firstSale.createdAt));
+    const wanted = addDaysToDateString(today, firstDueOffset[i]!);
+    const target = wanted < bought ? bought : wanted;
+    for (const item of open) {
+      const sale = sales.find((s) => s.id === item.saleId)!;
+      sale.dueDate = sale === firstSale || sale.dueDate! < target ? target : sale.dueDate;
+    }
+  });
+
   // Stock: initial delivery = what was sold + the target left on the shelf today.
   const sold = new Map<string, number>();
   for (const s of sales) for (const it of s.items) sold.set(it.productId, (sold.get(it.productId) ?? 0) + it.quantity);
@@ -230,7 +251,14 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.sales.bulkAdd(data.sales);
     await db.creditPayments.bulkAdd(data.payments);
     await db.stockMovements.bulkAdd(data.movements);
-    await db.settings.put({ id: SETTINGS_ID, storeName: DEMO_STORE_NAME, phone: '923 000 000', createdAt: at, updatedAt: at });
+    await db.settings.put({
+      id: SETTINGS_ID,
+      storeName: DEMO_STORE_NAME,
+      phone: '923 000 000',
+      creditTermDays: 15,
+      createdAt: at,
+      updatedAt: at,
+    });
     await db.meta.put({ key: 'saleNumber', value: data.sales.length });
     await db.meta.put({ key: 'demoSeededAt', value: at });
     await db.audit.add({ id: uuid(), entity: 'data', entityId: 'demo', action: 'reset', createdAt: at, updatedAt: at });

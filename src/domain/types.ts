@@ -58,6 +58,8 @@ export interface Sale extends BaseRecord {
   paymentRef?: string;
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
+  /** Credit sales only: the day the customer must pay by ("YYYY-MM-DD", the phone's calendar). */
+  dueDate?: string;
   /** Voided sales stay in history but no longer count (totals, stock, fiado). */
   voidedAt?: IsoDate;
   voidReason?: string;
@@ -95,4 +97,6 @@ export interface Settings extends BaseRecord {
   phone?: string;
   /** Optional NIF, shown on the non-fiscal receipt only. */
   nif?: string;
+  /** Usual payment term for credit sales, in days (default 15). */
+  creditTermDays?: number;
 }

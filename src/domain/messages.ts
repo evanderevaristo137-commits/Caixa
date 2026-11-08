@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime } from '../lib/dates';
+import { formatDate, formatDateString, formatDateTime } from '../lib/dates';
+import type { DueState } from './credit';
 import { formatKz } from '../lib/money';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { greeting } from './whatsapp';
@@ -27,6 +28,7 @@ export function receiptText(
   lines.push(`*TOTAL: ${formatKz(sale.totalCents)}*`);
   lines.push(`Pagamento: ${methodLabel[sale.method]}`);
   if (sale.method === 'credit' && customerName) lines.push(`Cliente: ${customerName}`);
+  if (sale.method === 'credit' && sale.dueDate) lines.push(`Pagar até: ${formatDateString(sale.dueDate)}`);
   if (sale.method === 'credit' && balanceAfterCents !== undefined && balanceAfterCents > 0) {
     lines.push(`Total em dívida: ${formatKz(balanceAfterCents)}`);
   }
@@ -39,16 +41,39 @@ export function receiptText(
   return lines.join('\n');
 }
 
-/** Polite fiado reminder, ready to send. */
-export function reminderText(customerName: string, balanceCents: Cents, since: string | undefined, storeName: string, now: Date): string {
-  const firstName = customerName.trim().split(/\s+/)[0] ?? customerName;
-  const sinceText = since ? ` desde ${formatDate(since)}` : '';
-  return (
-    `${greeting(now)}, ${firstName}! Fala a ${storeName}. ` +
-    `Esperamos que esteja tudo bem consigo e com a família. ` +
-    `Lembramos, com todo o respeito, que tem um valor em aberto de ${formatKz(balanceCents)}${sinceText}. ` +
-    `Quando lhe for possível, pode passar pela loja para acertar. Muito obrigado pela confiança!`
-  );
+/** What a reminder needs to know about the customer's account (see `creditStatus`). */
+export interface ReminderInput {
+  customerName: string;
+  storeName: string;
+  now: Date;
+  /** Amount the reminder is about: what is due by the next due date. */
+  amountCents: Cents;
+  dueDate?: string;
+  state?: DueState;
+  /** Everything the customer owes; mentioned when it is more than `amountCents`. */
+  balanceCents?: Cents;
+}
+
+/** Polite payment reminder, ready to send by WhatsApp. The wording follows the due date. */
+export function reminderText(r: ReminderInput): string {
+  const firstName = r.customerName.trim().split(/\s+/)[0] ?? r.customerName;
+  const amount = formatKz(r.amountCents);
+  const due = r.dueDate ? formatDateString(r.dueDate) : '';
+  let body: string;
+  if (r.state === 'overdue' && r.dueDate) {
+    body = `Lembramos, com todo o respeito, que o pagamento de ${amount} venceu a ${due}. Quando lhe for possível, passe pela loja para acertar.`;
+  } else if (r.state === 'today') {
+    body = `Lembramos, com todo o respeito, que o pagamento de ${amount} vence hoje. Quando puder, passe pela loja.`;
+  } else if (r.dueDate) {
+    body = `Lembramos, com todo o respeito, que o pagamento de ${amount} vence a ${due}.`;
+  } else {
+    body = `Lembramos, com todo o respeito, que tem um valor em aberto de ${amount}. Quando lhe for possível, passe pela loja para acertar.`;
+  }
+  const total =
+    r.balanceCents !== undefined && r.balanceCents > r.amountCents
+      ? ` No total, a sua conta tem ${formatKz(r.balanceCents)} em aberto.`
+      : '';
+  return `${greeting(r.now)}, ${firstName}! Fala a ${r.storeName}. Esperamos que esteja tudo bem consigo e com a família. ${body}${total} Muito obrigado pela confiança!`;
 }
 
 /** Shopping list to send to a supplier (or to oneself) by WhatsApp. */

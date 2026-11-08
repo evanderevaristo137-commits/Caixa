@@ -169,3 +169,59 @@ describe('Store: NIF with letters', () => {
     await expect(store.settings.save({ storeName: 'Loja', nif: '12AB#' })).rejects.toSatisfy((e) => code(e) === 'invalid_nif');
   });
 });
+
+describe('Store: payment terms', () => {
+  it('every credit sale gets a due date: the one chosen, or the usual term', async () => {
+    const now = new Date(2026, 10, 6, 10);
+    const s = new Store(db, () => now);
+    const a = await s.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const c = await s.customers.create('Cliente Exemplo');
+    const chosen = await s.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id, dueDate: '2026-11-30' });
+    expect(chosen.dueDate).toBe('2026-11-30');
+    const usual = await s.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+    expect(usual.dueDate).toBe('2026-11-21');
+    await s.settings.save({ creditTermDays: 7 });
+    expect((await s.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id })).dueDate).toBe('2026-11-13');
+    const cash = await s.sales.create({ cart: addToCart([], a), method: 'cash' });
+    expect(cash.dueDate).toBeUndefined();
+  });
+
+  it('refuses due dates in the past or malformed', async () => {
+    const s = new Store(db, () => new Date(2026, 10, 6, 10));
+    const a = await s.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const c = await s.customers.create('Cliente Exemplo');
+    for (const dueDate of ['2026-11-05', '06/12/2026', '2026-02-30']) {
+      await expect(s.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id, dueDate })).rejects.toSatisfy(
+        (e) => code(e) === 'invalid_due_date',
+      );
+    }
+  });
+
+  it('saving the shop details keeps the payment term (and vice versa)', async () => {
+    await store.settings.save({ creditTermDays: 30 });
+    await store.settings.save({ storeName: 'Loja', phone: '923000000', nif: '5000000000' });
+    const s = await store.settings.get();
+    expect(s.creditTermDays).toBe(30);
+    await store.settings.save({ creditTermDays: 7 });
+    expect((await store.settings.get()).storeName).toBe('Loja');
+    await expect(store.settings.save({ creditTermDays: 0 })).rejects.toSatisfy((e) => code(e) === 'invalid_term');
+  });
+});
+
+describe('database upgrade', () => {
+  it('gives old credit sales (saved before due dates existed) the default term', async () => {
+    const { default: Dexie } = await import('dexie');
+    const name = `test-upgrade-${n++}`;
+    const old = new Dexie(name);
+    old.version(1).stores({ sales: 'id, createdAt, customerId, method, updatedAt', meta: 'key' });
+    await old.table('sales').bulkAdd([
+      { id: 's1', method: 'credit', customerId: 'c1', totalCents: 100, items: [], createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '' },
+      { id: 's2', method: 'cash', totalCents: 100, items: [], createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '' },
+    ]);
+    old.close();
+    const upgraded = new CaixaDB(name);
+    expect((await upgraded.sales.get('s1'))!.dueDate).toBe('2026-11-16');
+    expect((await upgraded.sales.get('s2'))!.dueDate).toBeUndefined();
+    await upgraded.delete();
+  });
+});

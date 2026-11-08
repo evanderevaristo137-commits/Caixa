@@ -35,12 +35,25 @@ describe('receiptText', () => {
 });
 
 describe('reminderText', () => {
-  it('is polite and includes amount and date', () => {
-    const msg = reminderText('Maria Exemplo', 1_250_000, new Date(2026, 9, 30).toISOString(), 'Loja Exemplo', new Date(2026, 10, 6, 9));
-    expect(msg.startsWith('Bom dia, Maria!')).toBe(true);
-    expect(msg).toContain('12.500 Kz');
-    expect(msg).toContain('desde 30/10/2026');
-    expect(msg).toContain('obrigado');
+  const base = { customerName: 'Maria Exemplo', storeName: 'Loja Exemplo', now: new Date(2026, 10, 6, 9), amountCents: 1_250_000 };
+
+  it('is polite, with greeting, amount and thanks', () => {
+    const msg = reminderText({ ...base, state: 'overdue', dueDate: '2026-11-02' });
+    expect(msg.startsWith('Bom dia, Maria! Fala a Loja Exemplo.')).toBe(true);
+    expect(msg).toContain('com todo o respeito');
+    expect(msg).toContain('o pagamento de 12.500 Kz venceu a 02/11/2026');
+    expect(msg.endsWith('Muito obrigado pela confiança!')).toBe(true);
+  });
+
+  it('follows the due date', () => {
+    expect(reminderText({ ...base, state: 'today', dueDate: '2026-11-06' })).toContain('12.500 Kz vence hoje');
+    expect(reminderText({ ...base, state: 'soon', dueDate: '2026-11-08' })).toContain('12.500 Kz vence a 08/11/2026.');
+    expect(reminderText({ ...base })).toContain('tem um valor em aberto de 12.500 Kz');
+  });
+
+  it('mentions the whole account only when it is more than the amount due', () => {
+    expect(reminderText({ ...base, state: 'today', balanceCents: 2_000_000 })).toContain('No total, a sua conta tem 20.000 Kz em aberto.');
+    expect(reminderText({ ...base, state: 'today', balanceCents: 1_250_000 })).not.toContain('No total');
   });
 });
 
@@ -64,6 +77,7 @@ describe('fiado receipt', () => {
     const text = receiptText(credit, { storeName: 'Loja Exemplo' }, 'Maria Exemplo', 1_675_000);
     expect(text).toContain('Cliente: Maria Exemplo');
     expect(text).toContain('Total em dívida: 16.750 Kz');
+    expect(receiptText({ ...credit, dueDate: '2026-11-21' }, { storeName: 'Loja Exemplo' })).toContain('Pagar até: 21/11/2026');
     expect(text).toContain('Documento não fiscal');
     expect(receiptText(sale, { storeName: 'Loja Exemplo' }, undefined, 5)).not.toContain('dívida');
   });

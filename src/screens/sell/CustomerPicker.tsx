@@ -60,16 +60,16 @@ export function CustomerPicker({ selected, onSelect }: { selected?: string; onSe
 
   return (
     <div>
-      <div className="flex gap-2">
+      <div className="space-y-2">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t.common.search}
           aria-label={t.common.search}
-          className="min-h-12 flex-1 rounded-xl border-2 border-slate-300 bg-white px-3 text-lg"
+          className="min-h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-3 text-lg"
         />
-        <Button variant="secondary" onClick={() => setCreating(true)}>
+        <Button variant="secondary" className="w-full" onClick={() => setCreating(true)}>
           + {t.sell.newCustomer}
         </Button>
       </div>

@@ -3,20 +3,23 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DEFAULT_STORE_NAME } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
-import { creditStatus } from '../../domain/credit';
+import { creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
 import { receiptText } from '../../domain/messages';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
+import { formatDateStringLong } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { CustomerPicker } from './CustomerPicker';
+import { TermPicker } from './TermPicker';
 
 export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: () => void; onDone: () => void }) {
   const { store, payments, showToast } = useApp();
   const settings = useLiveQuery(() => store.settings.get(), [store]);
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [chosenDueDate, setChosenDueDate] = useState<string | null>(null);
   const [received, setReceived] = useState('');
   const [busy, setBusy] = useState(false);
   // Guards against a double tap saving the same sale twice (state updates are not instant).
@@ -27,6 +30,8 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const receivedCents = received ? parseKz(received) : null;
   const change = receivedCents !== null ? changeDue(total, receivedCents) : null;
 
+  // Credit sales: the usual term is pre-selected; the shopkeeper can pick another.
+  const dueDate = chosenDueDate ?? dueDateFromTerm(settings?.creditTermDays ?? DEFAULT_TERM_DAYS, new Date());
   const canConfirm =
     method !== null && !busy && (method !== 'credit' || customer !== null) && (method !== 'cash' || !received || change !== null);
 
@@ -50,6 +55,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         customerId: customer?.id,
         paymentRef,
         cashReceivedCents: method === 'cash' && receivedCents !== null ? receivedCents : undefined,
+        dueDate: method === 'credit' ? dueDate : undefined,
       });
       navigator.vibrate?.([40, 60, 40]);
       setSale(saved);
@@ -79,6 +85,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
             {methodLabel[sale.method]}
             {customer ? ` — ${customer.name}` : ''}
           </p>
+          {sale.dueDate && <p className="mt-1 font-semibold text-amber-800">{t.sell.payBy(formatDateStringLong(sale.dueDate))}</p>}
           {sale.cashReceivedCents !== undefined && change !== null && (
             <p className="mt-2 text-2xl font-bold text-amber-700">
               {t.sell.change}: <Money cents={change} />
@@ -156,6 +163,11 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         <div className="mt-4">
           <p className="mb-2 font-semibold">{t.sell.chooseCustomer}</p>
           <CustomerPicker selected={customer?.id} onSelect={setCustomer} />
+          {customer && (
+            <div className="mt-4">
+              <TermPicker value={dueDate} onChange={setChosenDueDate} />
+            </div>
+          )}
         </div>
       )}
 

@@ -34,7 +34,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // sw-alerts.js is loaded by importScripts, not precached as a page asset.
+        globIgnores: ['sw-alerts.js'],
         navigateFallback: 'index.html',
+        // Background payment reminders (see public/sw-alerts.js).
+        importScripts: ['sw-alerts.js'],
       },
     }),
   ],

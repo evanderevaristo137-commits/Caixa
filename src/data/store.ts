@@ -1,6 +1,7 @@
 import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
-import { creditBook, totalOutstanding } from '../domain/credit';
+import { creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../domain/credit';
+import { isValidDateString, toLocalDateString } from '../lib/dates';
 import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
 import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
@@ -27,6 +28,8 @@ export interface NewSale {
   customerId?: string;
   paymentRef?: string;
   cashReceivedCents?: number;
+  /** Credit sales: "YYYY-MM-DD". When missing, the shop's usual term is used. */
+  dueDate?: string;
 }
 
 export const SETTINGS_ID = 'main';
@@ -221,14 +224,21 @@ export class Store {
     create: (input: NewSale): Promise<Sale> =>
       this.db.transaction(
         'rw',
-        [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta, this.db.customers],
+        [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta, this.db.customers, this.db.settings],
         async () => {
           if (input.cart.length === 0) throw new DomainError('empty_cart');
           if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0)) throw new DomainError('invalid_quantity');
+          let dueDate: string | undefined;
           if (input.method === 'credit') {
             if (!input.customerId || !(await this.db.customers.get(input.customerId))) {
               throw new DomainError('customer_required');
             }
+            const today = toLocalDateString(this.now());
+            if (input.dueDate !== undefined && (!isValidDateString(input.dueDate) || input.dueDate < today)) {
+              throw new DomainError('invalid_due_date');
+            }
+            const settings = await this.db.settings.get(SETTINGS_ID);
+            dueDate = input.dueDate ?? dueDateFromTerm(settings?.creditTermDays ?? DEFAULT_TERM_DAYS, this.now());
           }
           const counter = await this.db.meta.get('saleNumber');
           const number = (typeof counter?.value === 'number' ? counter.value : 0) + 1;
@@ -242,6 +252,7 @@ export class Store {
             currency: CURRENCY,
             method: input.method,
             customerId: input.method === 'credit' ? input.customerId : undefined,
+            dueDate,
             paymentRef: input.paymentRef,
             cashReceivedCents: input.method === 'cash' ? input.cashReceivedCents : undefined,
             createdAt: at,
@@ -262,11 +273,13 @@ export class Store {
     payments: () => this.db.creditPayments.orderBy('createdAt').toArray(),
     paymentsBetween: (fromIso: string, toIso: string) =>
       this.db.creditPayments.where('createdAt').between(fromIso, toIso, true, false).toArray(),
-    /** Total owed by all customers right now. */
-    totalOwed: async (now = new Date()) => {
+    /** Every customer with balance and payment situation, most urgent first. */
+    book: async (now = new Date()) => {
       const [customers, sales, payments] = await Promise.all([this.customers.list(), this.sales.onCredit(), this.credit.payments()]);
-      return totalOutstanding(creditBook(customers, sales, payments, now));
+      return creditBook(customers, sales, payments, now);
     },
+    /** Total owed by all customers right now. */
+    totalOwed: async (now = new Date()) => totalOutstanding(await this.credit.book(now)),
     byCustomer: (customerId: string) => this.db.creditPayments.where('customerId').equals(customerId).toArray(),
     addPayment: (customerId: string, amountCents: number, method: CreditPayment['method']): Promise<CreditPayment> =>
       this.db.transaction('rw', [this.db.creditPayments, this.db.sales, this.db.audit], async () => {
@@ -293,21 +306,27 @@ export class Store {
       const at = this.stamp();
       return { id: SETTINGS_ID, storeName: DEFAULT_STORE_NAME, createdAt: at, updatedAt: at };
     },
-    save: (input: Pick<Settings, 'storeName' | 'phone' | 'nif'>): Promise<Settings> =>
+    /** Updates only the fields given (so saving the shop name never erases the payment term). */
+    save: (input: Partial<Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays'>>): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
-        if (!input.storeName.trim()) throw new DomainError('name_required');
-        const nif = normaliseNif(input.nif);
-        if (!nif.ok) throw new DomainError('invalid_nif');
         const before = await this.db.settings.get(SETTINGS_ID);
         const at = this.stamp();
-        const after: Settings = {
-          id: SETTINGS_ID,
-          storeName: input.storeName.trim(),
-          phone: clean(input.phone),
-          nif: nif.value,
-          createdAt: before?.createdAt ?? at,
-          updatedAt: at,
-        };
+        const after: Settings = { storeName: DEFAULT_STORE_NAME, createdAt: at, ...before, id: SETTINGS_ID, updatedAt: at };
+        if ('storeName' in input) {
+          if (!input.storeName?.trim()) throw new DomainError('name_required');
+          after.storeName = input.storeName.trim();
+        }
+        if ('phone' in input) after.phone = clean(input.phone);
+        if ('nif' in input) {
+          const nif = normaliseNif(input.nif);
+          if (!nif.ok) throw new DomainError('invalid_nif');
+          after.nif = nif.value;
+        }
+        if ('creditTermDays' in input) {
+          const days = input.creditTermDays;
+          if (days === undefined || !Number.isInteger(days) || days < 1 || days > 365) throw new DomainError('invalid_term');
+          after.creditTermDays = days;
+        }
         await this.db.settings.put(after);
         await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', before, after });
         return after;

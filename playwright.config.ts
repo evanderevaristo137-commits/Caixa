@@ -11,6 +11,8 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     ...devices['Pixel 5'],
+    // Full Chromium (new headless): unlike the lightweight shell it supports notifications.
+    channel: 'chromium',
     baseURL: `http://localhost:4174${BASE}`,
     trace: 'off',
   },

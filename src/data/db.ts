@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { dueDateOf } from '../domain/credit';
 import type { AuditEntry, CreditPayment, Customer, Product, Sale, Settings, StockMovement } from '../domain/types';
 
 export type DataMode = 'store' | 'demo';
@@ -36,6 +37,17 @@ export class CaixaDB extends Dexie {
       settings: 'id',
       meta: 'key',
     });
+    // v2: every credit sale has a due date. Older ones get the default term from their purchase date.
+    this.version(2)
+      .stores({ sales: 'id, createdAt, customerId, method, updatedAt' })
+      .upgrade((tx) =>
+        tx
+          .table<Sale, string>('sales')
+          .toCollection()
+          .modify((s) => {
+            if (s.method === 'credit' && !s.dueDate) s.dueDate = dueDateOf(s);
+          }),
+      );
   }
 }
 

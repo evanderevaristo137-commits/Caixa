@@ -11,6 +11,7 @@ import { dateStamp } from '../lib/download';
 import { shareOrDownload } from '../lib/share';
 import { isStoragePersisted } from '../lib/storage';
 import { promptInstall, useCanInstall } from '../lib/install';
+import { CreditSettingsCard } from './settings/CreditSettingsCard';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 
 export default function SettingsScreen() {
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
     <div className="space-y-3 p-3">
       <InstallCard />
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
+      <CreditSettingsCard settings={settings} />
       <DataCard />
       <DemoCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>

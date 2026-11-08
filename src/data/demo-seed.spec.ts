@@ -69,3 +69,23 @@ describe('ensureFreshDemo', () => {
     await db.delete();
   });
 });
+
+describe('demo payment terms', () => {
+  it('shows every situation: overdue, due today, due soon and later', () => {
+    const d = buildDemoData(now);
+    const book = creditBook(d.customers, d.sales, d.payments, now);
+    const state = Object.fromEntries(book.map((b) => [b.customer.name, b.dueState]));
+    expect(state).toEqual({
+      'Joana Mateus': 'overdue',
+      'António Kiala': 'overdue',
+      'Esperança Domingos': 'today',
+      'Manuel Sebastião': 'soon',
+      'Luísa Neto': 'later',
+    });
+    expect(d.sales.filter((s) => s.method === 'credit').every((s) => s.dueDate && s.dueDate >= s.createdAt.slice(0, 10))).toBe(true);
+  });
+
+  it('every demo customer uses the WhatsApp test number', () => {
+    expect(new Set(buildDemoData(now).customers.map((c) => c.phone))).toEqual(new Set(['955 502 264']));
+  });
+});

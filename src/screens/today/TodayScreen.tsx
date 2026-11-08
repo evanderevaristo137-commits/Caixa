@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { daySummaryText, shoppingListText } from '../../domain/messages';
+import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
@@ -11,6 +12,7 @@ import { formatKz } from '../../lib/money';
 import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
 import { BackupReminder } from './BackupReminder';
 import { SalesList } from './SalesList';
+import { PaymentAlerts } from './PaymentAlerts';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -21,11 +23,11 @@ export default function TodayScreen() {
     const from = addDays(day, -1).toISOString();
     const to = addDays(day, 1).toISOString();
     const isToday = offset === 0;
-    const [sales, payments, products, owed, settings] = await Promise.all([
+    const [sales, payments, products, book, settings] = await Promise.all([
       store.sales.between(from, to),
       store.credit.paymentsBetween(from, to),
       isToday ? store.products.list() : Promise.resolve([]),
-      isToday ? store.credit.totalOwed(now) : Promise.resolve(0),
+      isToday ? store.credit.book(now) : Promise.resolve([]),
       store.settings.get(),
     ]);
     const dayStartIso = day.toISOString();
@@ -41,7 +43,9 @@ export default function TodayScreen() {
       summaryLink,
       daySales,
       lowStock: lowStockProducts(products),
-      owed,
+      owed: totalOutstanding(book),
+      alerts: creditAlerts(book),
+      storeName: settings.storeName,
       shoppingList,
     };
   }, [store, offset]);
@@ -87,6 +91,8 @@ export default function TodayScreen() {
     <div className="space-y-3 p-3">
       {isToday && <BackupReminder />}
       {header}
+
+      {isToday && <PaymentAlerts alerts={data.alerts} storeName={data.storeName} />}
 
       <Card className="bg-brand-700 text-white">
         <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>

@@ -5,6 +5,7 @@ import { FakePaymentProvider, type PaymentProvider } from '../providers/payment'
 import { requestPersistentStorage } from '../lib/storage';
 import { t } from '../i18n/pt-AO';
 import { ensureFreshDemo, seedDemo } from '../data/demo-seed';
+import { useBackgroundAlerts } from './use-background-alerts';
 
 const MODE_KEY = 'caixa.mode';
 
@@ -64,6 +65,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.addEventListener('unhandledrejection', onRejection);
     return () => window.removeEventListener('unhandledrejection', onRejection);
   }, [showToast]);
+
+  useBackgroundAlerts(storeFor('store'));
 
   // Ask Chrome to never clear our data when the phone runs out of space.
   useEffect(() => {

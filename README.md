@@ -23,11 +23,11 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 - **Vender:** toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
   - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
   - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
-- **Clientes:** quem deve, quanto e há quantos dias. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a crédito mostra o total em dívida do cliente.
+- **Clientes:** quem deve, quanto e até quando deve pagar (em atraso, vence hoje, vence em breve). Em cada venda a crédito escolhe-se o prazo: 7, 15 ou 30 dias, fim do mês ou outra data. O botão verde «Lembrar» abre o WhatsApp com a mensagem certa para cada caso. Toque no cliente para registar um pagamento (parcial ou total) ou para **Lembrar por WhatsApp** (a app mostra quando foi o último lembrete). O talão de uma venda a crédito mostra o total em dívida do cliente.
 - **Hoje:** total vendido, número de vendas, comparação com ontem até à mesma hora, **dinheiro que devia estar na caixa**, divisão por meio de pagamento, stock baixo (com **Enviar lista de compras** por WhatsApp), total a receber de clientes e a lista das vendas do dia. Use as setas ‹ › para ver dias anteriores e **Enviar resumo do dia** para mandar os números ao dono por WhatsApp.
   - Toque numa venda para reenviar o talão ou para a **anular** (engano, desistência, devolução). A venda anulada fica no histórico, mas deixa de contar e o stock volta ao lugar.
 - **Produtos:** criar e editar produtos, dar entrada de stock e fazer acertos (sempre com motivo).
-- **Mais:** nome da loja, telefone, NIF (aceita letras e números), cópias de segurança (JSON) e exportação para Excel (CSV).
+- **Mais:** nome da loja, telefone, NIF (aceita letras e números), prazo habitual para os clientes pagarem, **avisos de pagamentos** (o telemóvel avisa a loja quando um pagamento vence daqui a 2 dias, no próprio dia e quando atrasa), cópias de segurança (JSON) e exportação para Excel (CSV).
 
 ## Cópias de segurança
 
@@ -44,7 +44,7 @@ Nesta fase os pagamentos electrónicos (QR KWiK, Multicaixa Express, Unitel Mone
 ```bash
 npm install
 npm run dev        # abre em http://localhost:5173
-npm test           # testes dos cálculos (totais, stock, fiado, demonstração, cópias)
+npm test           # testes dos cálculos (totais, stock, clientes e prazos, demonstração, cópias)
 npm run typecheck
 npm run build
 ```
