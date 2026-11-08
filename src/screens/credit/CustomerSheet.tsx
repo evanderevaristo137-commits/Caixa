@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditStatus, validateCreditPayment } from '../../domain/credit';
+import { normaliseNif } from '../../domain/nif';
 import type { CreditPayment } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
@@ -29,6 +30,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const [phone, setPhone] = useState<string | null>(null);
   const [transactionRef, setTransactionRef] = useState('');
   const [name, setName] = useState<string | null>(null);
+  const [nif, setNif] = useState<string | null>(null);
+  const [nifError, setNifError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
   if (!data?.customer) return null;
@@ -52,7 +55,10 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const saveDetails = async () => {
     const nextName = name ?? customer.name;
     if (!nextName.trim()) return setNameError(t.products.nameRequired);
-    await store.customers.update(customer.id, nextName, phone ?? customer.phone);
+    if (nif !== null && !normaliseNif(nif).ok) return setNifError(t.settings.nifInvalid);
+    setNifError(null);
+    await store.customers.update(customer.id, { name: nextName, phone: phone ?? customer.phone, ...(nif !== null ? { nif } : {}) });
+    setNif(null);
     setPhone(null);
     setName(null);
     setNameError(null);
@@ -168,7 +174,16 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           value={phone ?? customer.phone ?? ''}
           onChange={(e) => setPhone(e.target.value)}
         />
-        {(phone !== null || name !== null) && (
+        <Field
+          label={t.invoicing.customerNif}
+          value={nif ?? customer.nif ?? ''}
+          onChange={(e) => setNif(e.target.value)}
+          autoCapitalize="characters"
+          autoComplete="off"
+          hint={t.settings.nifHint}
+          error={nifError}
+        />
+        {(phone !== null || name !== null || nif !== null) && (
           <Button className="w-full" onClick={() => void saveDetails()}>
             {t.common.save}
           </Button>

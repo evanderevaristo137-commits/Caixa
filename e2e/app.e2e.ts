@@ -396,3 +396,27 @@ test('"Verificar os dados" confirms that every number adds up', async ({ page })
   await page.getByRole('button', { name: 'Verificar agora' }).click();
   await expect(page.getByText(/Tudo certo: \d+ vendas e \d+ produtos verificados\./)).toBeVisible();
 });
+
+test('invoicing data (optional): what is missing, and the export for the certified partner', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Mais');
+  await page.getByLabel('NIF (opcional)').fill('5000000000');
+  await page.getByRole('button', { name: 'Guardar' }).first().click();
+  const card = page.locator('details', { hasText: 'Morada da loja' });
+  await card.locator('summary').click();
+  await expect(card.getByText(/ainda falta: morada da loja, regime de IVA, IVA de alguns produtos vendidos/)).toBeVisible();
+  await card.getByLabel('Morada da loja').fill('Rua Exemplo, Cazenga, Luanda');
+  await card.getByRole('button', { name: 'Regime geral' }).click();
+  await card.getByLabel('IVA habitual (%)').fill('14');
+  await card.getByRole('button', { name: 'Guardar' }).click();
+  await expect(card.getByText(/ainda falta: IVA de alguns produtos vendidos/)).toBeVisible();
+
+  const download = page.waitForEvent('download');
+  await card.getByRole('button', { name: 'Dados de vendas para o parceiro (JSON)' }).click();
+  const file = await download;
+  const data = JSON.parse(await (await import('node:fs/promises')).readFile((await file.path())!, 'utf8'));
+  expect(data.notAnInvoice).toBe(true);
+  expect(data.documents.length).toBeGreaterThan(100);
+  expect(data.documents[0]).toMatchObject({ kind: 'invoice', currency: 'AOA', seller: { nif: '5000000000', vatRegime: 'general' } });
+  expect(JSON.stringify(data)).not.toContain('955502264');
+});

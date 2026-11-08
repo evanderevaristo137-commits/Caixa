@@ -285,3 +285,34 @@ describe('Store: checking the numbers', () => {
     expect(await store.integrity.check()).toEqual([]);
   });
 });
+
+describe('Store: data for certified invoicing (optional)', () => {
+  it('products keep unit, IVA and exemption; invalid rates are refused', async () => {
+    const p = await store.products.create({ name: 'Óleo', priceCents: 185_000, minStock: 0, unit: ' L ', taxRateBp: 1400 });
+    expect(p).toMatchObject({ unit: 'L', taxRateBp: 1400 });
+    await expect(store.products.create({ name: 'X', priceCents: 1, minStock: 0, taxRateBp: 10_001 })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_tax',
+    );
+  });
+
+  it('each sale line keeps the invoicing data of that day (product rate, or the shop default)', async () => {
+    await store.settings.save({ defaultTaxRateBp: 700, address: 'Rua Exemplo', vatRegime: 'simplified' });
+    const own = await store.products.create({ name: 'Óleo', priceCents: 100, minStock: 0, taxRateBp: 1400, barcode: '2000000000017' }, 5);
+    const usual = await store.products.create({ name: 'Pão', priceCents: 100, minStock: 0, unit: 'un' }, 5);
+    const sale = await store.sales.create({ cart: addToCart(addToCart([], own), usual), method: 'cash' });
+    expect(sale.items.map((i) => [i.name, i.taxRateBp, i.barcode, i.unit])).toEqual([
+      ['Óleo', 1400, '2000000000017', undefined],
+      ['Pão', 700, undefined, 'un'],
+    ]);
+    await store.products.update(own.id, { name: 'Óleo', priceCents: 100, minStock: 0, taxRateBp: 500 });
+    expect((await store.sales.get(sale.id))!.items[0]!.taxRateBp).toBe(1400);
+    expect(await store.settings.get()).toMatchObject({ address: 'Rua Exemplo', vatRegime: 'simplified', defaultTaxRateBp: 700 });
+  });
+
+  it('customers can get a NIF (letters allowed) without touching other fields', async () => {
+    const c = await store.customers.create('Empresa Exemplo', '923000000');
+    await store.customers.update(c.id, { nif: '000000000aa000' });
+    expect(await store.customers.get(c.id)).toMatchObject({ name: 'Empresa Exemplo', phone: '923000000', nif: '000000000AA000' });
+    await expect(store.customers.update(c.id, { nif: '12#' })).rejects.toSatisfy((e) => code(e) === 'invalid_nif');
+  });
+});

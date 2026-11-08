@@ -23,6 +23,13 @@ export interface Product extends BaseRecord {
   minStock: number;
   /** Soft delete: archived products disappear from lists but keep their history. */
   archivedAt?: IsoDate;
+  // ---- Optional data for certified invoicing (phase 3, through an AGT-certified partner) ----
+  /** Unit as written on invoices ("un", "kg", "L", "cx"…). Quantities stay whole numbers in phase 1. */
+  unit?: string;
+  /** IVA rate in basis points (1400 = 14%). Undefined = the shop's usual rate. */
+  taxRateBp?: number;
+  /** Exemption reason when the rate is 0, as the accountant or the partner indicates. */
+  taxExemption?: string;
 }
 
 export interface Customer extends BaseRecord {
@@ -31,6 +38,8 @@ export interface Customer extends BaseRecord {
   phone?: string;
   /** When the last WhatsApp reminder was opened, so the shopkeeper doesn't insist too often. */
   lastRemindedAt?: IsoDate;
+  /** Optional NIF, for invoices issued in the customer's name (phase 3). Letters and digits. */
+  nif?: string;
 }
 
 export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay', 'credit'] as const;
@@ -43,6 +52,11 @@ export interface SaleItem {
   unitPriceCents: Cents;
   quantity: number;
   lineTotalCents: Cents;
+  // Snapshot of the invoicing data at sale time (an invoice must show what applied that day).
+  barcode?: string;
+  unit?: string;
+  taxRateBp?: number;
+  taxExemption?: string;
 }
 
 export interface Sale extends BaseRecord {
@@ -60,6 +74,8 @@ export interface Sale extends BaseRecord {
   transactionRef?: string;
   /** Which phone recorded it (for synchronisation in phase 2). */
   deviceId?: string;
+  /** Phase 3: certified invoice (or credit note, after a void) obtained from the partner. */
+  invoice?: InvoiceStatus;
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
   /** Credit sales only: the day the customer must pay by ("YYYY-MM-DD", the phone's calendar). */
@@ -99,6 +115,19 @@ export interface AuditEntry extends BaseRecord {
   after?: unknown;
 }
 
+export interface InvoiceStatus {
+  status: 'pending' | 'issued' | 'failed';
+  provider?: string;
+  documentNumber?: string;
+  issuedAt?: IsoDate;
+  creditNoteNumber?: string;
+  error?: string;
+}
+
+/** IVA regime of the shop, as the accountant says ("unknown" until filled in). */
+export const VAT_REGIMES = ['unknown', 'general', 'simplified', 'exempt'] as const;
+export type VatRegime = (typeof VAT_REGIMES)[number];
+
 export interface Settings extends BaseRecord {
   storeName: string;
   phone?: string;
@@ -106,4 +135,9 @@ export interface Settings extends BaseRecord {
   nif?: string;
   /** Usual payment term for credit sales, in days (default 15). */
   creditTermDays?: number;
+  // ---- Optional data for certified invoicing (phase 3) ----
+  address?: string;
+  vatRegime?: VatRegime;
+  /** Usual IVA rate in basis points (1400 = 14%), used for products without their own rate. */
+  defaultTaxRateBp?: number;
 }

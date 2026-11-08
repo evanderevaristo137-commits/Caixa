@@ -5,6 +5,7 @@ import { DomainError } from '../../data/store';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
+import { formatBpAsPercent, parsePercentToBp } from '../../domain/tax';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
@@ -15,6 +16,7 @@ const ERRORS: Record<string, string> = {
   invalid_price: t.products.invalidPrice,
   invalid_stock: t.products.invalidNumber,
   duplicate_barcode: t.products.duplicateBarcode,
+  invalid_tax: t.invoicing.rateInvalid,
 };
 
 const toInt = (s: string) => (/^\d+$/.test(s.trim()) ? Number(s.trim()) : null);
@@ -67,6 +69,9 @@ function ProductForm({
   const [barcode, setBarcode] = useState(product?.barcode ?? initialBarcode ?? '');
   const [stock, setStock] = useState('0');
   const [minStock, setMinStock] = useState(String(product?.minStock ?? 3));
+  const [unit, setUnit] = useState(product?.unit ?? '');
+  const [rate, setRate] = useState(product?.taxRateBp === undefined ? '' : formatBpAsPercent(product.taxRateBp));
+  const [exemption, setExemption] = useState(product?.taxExemption ?? '');
   const [error, setError] = useState<{ field: string; msg: string } | null>(null);
   const [scanning, setScanning] = useState(false);
 
@@ -77,7 +82,9 @@ function ProductForm({
     if (min === null) return setError({ field: 'min', msg: t.products.invalidNumber });
     const initial = toInt(stock);
     if (!product && initial === null) return setError({ field: 'stock', msg: t.products.invalidNumber });
-    const input = { name, priceCents, barcode, minStock: min };
+    const taxRateBp = parsePercentToBp(rate);
+    if (taxRateBp === null) return setError({ field: 'tax', msg: t.invoicing.rateInvalid });
+    const input = { name, priceCents, barcode, minStock: min, unit, taxRateBp, taxExemption: taxRateBp === 0 ? exemption : undefined };
     const persist = async () => {
       try {
         if (product) {
@@ -92,7 +99,15 @@ function ProductForm({
       } catch (e) {
         const code = e instanceof DomainError ? e.code : 'unknown';
         const field =
-          code === 'duplicate_barcode' ? 'barcode' : code === 'invalid_price' ? 'price' : code === 'name_required' ? 'name' : 'min';
+          code === 'duplicate_barcode'
+            ? 'barcode'
+            : code === 'invalid_price'
+              ? 'price'
+              : code === 'name_required'
+                ? 'name'
+                : code === 'invalid_tax'
+                  ? 'tax'
+                  : 'min';
         setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
       }
     };
@@ -148,6 +163,17 @@ function ProductForm({
           inputMode="numeric"
           error={err('min')}
         />
+        <details className="rounded-xl bg-white p-3" open={err('tax') !== null}>
+          <summary className="min-h-11 cursor-pointer py-2 font-semibold">{t.invoicing.title}</summary>
+          <div className="mt-2 space-y-3">
+            <Field label={t.invoicing.unit} value={unit} onChange={(e) => setUnit(e.target.value)} autoComplete="off" />
+            <Field label={t.invoicing.rate} value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" error={err('tax')} />
+            {parsePercentToBp(rate) === 0 && (
+              <Field label={t.invoicing.exemption} value={exemption} onChange={(e) => setExemption(e.target.value)} autoComplete="off" />
+            )}
+            <p className="text-sm text-slate-600">{t.invoicing.rateHint}</p>
+          </div>
+        </details>
         <Button big className="w-full" onClick={() => void save()}>
           {t.common.save}
         </Button>

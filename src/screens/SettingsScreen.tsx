@@ -12,6 +12,7 @@ import { shareOrDownload } from '../lib/share';
 import { isStoragePersisted } from '../lib/storage';
 import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
+import { InvoicingCard } from './settings/InvoicingCard';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
 import { AuditLogCard } from './settings/AuditLogCard';
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
       <InstallCard />
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <CreditSettingsCard settings={settings} />
+      <InvoicingCard settings={settings} />
       <OwnerPinCard />
       <DataCard />
       <IntegrityCard />

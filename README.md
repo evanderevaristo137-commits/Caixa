@@ -36,6 +36,10 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 - **Verificar os dados:** em **Mais**, confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos; se o stock de algum produto não bater, um toque corrige-o.
 - **Registo de alterações:** em **Mais**, a lista do que foi feito e quando (anulações, mudanças de preço, acertos de stock, pagamentos, cópias), em português simples.
 
+## Preparado para a facturação certificada e para pagamentos
+
+A app **não emite facturas**. Em **Mais → Dados para facturação (opcional)** pode juntar a morada, o regime de IVA e o IVA habitual da loja; nos produtos, a unidade e o IVA; nos clientes, o NIF. A app mostra o que ainda falta e exporta as vendas e anulações no formato que o parceiro de facturação certificado pela AGT vai receber. Tudo isto está explicado, para os parceiros, em [`docs/INTEGRACOES.md`](docs/INTEGRACOES.md).
+
 ## Cópias de segurança
 
 Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no ecrã «Hoje» quando a última cópia tiver mais de 7 dias. Para recuperar: **Mais → Recuperar uma cópia de segurança** e escolha o ficheiro.

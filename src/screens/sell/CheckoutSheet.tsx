@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { payAndWait } from '../../providers/payment';
+import { uuid } from '../../lib/ids';
 import { DEFAULT_STORE_NAME } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
 import { creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
@@ -25,6 +27,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const [busy, setBusy] = useState(false);
   // Guards against a double tap saving the same sale twice (state updates are not instant).
   const submitting = useRef(false);
+  const attemptKey = useRef(uuid());
   const [sale, setSale] = useState<Sale | null>(null);
   const [balanceAfter, setBalanceAfter] = useState<number | undefined>(undefined);
   const total = cartTotal(cart);
@@ -43,8 +46,17 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
     try {
       let paymentRef: string | undefined;
       if (method !== 'cash' && method !== 'credit') {
-        const res = await payments.requestPayment({ amountCents: total, method, reference: crypto.randomUUID?.() ?? String(Date.now()) });
+        // Same attempt, method and amount = same key: a retry after a network error never charges twice.
+        // After a definite failure the next attempt gets a new key.
+        const res = await payAndWait(payments, {
+          idempotencyKey: `${attemptKey.current}:${method}:${total}`,
+          amountCents: total,
+          currency: 'AOA',
+          method,
+          reference: attemptKey.current,
+        });
         if (res.status !== 'confirmed') {
+          attemptKey.current = uuid();
           showToast(t.sell.paymentFailed);
           return;
         }

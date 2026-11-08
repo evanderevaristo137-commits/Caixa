@@ -6,7 +6,7 @@ import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
-import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, Settings, StockMovement } from '../domain/types';
+import type { AuditEntry, CreditPayment, Customer, PaymentMethod, Product, Sale, SaleItem, Settings, StockMovement } from '../domain/types';
 import { CURRENCY } from '../domain/types';
 import { uuid } from '../lib/ids';
 import { CaixaDB } from './db';
@@ -22,7 +22,14 @@ export interface ProductInput {
   priceCents: number;
   barcode?: string;
   minStock: number;
+  unit?: string;
+  taxRateBp?: number;
+  taxExemption?: string;
 }
+
+/** IVA in basis points: whole number from 0 to 10000 (0% to 100%). */
+const validTaxRate = (bp: number | undefined) => bp === undefined || (Number.isInteger(bp) && bp >= 0 && bp <= 10_000);
+const cleanShort = (s: string | undefined, max: number) => clean(s)?.slice(0, max);
 
 export interface NewSale {
   cart: Cart;
@@ -71,6 +78,23 @@ export class Store {
     return this.now().toISOString();
   }
 
+  /** Sale lines with the invoicing data that applies today (call inside the sale transaction). */
+  private async snapshotItems(cart: Cart): Promise<SaleItem[]> {
+    const settings = await this.db.settings.get(SETTINGS_ID);
+    const items = cartItems(cart);
+    const products = await this.db.products.bulkGet(items.map((i) => i.productId));
+    return items.map((item, i) => {
+      const p = products[i];
+      return {
+        ...item,
+        barcode: p?.barcode,
+        unit: p?.unit,
+        taxRateBp: p?.taxRateBp ?? settings?.defaultTaxRateBp,
+        taxExemption: p?.taxExemption,
+      };
+    });
+  }
+
   /** This phone's id, created once (call inside a transaction that includes `meta`). */
   private async deviceId(): Promise<string> {
     const row = await this.db.meta.get('deviceId');
@@ -104,6 +128,9 @@ export class Store {
           priceCents: input.priceCents,
           barcode: clean(input.barcode),
           minStock: input.minStock,
+          unit: cleanShort(input.unit, 10),
+          taxRateBp: input.taxRateBp,
+          taxExemption: cleanShort(input.taxExemption, 120),
           stock: 0, // raised by the initial-stock movement below
           createdAt: at,
           updatedAt: at,
@@ -126,6 +153,9 @@ export class Store {
           priceCents: input.priceCents,
           barcode: clean(input.barcode),
           minStock: input.minStock,
+          unit: cleanShort(input.unit, 10),
+          taxRateBp: input.taxRateBp,
+          taxExemption: cleanShort(input.taxExemption, 120),
           updatedAt: this.stamp(),
         };
         await this.db.products.put(after);
@@ -162,6 +192,7 @@ export class Store {
     if (!input.name.trim()) throw new DomainError('name_required');
     if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new DomainError('invalid_price');
     if (!Number.isInteger(input.minStock) || input.minStock < 0) throw new DomainError('invalid_stock');
+    if (!validTaxRate(input.taxRateBp)) throw new DomainError('invalid_tax');
     const code = clean(input.barcode);
     if (code) {
       const same = await this.db.products.where('barcode').equals(code).toArray();
@@ -202,12 +233,22 @@ export class Store {
         await this.db.customers.put(after);
         await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
       }),
-    update: (id: string, name: string, phone?: string): Promise<Customer> =>
+    /** Updates only the fields given. */
+    update: (id: string, changes: { name?: string; phone?: string; nif?: string }): Promise<Customer> =>
       this.db.transaction('rw', [this.db.customers, this.db.audit], async () => {
         const before = await this.db.customers.get(id);
         if (!before) throw new DomainError('not_found');
-        if (!name.trim()) throw new DomainError('name_required');
-        const after: Customer = { ...before, name: name.trim(), phone: clean(phone), updatedAt: this.stamp() };
+        const after: Customer = { ...before, updatedAt: this.stamp() };
+        if ('name' in changes) {
+          if (!changes.name?.trim()) throw new DomainError('name_required');
+          after.name = changes.name.trim();
+        }
+        if ('phone' in changes) after.phone = clean(changes.phone);
+        if ('nif' in changes) {
+          const nif = normaliseNif(changes.nif);
+          if (!nif.ok) throw new DomainError('invalid_nif');
+          after.nif = nif.value;
+        }
         await this.db.customers.put(after);
         await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
         return after;
@@ -269,7 +310,7 @@ export class Store {
           const sale: Sale = {
             id: uuid(),
             number,
-            items: cartItems(input.cart),
+            items: await this.snapshotItems(input.cart),
             totalCents: cartTotal(input.cart),
             currency: CURRENCY,
             method: input.method,
@@ -345,7 +386,9 @@ export class Store {
       return { id: SETTINGS_ID, storeName: DEFAULT_STORE_NAME, createdAt: at, updatedAt: at };
     },
     /** Updates only the fields given (so saving the shop name never erases the payment term). */
-    save: (input: Partial<Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays'>>): Promise<Settings> =>
+    save: (
+      input: Partial<Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays' | 'address' | 'vatRegime' | 'defaultTaxRateBp'>>,
+    ): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
         const before = await this.db.settings.get(SETTINGS_ID);
         const at = this.stamp();
@@ -359,6 +402,12 @@ export class Store {
           const nif = normaliseNif(input.nif);
           if (!nif.ok) throw new DomainError('invalid_nif');
           after.nif = nif.value;
+        }
+        if ('address' in input) after.address = cleanShort(input.address, 200);
+        if ('vatRegime' in input) after.vatRegime = input.vatRegime;
+        if ('defaultTaxRateBp' in input) {
+          if (!validTaxRate(input.defaultTaxRateBp)) throw new DomainError('invalid_tax');
+          after.defaultTaxRateBp = input.defaultTaxRateBp;
         }
         if ('creditTermDays' in input) {
           const days = input.creditTermDays;
