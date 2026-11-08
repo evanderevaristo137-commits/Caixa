@@ -690,3 +690,36 @@ test('a customer gets the account statement by WhatsApp', async ({ page }) => {
   expect(text).toContain('(em atraso)');
   expect(text).toContain('Documento não fiscal — não serve de factura.');
 });
+
+test('week and month reports with a chart, and the store sheet for a bank', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { printed: number };
+    w.printed = 0;
+    window.print = () => {
+      w.printed += 1;
+    };
+  });
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Semana e mês' });
+  await expect(sheet.getByText('Vendido', { exact: true })).toBeVisible();
+  await expect(sheet.getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^[a-zçá]+\., \d\d\/\d\d: [\d.]+ Kz, \d+ vendas?/ })).toHaveCount(7);
+  await expect(sheet.getByText(/Pagamentos electrónicos: \d+% das vendas/)).toBeVisible();
+
+  await sheet.getByRole('tab', { name: '12 meses' }).click();
+  await expect(sheet.getByRole('group', { name: 'Vendas por mês' })).toBeVisible();
+  await sheet.getByRole('button', { name: '+ Ver tabela' }).click();
+  await expect(sheet.getByRole('table')).toContainText(/[a-z]{3}\. \d{4}/);
+
+  await sheet.getByRole('button', { name: 'Ficha da loja (para um banco ou parceiro)' }).click();
+  const ficha = page.getByRole('dialog', { name: 'Ficha da loja' });
+  await expect(ficha).toContainText('DEMONSTRAÇÃO — dados fictícios, não correspondem a uma loja real.');
+  await expect(ficha).toContainText('Mercearia da Dona Teresa');
+  await expect(ficha).toContainText('Não é um documento fiscal nem contabilístico.');
+  const share = await ficha.getByRole('link', { name: 'Enviar por WhatsApp' }).getAttribute('href');
+  expect(decodeURIComponent(share!)).toContain('*Ficha da loja — Mercearia da Dona Teresa*');
+  await ficha.getByRole('button', { name: 'Imprimir ou guardar em PDF' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
+});

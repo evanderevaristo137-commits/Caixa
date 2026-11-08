@@ -20,10 +20,12 @@ import { SalesList } from './SalesList';
 import { PaymentAlerts } from './PaymentAlerts';
 import { ProfitCard } from './ProfitCard';
 import { CashCard } from './CashCard';
+import { ReportsSheet } from './ReportsSheet';
 
 export default function TodayScreen() {
   const { store } = useApp();
   const [offset, setOffset] = useState(0);
+  const [reports, setReports] = useState(false);
   const data = useLiveQuery(async () => {
     const now = new Date();
     const day = addDays(startOfLocalDay(now), offset);
@@ -155,6 +157,25 @@ export default function TodayScreen() {
         )}
       </Card>
 
+      <button
+        type="button"
+        onClick={() => setReports(true)}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+        </svg>
+        {t.reports.open}
+      </button>
+
       {(day.count > 0 || data.outflows.expensesCents > 0) && (
         <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
       )}
@@ -252,6 +273,7 @@ export default function TodayScreen() {
       )}
 
       <SalesList sales={data.daySales} />
+      {reports && <ReportsSheet onClose={() => setReports(false)} />}
     </div>
   );
 }
