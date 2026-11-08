@@ -10,6 +10,7 @@ import { t } from '../../i18n/pt-AO';
 import { addDays } from '../../lib/dates';
 import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { ProductSheet } from '../products/ProductSheet';
+import { CartIcon, PlusIcon } from '../../ui/icons';
 import { promptInstall, useCanInstall } from '../../lib/install';
 import { CartSheet } from './CartSheet';
 import { WeightSheet } from './WeightSheet';
@@ -52,7 +53,7 @@ export function SellScreen() {
   }, [ordered, query]);
 
   useEffect(() => {
-    if (cart.length === 0 && (sheet === 'cart' || sheet === 'checkout')) setSheet('none');
+    if (cart.length === 0 && sheet === 'checkout') setSheet('none');
   }, [cart.length, sheet]);
 
   useEffect(() => {
@@ -129,6 +130,19 @@ export function SellScreen() {
             </svg>
           </Button>
         )}
+        <button
+          type="button"
+          onClick={() => setSheet('cart')}
+          aria-label={t.sell.openCart(count === 0 ? t.sell.cartEmpty : `${t.sell.cartItems(count)}, ${formatKz(total)}`)}
+          className={`relative flex min-h-14 min-w-14 items-center justify-center rounded-xl border-2 ${count > 0 ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'} active:opacity-80`}
+        >
+          <CartIcon />
+          {count > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-400 px-1 text-sm font-bold text-amber-950">
+              {count}
+            </span>
+          )}
+        </button>
       </div>
 
       {!products || !ordered ? (
@@ -169,7 +183,7 @@ export function SellScreen() {
                   onClick={() => add(p)}
                   className={`relative flex min-h-24 w-full flex-col justify-between rounded-xl border-2 bg-white p-3 text-left active:bg-brand-50 ${inCart ? 'border-brand-600' : 'border-transparent'} shadow-sm`}
                 >
-                  <span className="line-clamp-2 text-base leading-snug font-semibold">{p.name}</span>
+                  <span className="line-clamp-2 pr-6 text-base leading-snug font-semibold">{p.name}</span>
                   <span className="mt-1 flex items-end justify-between gap-1">
                     <span className="text-lg font-bold text-brand-800 tabular-nums">
                       {p.soldBy === 'weight' ? t.weight.perKg(formatKz(p.priceCents)) : formatKz(p.priceCents)}
@@ -180,6 +194,11 @@ export function SellScreen() {
                       {p.stock <= 0 ? t.sell.outOfStock : t.sell.stockLeft(formatQuantity(p.stock, p.soldBy))}
                     </span>
                   </span>
+                  {inCart === 0 && (
+                    <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                      <PlusIcon />
+                    </span>
+                  )}
                   {inCart > 0 && (
                     <span className="absolute -top-2 -right-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-2 text-sm font-bold text-white">
                       {p.soldBy === 'weight' ? `${formatKg(inCart)} kg` : inCart}
@@ -200,7 +219,10 @@ export function SellScreen() {
               onClick={() => setSheet('cart')}
               className="flex-1 rounded-xl px-3 text-left text-white active:bg-slate-800"
             >
-              <span className="block text-sm text-slate-300">{t.sell.cartItems(count)}</span>
+              <span className="flex items-center gap-2 text-sm text-slate-300">
+                <CartIcon className="h-5 w-5" />
+                {t.sell.cart} · {t.sell.cartItems(count)}
+              </span>
               <Money cents={total} className="text-xl font-bold" />
             </button>
             <Button big onClick={() => setSheet('checkout')} className="px-8">

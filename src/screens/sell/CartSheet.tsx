@@ -4,6 +4,7 @@ import { formatKg } from '../../domain/quantity';
 import { t } from '../../i18n/pt-AO';
 import { formatKz } from '../../lib/money';
 import { Button, Money, Sheet } from '../../ui/kit';
+import { CartIcon } from '../../ui/icons';
 
 export function CartSheet({
   cart,
@@ -20,6 +21,20 @@ export function CartSheet({
   onEditWeight: (productId: string) => void;
 }) {
   const step = (id: string, qty: number) => setCart((c) => setQuantity(c, id, qty));
+  if (cart.length === 0) {
+    return (
+      <Sheet title={t.sell.cart} onClose={onClose}>
+        <div className="py-6 text-center">
+          <CartIcon className="mx-auto h-12 w-12 text-slate-400" />
+          <p className="mt-3 text-lg font-semibold">{t.sell.cartEmpty}</p>
+          <p className="mt-1 text-slate-600">{t.sell.cartEmptyHint}</p>
+          <Button big className="mt-5 w-full" onClick={onClose}>
+            {t.sell.keepSelling}
+          </Button>
+        </div>
+      </Sheet>
+    );
+  }
   return (
     <Sheet title={t.sell.cart} onClose={onClose}>
       <ul className="divide-y divide-slate-200">

@@ -435,7 +435,7 @@ test('credit limit: warns, needs explicit confirmation, is logged, and can be sw
   await startCreditSale('Joana Mateus', 1);
   await expect(page.getByText('Este cliente tem pagamentos em atraso.')).toBeVisible();
   await page.getByRole('button', { name: 'Fechar' }).click();
-  await page.getByRole('button', { name: /artigo/ }).click();
+  await page.getByRole('button', { name: /^Carrinho:/ }).click();
   await page.getByRole('button', { name: 'Limpar' }).click();
 
   // 6 × 5.500 Kz = 33.000 Kz: above the demo limit of 30.000 Kz whatever the customer owes.
@@ -473,7 +473,7 @@ test('selling by weight: by weight or by amount, change the weight, receipt in k
   await expect(page.getByText('2 artigos')).toBeVisible();
 
   // Change the beans to 0,75 kg from the cart.
-  await page.getByRole('button', { name: /2 artigos/ }).click();
+  await page.getByRole('button', { name: /^Carrinho:/ }).click();
   await expect(page.getByText('0,5 kg × 1.400 Kz/kg = 700 Kz')).toBeVisible();
   await page.getByRole('listitem').filter({ hasText: 'Feijão a granel' }).getByRole('button', { name: 'Mudar peso' }).click();
   await page.getByLabel('Peso (kg ou g)').fill('0,75');
@@ -515,4 +515,24 @@ test('a real shop creates a product sold by the kilo and its stock goes down in 
   await page.getByRole('button', { name: 'Nova venda' }).click();
   await nav(page, 'Produtos');
   await expect(page.getByRole('button', { name: /Batata a granel/ })).toContainText('8,5 kg em stock');
+});
+
+test('the cart button is always there, with the number of articles', async ({ page }) => {
+  await openDemo(page);
+  const cart = page.getByRole('button', { name: /^Carrinho:/ });
+  await expect(cart).toHaveAccessibleName('Carrinho: O carrinho está vazio.');
+  await cart.click();
+  await expect(page.getByText('Toque num produto para o pôr no carrinho.')).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar a vender' }).click();
+
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: /Óleo vegetal/ }).click();
+  await expect(cart).toHaveAccessibleName('Carrinho: 3 artigos, 4.250 Kz');
+  await expect(cart).toContainText('3');
+  await cart.click();
+  await expect(page.getByRole('dialog', { name: 'Carrinho' }).getByText('Arroz 1 kg')).toBeVisible();
+  // Removing the last article keeps the cart open, now empty.
+  await page.getByRole('button', { name: 'Limpar' }).click();
+  await expect(cart).toHaveAccessibleName('Carrinho: O carrinho está vazio.');
 });

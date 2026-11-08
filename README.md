@@ -20,7 +20,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 
 ## Como usar
 
-- **Vender:** toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
+- **Vender:** o **carrinho** está sempre no canto de cima, com o número de artigos (e na barra escura em baixo, com o total). Toque nos produtos (os mais vendidos aparecem primeiro; também pode pesquisar ou ler o código de barras com o botão da câmara) → **Cobrar** → escolha como pagou → **Confirmar venda**. Em numerário, toque na nota que recebeu e a app mostra o troco. No fim pode enviar o talão por WhatsApp.
   - Para vender muitas unidades, abra o carrinho e toque no número para o escrever.
   - **Produtos ao quilo** (arroz, feijão, açúcar a granel…): ao tocar no produto, escolha o peso (250 g, 500 g, 1 kg, 2 kg ou escreva, por exemplo 0,75) ou o **valor** que o cliente pede («500 Kz de feijão»): a app diz quanto pesar. No carrinho, «Mudar peso» corrige.
   - Se ler um código que a app não conhece, pode criar o produto na hora: o código já fica preenchido.
