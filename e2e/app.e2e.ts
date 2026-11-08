@@ -748,3 +748,18 @@ test('a sale on hold: serve another customer and come back to it without losing 
   await expect(page.getByRole('group', { name: 'Em espera' }).getByRole('button')).toHaveCount(1);
   await expect(page.getByRole('button', { name: /^Carrinho:/ })).toHaveAccessibleName('Carrinho: 2 artigos, 2.400 Kz');
 });
+
+test('the pilot summary carries only the shop numbers, never customer names or phones', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Mais');
+  await page.getByLabel('WhatsApp de quem acompanha o piloto (opcional)').fill('923 000 000');
+  await page.getByRole('button', { name: 'Guardar' }).last().click();
+  const link = page.getByRole('link', { name: 'Enviar resumo do piloto por WhatsApp' });
+  await expect(link).toHaveAttribute('href', /^https:\/\/wa\.me\/244923000000\?text=/);
+  const text = decodeURIComponent((await link.getAttribute('href'))!.split('text=')[1]!);
+  expect(text).toContain('*DEMONSTRAÇÃO — dados fictícios, não contar no piloto*');
+  expect(text).toContain('*Resumo do piloto — Caixa*');
+  expect(text).toMatch(/Últimos 7 dias: \d+ dias? com vendas · \d+ vendas? · [\d.]+ Kz/);
+  expect(text).toMatch(/Também usou \(30 dias\): \d+ fechos? do dia/);
+  for (const name of ['Joana', 'António', 'Esperança', 'Manuel', 'Luísa', '955']) expect(text).not.toContain(name);
+});

@@ -37,7 +37,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
   - **Compras:** no separador «Compras», registe a mercadoria que chegou (produtos, quantidades e custo). O stock sobe, o preço de custo passa a ser o da última compra e pode pagar com dinheiro da caixa, de outra forma ou **a crédito**, com data para pagar. «Juntar os produtos com stock baixo» preenche a compra num toque.
   - **Fornecedores:** quanto a loja deve a cada um e até quando, registar pagamentos e **Encomendar por WhatsApp** (a mensagem leva os produtos com stock baixo que costuma comprar a esse fornecedor).
   - **Etiquetas com código de barras:** escolha os produtos e o número de cópias e imprima (ou guarde em PDF para imprimir noutro lado). Um botão gera de uma vez os códigos que faltam.
-- **Mais:** nome da loja, telefone, NIF (aceita letras e números), prazo habitual para os clientes pagarem, **fundo de caixa** (o troco com que a caixa começa o dia), **avisos de pagamentos** (o telemóvel avisa a loja quando um pagamento vence daqui a 2 dias, no próprio dia e quando atrasa), cópias de segurança (JSON) e exportação para Excel (CSV).
+- **Mais:** nome da loja, telefone, NIF (aceita letras e números), prazo habitual para os clientes pagarem, **fundo de caixa** (o troco com que a caixa começa o dia), **avisos de pagamentos** (o telemóvel avisa a loja quando um pagamento vence daqui a 2 dias, no próprio dia e quando atrasa), cópias de segurança (JSON), exportação para Excel (CSV) e **Piloto**: «Enviar resumo do piloto por WhatsApp» manda a quem acompanha o piloto os números da loja (dias com vendas, vendas, o que se usa na app), nunca nomes nem telefones de clientes.
 
 ## Controlo e segurança
 

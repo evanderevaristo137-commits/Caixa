@@ -13,6 +13,7 @@ import { isStoragePersisted } from '../lib/storage';
 import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
 import { CashFloatCard } from './settings/CashFloatCard';
+import { PilotCard } from './settings/PilotCard';
 import { InvoicingCard } from './settings/InvoicingCard';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
       <DataCard />
       <IntegrityCard />
       <AuditLogCard />
+      <PilotCard key={`pilot-${store.db.name}`} settings={settings} />
       <DemoCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
     </div>

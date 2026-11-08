@@ -437,6 +437,13 @@ export const t = {
     generated: (date: string) => `Gerada em ${date}`,
     empty: 'Ainda não há vendas registadas.',
   },
+  pilot: {
+    title: 'Piloto',
+    hint: 'Envie de vez em quando (por exemplo, à sexta-feira) os números da loja a quem acompanha o piloto: dias com vendas, vendas, o que se usa na app. Só vão números: nunca nomes nem telefones de clientes.',
+    phone: 'WhatsApp de quem acompanha o piloto (opcional)',
+    phoneHint: 'Sem número, o WhatsApp deixa escolher o contacto.',
+    send: 'Enviar resumo do piloto por WhatsApp',
+  },
   labels: {
     title: 'Etiquetas com código de barras',
     hint: 'Imprima e cole nos produtos ou na prateleira. Os códigos criados pela app só funcionam dentro da sua loja.',

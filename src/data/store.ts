@@ -812,6 +812,7 @@ export class Store {
           | 'vatRegime'
           | 'defaultTaxRateBp'
           | 'cashFloatCents'
+          | 'pilotPhone'
         >
       >,
     ): Promise<Settings> =>
@@ -824,6 +825,7 @@ export class Store {
           after.storeName = input.storeName.trim();
         }
         if ('phone' in input) after.phone = clean(input.phone);
+        if ('pilotPhone' in input) after.pilotPhone = cleanShort(input.pilotPhone, 20);
         if ('nif' in input) {
           const nif = normaliseNif(input.nif);
           if (!nif.ok) throw new DomainError('invalid_nif');
@@ -856,6 +858,11 @@ export class Store {
         await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', before, after });
         return after;
       }),
+  };
+
+  /** This phone's id (created once). Used to tell phones apart in the pilot and, later, in synchronisation. */
+  readonly device = {
+    id: (): Promise<string> => this.db.transaction('rw', [this.db.meta], () => this.deviceId()),
   };
 
   // ---------- Owner code (PIN) ----------

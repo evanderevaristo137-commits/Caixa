@@ -248,6 +248,8 @@ export interface Settings extends BaseRecord {
   creditLimitCents?: Cents;
   /** Usual opening float: the change the till starts each day with (none = no float). */
   cashFloatCents?: Cents;
+  /** WhatsApp number of whoever runs the pilot (receives the pilot summary). Optional. */
+  pilotPhone?: string;
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;
