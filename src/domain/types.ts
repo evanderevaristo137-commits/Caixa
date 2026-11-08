@@ -28,6 +28,8 @@ export interface Product extends BaseRecord {
   minStock: number;
   /** Soft delete: archived products disappear from lists but keep their history. */
   archivedAt?: IsoDate;
+  /** Usual supplier: the one of the last purchase (used to split orders by supplier). */
+  supplierId?: string;
   // ---- Optional data for certified invoicing (phase 3, through an AGT-certified partner) ----
   /** Unit as written on invoices ("un", "kg", "L", "cx"…). Quantities stay whole numbers in phase 1. */
   unit?: string;
@@ -108,7 +110,7 @@ export interface CreditPayment extends BaseRecord {
   deviceId?: string;
 }
 
-export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void';
+export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void' | 'purchase' | 'purchase_void';
 
 export interface StockMovement extends BaseRecord {
   productId: string;
@@ -118,6 +120,54 @@ export interface StockMovement extends BaseRecord {
   /** Mandatory for adjustments. */
   reason?: string;
   saleId?: string;
+  purchaseId?: string;
+}
+
+export interface Supplier extends BaseRecord {
+  name: string;
+  /** Optional, only used to open WhatsApp (orders). Never sent to any external service. */
+  phone?: string;
+}
+
+export interface PurchaseItem {
+  productId: string;
+  /** Snapshot of the name at purchase time. */
+  name: string;
+  /** Units, or grams when sold by weight. */
+  quantity: number;
+  soldBy?: 'weight';
+  /** Cost paid per unit (or per kg). */
+  unitCostCents: Cents;
+  lineTotalCents: Cents;
+}
+
+/** How a purchase was paid: from the till, otherwise (bank, phone), or on credit with the supplier. */
+export const PURCHASE_PAYMENTS = ['cash', 'other', 'credit'] as const;
+export type PurchasePayment = (typeof PURCHASE_PAYMENTS)[number];
+
+/** Goods received from a supplier: stock goes up and the cost price follows the last purchase. */
+export interface Purchase extends BaseRecord {
+  /** Sequential per device, only for humans ("Compra n.º 3"). */
+  number: number;
+  supplierId?: string;
+  items: PurchaseItem[];
+  totalCents: Cents;
+  payment: PurchasePayment;
+  /** On credit: the day the shop must pay the supplier ("YYYY-MM-DD"). */
+  dueDate?: string;
+  note?: string;
+  deviceId?: string;
+  voidedAt?: IsoDate;
+  voidReason?: string;
+}
+
+/** A payment of what the shop owes a supplier (credit purchases). */
+export interface SupplierPayment extends BaseRecord {
+  supplierId: string;
+  amountCents: Cents;
+  /** True when the money came out of the till. */
+  fromCash: boolean;
+  deviceId?: string;
 }
 
 /**
@@ -155,7 +205,19 @@ export interface CashClose extends BaseRecord {
 }
 
 export interface AuditEntry extends BaseRecord {
-  entity: 'product' | 'customer' | 'sale' | 'credit_payment' | 'stock_movement' | 'settings' | 'data' | 'expense' | 'cash_close';
+  entity:
+    | 'product'
+    | 'customer'
+    | 'sale'
+    | 'credit_payment'
+    | 'stock_movement'
+    | 'settings'
+    | 'data'
+    | 'expense'
+    | 'cash_close'
+    | 'supplier'
+    | 'purchase'
+    | 'supplier_payment';
   entityId: string;
   action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset';
   before?: unknown;

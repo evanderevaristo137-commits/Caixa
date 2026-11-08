@@ -7,6 +7,8 @@ import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { profitByProduct, summariseProfit } from '../../domain/profit';
 import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
+import { totalPayable } from '../../domain/payables';
+import { tillPurchasesCents } from '../../data/store';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
@@ -28,15 +30,19 @@ export default function TodayScreen() {
     const from = addDays(day, -1).toISOString();
     const to = addDays(day, 1).toISOString();
     const isToday = offset === 0;
-    const [sales, payments, products, book, settings, dayExpenses, lastClose] = await Promise.all([
-      store.sales.between(from, to),
-      store.credit.paymentsBetween(from, to),
-      isToday ? store.products.list() : Promise.resolve([]),
-      isToday ? store.credit.book(now) : Promise.resolve([]),
-      store.settings.get(),
-      store.expenses.between(day.toISOString(), to),
-      store.cash.lastClose(toLocalDateString(day)),
-    ]);
+    const [sales, payments, products, book, settings, dayExpenses, lastClose, dayPurchases, daySupplierPayments, payables] =
+      await Promise.all([
+        store.sales.between(from, to),
+        store.credit.paymentsBetween(from, to),
+        isToday ? store.products.list() : Promise.resolve([]),
+        isToday ? store.credit.book(now) : Promise.resolve([]),
+        store.settings.get(),
+        store.expenses.between(day.toISOString(), to),
+        store.cash.lastClose(toLocalDateString(day)),
+        store.purchases.between(day.toISOString(), to),
+        store.supplierPayments.between(day.toISOString(), to),
+        isToday ? store.payables.book(now) : Promise.resolve([]),
+      ]);
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
@@ -48,6 +54,7 @@ export default function TodayScreen() {
       cashSalesCents: view.cash.salesCents,
       cashCreditPaymentsCents: view.cash.creditPaymentsCents,
       cashOutCents: outflows.cashOutCents,
+      cashPurchasesCents: tillPurchasesCents(dayPurchases, daySupplierPayments),
     });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
     const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose }));
@@ -66,6 +73,8 @@ export default function TodayScreen() {
       daySales,
       lowStock: lowStockProducts(products),
       owed: totalOutstanding(book),
+      payable: totalPayable(payables),
+      payableUrgent: payables.filter((p) => p.balanceCents > 0 && (p.dueState === 'overdue' || p.dueState === 'today')).length,
       alerts: creditAlerts(book),
       storeName: settings.storeName,
       shoppingList,
@@ -193,6 +202,30 @@ export default function TodayScreen() {
               <Money cents={data.owed} className="text-xl font-extrabold text-amber-800" />
             </Card>
           </a>
+          {data.payable > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem('productsView', 'suppliers');
+                } catch {
+                  // Without storage the products tab simply opens on its first view.
+                }
+                window.location.hash = '#/products';
+              }}
+              className="block w-full text-left"
+            >
+              <Card className="flex items-center justify-between gap-2">
+                <span>
+                  <span className="block font-bold">{t.today.payablesTitle}</span>
+                  {data.payableUrgent > 0 && (
+                    <span className="text-sm font-semibold text-red-700">{t.today.payablesUrgent(data.payableUrgent)}</span>
+                  )}
+                </span>
+                <Money cents={data.payable} className="text-xl font-extrabold text-amber-800" />
+              </Card>
+            </button>
+          )}
           <Card>
             <h2 className="mb-2 font-bold">{t.today.lowStock}</h2>
             {data.lowStock.length === 0 ? (

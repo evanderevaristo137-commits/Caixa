@@ -2,7 +2,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { CaixaDB, DB_NAMES } from './db';
 import { seedDemo } from './demo-seed';
 import { Store } from './store';
-import { expensesCsv, exportBackup, importBackup, productsCsv, salesCsv, toCsv, validateBackup } from './backup';
+import {
+  expensesCsv,
+  exportBackup,
+  importBackup,
+  productsCsv,
+  purchasesCsv,
+  salesCsv,
+  suppliersCsv,
+  toCsv,
+  validateBackup,
+} from './backup';
 import { addToCart } from '../domain/cart';
 
 const dbs: CaixaDB[] = [];
@@ -101,6 +111,17 @@ describe('CSV', () => {
     const csv = await expensesCsv(db);
     expect(csv).toContain(';Luz e gerador;4000,00;Sim;"Gasóleo; 20 L";Sim;Valor errado\r\n');
     expect(csv).toContain(';Renda;30000,00;Não;;;\r\n');
+    const sup = await store.suppliers.create('Armazém; Kikolo', '923 000 000');
+    await store.purchases.create({
+      supplierId: sup.id,
+      lines: [{ productId: b.id, quantity: 10, unitCostCents: 34_000 }],
+      payment: 'credit',
+      dueDate: '2099-12-31',
+    });
+    expect(await purchasesCsv(db)).toContain(
+      ';1;"Armazém; Kikolo";Bolacha;10;un;340,00;3400,00;3400,00;A crédito (pagar depois);31/12/2099;;\r\n',
+    );
+    expect(await suppliersCsv(db)).toContain('"Armazém; Kikolo";923 000 000;3400,00;31/12/2099\r\n');
   });
 });
 

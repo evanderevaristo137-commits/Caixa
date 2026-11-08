@@ -1,6 +1,19 @@
 import Dexie, { type Table } from 'dexie';
 import { dueDateOf } from '../domain/credit';
-import type { AuditEntry, CashClose, CreditPayment, Customer, Expense, Product, Sale, Settings, StockMovement } from '../domain/types';
+import type {
+  AuditEntry,
+  CashClose,
+  CreditPayment,
+  Customer,
+  Expense,
+  Product,
+  Purchase,
+  Sale,
+  Settings,
+  StockMovement,
+  Supplier,
+  SupplierPayment,
+} from '../domain/types';
 
 export type DataMode = 'store' | 'demo';
 
@@ -26,6 +39,9 @@ export class CaixaDB extends Dexie {
   meta!: Table<MetaRow, string>;
   expenses!: Table<Expense, string>;
   cashCloses!: Table<CashClose, string>;
+  suppliers!: Table<Supplier, string>;
+  purchases!: Table<Purchase, string>;
+  supplierPayments!: Table<SupplierPayment, string>;
 
   constructor(name: string) {
     super(name);
@@ -55,6 +71,12 @@ export class CaixaDB extends Dexie {
       expenses: 'id, createdAt, category, updatedAt',
       cashCloses: 'id, day, createdAt',
     });
+    // v4: suppliers, purchases (stock in, with cost) and payments of what the shop owes them.
+    this.version(4).stores({
+      suppliers: 'id, name, updatedAt',
+      purchases: 'id, createdAt, supplierId, updatedAt',
+      supplierPayments: 'id, supplierId, createdAt',
+    });
   }
 }
 
@@ -69,7 +91,10 @@ export const TABLES = [
   'meta',
   'expenses',
   'cashCloses',
+  'suppliers',
+  'purchases',
+  'supplierPayments',
 ] as const;
 /** Tables added after the first version: older backups do not have them (read as empty). */
-export const LATER_TABLES: readonly TableName[] = ['expenses', 'cashCloses'];
+export const LATER_TABLES: readonly TableName[] = ['expenses', 'cashCloses', 'suppliers', 'purchases', 'supplierPayments'];
 export type TableName = (typeof TABLES)[number];

@@ -143,7 +143,14 @@ describe('daySummaryText', () => {
     const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
     const text = daySummaryText('Loja', 'Hoje', view, {
       outflows: { expensesCents: 150_000, withdrawalsCents: 2_000_000, cashOutCents: 2_150_000, byCategory: {}, count: 2 },
-      drawer: { floatCents: 500_000, cashSalesCents: 0, cashCreditPaymentsCents: 0, cashOutCents: 0, expectedCents: 500_000 },
+      drawer: {
+        floatCents: 500_000,
+        cashSalesCents: 0,
+        cashCreditPaymentsCents: 0,
+        cashOutCents: 0,
+        cashPurchasesCents: 0,
+        expectedCents: 500_000,
+      },
       close: {
         id: 'c',
         day: '2026-11-06',

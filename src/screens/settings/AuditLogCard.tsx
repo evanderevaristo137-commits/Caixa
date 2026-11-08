@@ -25,14 +25,20 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
   const { store } = useApp();
   const [all, setAll] = useState(false);
   const lines = useLiveQuery(async () => {
-    const [entries, products, customers] = await Promise.all([
+    const [entries, products, customers, suppliers] = await Promise.all([
       store.auditLog.recent(400),
       store.db.products.toArray(),
       store.db.customers.toArray(),
+      store.db.suppliers.toArray(),
     ]);
     const productName = new Map(products.map((p) => [p.id, p.name]));
     const customerName = new Map(customers.map((c) => [c.id, c.name]));
-    const names = { product: (id: string) => productName.get(id), customer: (id: string) => customerName.get(id) };
+    const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
+    const names = {
+      product: (id: string) => productName.get(id),
+      customer: (id: string) => customerName.get(id),
+      supplier: (id: string) => supplierName.get(id),
+    };
     return entries.flatMap((e) => {
       const line = describeAudit(e, names);
       return line ? [{ id: e.id, at: e.createdAt, ...line }] : [];

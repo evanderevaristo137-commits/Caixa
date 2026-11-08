@@ -7,8 +7,47 @@ import { formatKz } from '../../lib/money';
 import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
 import { LabelsSheet } from './LabelsSheet';
+import { PurchasesView } from './PurchasesView';
+import { SuppliersView } from './SuppliersView';
 
+type View = 'products' | 'purchases' | 'suppliers';
+
+/** Products, purchases (goods received) and suppliers, one tab each. */
 export default function ProductsScreen() {
+  // "A pagar a fornecedores" on Today opens the suppliers directly.
+  const [view, setView] = useState<View>(() => {
+    try {
+      const wanted = sessionStorage.getItem('productsView');
+      sessionStorage.removeItem('productsView');
+      return wanted === 'suppliers' || wanted === 'purchases' ? wanted : 'products';
+    } catch {
+      return 'products';
+    }
+  });
+  return (
+    <div className="p-3">
+      <div role="tablist" aria-label={t.products.title} className="mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1">
+        {(['products', 'purchases', 'suppliers'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={`min-h-11 rounded-lg text-sm font-semibold ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700'}`}
+          >
+            {t.products.views[v]}
+          </button>
+        ))}
+      </div>
+      {view === 'products' && <ProductsList />}
+      {view === 'purchases' && <PurchasesView />}
+      {view === 'suppliers' && <SuppliersView />}
+    </div>
+  );
+}
+
+function ProductsList() {
   const { store } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
   const [query, setQuery] = useState('');
@@ -21,7 +60,7 @@ export default function ProductsScreen() {
   }, [products, query]);
 
   return (
-    <div className="p-3">
+    <div>
       <div className="mb-3 flex gap-2">
         <input
           type="search"

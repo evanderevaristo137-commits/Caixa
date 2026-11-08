@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../app/context';
 import { makeBackup } from '../app/backup-action';
-import { creditCsv, expensesCsv, importBackup, lastBackupAt, productsCsv, salesCsv } from '../data/backup';
+import { creditCsv, expensesCsv, importBackup, lastBackupAt, productsCsv, purchasesCsv, salesCsv, suppliersCsv } from '../data/backup';
 import { normaliseNif } from '../domain/nif';
 import type { Settings } from '../domain/types';
 import { t } from '../i18n/pt-AO';
@@ -169,6 +169,12 @@ function DataCard() {
         </Button>
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('saidas', () => expensesCsv(store.db))}>
           {t.settings.exportExpenses}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('compras', () => purchasesCsv(store.db))}>
+          {t.settings.exportPurchases}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('fornecedores', () => suppliersCsv(store.db))}>
+          {t.settings.exportSuppliers}
         </Button>
       </div>
     </Card>

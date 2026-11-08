@@ -37,6 +37,7 @@ export function CashCard({
         <Line label={t.cash.sales} cents={drawer.cashSalesCents} />
         {drawer.cashCreditPaymentsCents > 0 && <Line label={t.cash.creditPaid} cents={drawer.cashCreditPaymentsCents} />}
         {drawer.cashOutCents > 0 && <Line label={t.cash.out} cents={-drawer.cashOutCents} />}
+        {drawer.cashPurchasesCents > 0 && <Line label={t.cash.purchases} cents={-drawer.cashPurchasesCents} />}
       </dl>
       {creditPaidCents > 0 && (
         <p className="mt-1 text-sm text-slate-600">

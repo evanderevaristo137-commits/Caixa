@@ -22,6 +22,8 @@ const MV_LABEL: Record<StockMovementType, string> = {
   entry: t.products.mvEntry,
   adjustment: t.products.mvAdjust,
   void: t.products.mvVoid,
+  purchase: t.products.mvPurchase,
+  purchase_void: t.products.mvPurchaseVoid,
 };
 
 /** Stock entries, adjustments (with reason) and the movement history of one product. */

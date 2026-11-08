@@ -1,9 +1,10 @@
 import { creditBook } from '../domain/credit';
-import { formatDate, formatDateTime } from '../lib/dates';
+import { formatDate, formatDateString, formatDateTime } from '../lib/dates';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { formatKg } from '../domain/quantity';
 import { lineCostCents } from '../domain/profit';
+import { payablesBook } from '../domain/payables';
 import { DB_NAMES, LATER_TABLES, TABLES, type CaixaDB, type TableName } from './db';
 import { PIN_KEYS } from './store';
 
@@ -193,6 +194,65 @@ export async function expensesCsv(db: CaixaDB): Promise<string> {
       e.note ?? '',
       e.voidedAt ? 'Sim' : '',
       e.voidReason ?? '',
+    ]),
+  ]);
+}
+
+export async function purchasesCsv(db: CaixaDB): Promise<string> {
+  const [purchases, suppliers] = await Promise.all([db.purchases.orderBy('createdAt').toArray(), db.suppliers.toArray()]);
+  const names = new Map(suppliers.map((s) => [s.id, s.name]));
+  const rows: (string | number)[][] = [
+    [
+      'Data',
+      'Compra n.º',
+      'Fornecedor',
+      'Produto',
+      'Quantidade',
+      'Unidade',
+      'Custo unitário (Kz)',
+      'Total linha (Kz)',
+      'Total compra (Kz)',
+      'Pagamento',
+      'Pagar até',
+      'Anulada',
+      'Motivo da anulação',
+    ],
+  ];
+  for (const p of purchases) {
+    for (const it of p.items) {
+      rows.push([
+        formatDateTime(p.createdAt),
+        p.number,
+        p.supplierId ? (names.get(p.supplierId) ?? '') : '',
+        it.name,
+        it.soldBy === 'weight' ? formatKg(it.quantity) : it.quantity,
+        it.soldBy === 'weight' ? 'kg' : 'un',
+        kzNumber(it.unitCostCents),
+        kzNumber(it.lineTotalCents),
+        kzNumber(p.totalCents),
+        t.purchases.payments[p.payment],
+        p.dueDate ? formatDateString(p.dueDate) : '',
+        p.voidedAt ? 'Sim' : '',
+        p.voidReason ?? '',
+      ]);
+    }
+  }
+  return toCsv(rows);
+}
+
+export async function suppliersCsv(db: CaixaDB, now = new Date()): Promise<string> {
+  const [suppliers, purchases, payments] = await Promise.all([
+    db.suppliers.toArray(),
+    db.purchases.toArray(),
+    db.supplierPayments.toArray(),
+  ]);
+  return toCsv([
+    ['Fornecedor', 'Telefone', 'A loja deve (Kz)', 'Pagar até'],
+    ...payablesBook(suppliers, purchases, payments, now).map((b) => [
+      b.supplier.name,
+      b.supplier.phone ?? '',
+      kzNumber(Math.max(0, b.balanceCents)),
+      b.nextDueDate ? formatDateString(b.nextDueDate) : '',
     ]),
   ]);
 }

@@ -1,6 +1,19 @@
 import { methodLabel } from '../i18n/pt-AO';
 import { formatKz } from '../lib/money';
-import type { AuditEntry, CashClose, CreditPayment, Customer, Expense, Product, Sale, Settings, StockMovement } from './types';
+import type {
+  AuditEntry,
+  CashClose,
+  CreditPayment,
+  Customer,
+  Expense,
+  Product,
+  Purchase,
+  Sale,
+  Settings,
+  StockMovement,
+  Supplier,
+  SupplierPayment,
+} from './types';
 import { t } from '../i18n/pt-AO';
 import { formatDateString } from '../lib/dates';
 
@@ -13,6 +26,7 @@ export interface AuditLine {
 interface Names {
   product: (id: string) => string | undefined;
   customer: (id: string) => string | undefined;
+  supplier?: (id: string) => string | undefined;
 }
 
 const obj = <T>(v: unknown): Partial<T> => (typeof v === 'object' && v !== null ? (v as Partial<T>) : {});
@@ -115,6 +129,31 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       const result = diff === 0 ? 'bate certo' : diff > 0 ? `sobram ${formatKz(diff)}` : `faltam ${formatKz(-diff)}`;
       return {
         text: `Dia ${c.day ? formatDateString(c.day) : ''} fechado: contou ${formatKz(c.countedCents ?? 0)}, devia ter ${formatKz(c.expectedCents ?? 0)} — ${result}`,
+        important: true,
+      };
+    }
+    case 'purchase': {
+      const p = obj<Purchase>(e.after);
+      const who = p.supplierId ? (names.supplier?.(p.supplierId) ?? 'fornecedor') : 'sem fornecedor';
+      const total = formatKz(p.totalCents ?? 0);
+      if (e.action === 'voided')
+        return { text: `Compra n.º ${p.number} anulada (${total}). Motivo: ${p.voidReason ?? '—'}`, important: true };
+      const how = p.payment ? t.purchases.payments[p.payment] : '';
+      return { text: `Compra n.º ${p.number}: ${total} — ${who} (${how})`, important: true };
+    }
+    case 'supplier': {
+      const before = obj<Supplier>(e.before);
+      const after = obj<Supplier>(e.after);
+      if (e.action === 'created') return { text: `Fornecedor criado: ${after.name}`, important: false };
+      if (before.name !== after.name) return { text: `Fornecedor: nome «${before.name}» → «${after.name}»`, important: false };
+      if (before.phone !== after.phone) return { text: `${after.name}: telefone alterado`, important: false };
+      return null;
+    }
+    case 'supplier_payment': {
+      const p = obj<SupplierPayment>(e.after);
+      const who = (p.supplierId && names.supplier?.(p.supplierId)) ?? 'fornecedor';
+      return {
+        text: `Pagamento ao fornecedor ${who}: ${formatKz(p.amountCents ?? 0)} (${p.fromCash ? 'da caixa' : 'pago de outra forma'})`,
         important: true,
       };
     }

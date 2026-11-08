@@ -631,3 +631,48 @@ test('money out and closing the day: expected cash, short or over, and the log',
   await expect(page.getByText(/fechado: contou [\d.]+ Kz, devia ter [\d.]+ Kz — faltam 200 Kz/).first()).toBeVisible();
   await expect(page.getByText('Saída de dinheiro: Transporte — 1.500 Kz (da caixa) · Táxi')).toBeVisible();
 });
+
+test('a purchase on credit raises the stock and the cost; the supplier is paid and gets an order by WhatsApp', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Produtos');
+  await page.getByRole('tab', { name: 'Fornecedores' }).click();
+  const kikolo = page.getByRole('button', { name: /Armazém Kikolo/ });
+  await expect(kikolo).toContainText('Vence em 2 dias');
+
+  await page.getByRole('tab', { name: 'Compras' }).click();
+  await page.getByRole('button', { name: '+ Nova compra' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Nova compra' });
+  await sheet.getByRole('button', { name: 'Armazém Kikolo' }).click();
+  await sheet.getByRole('button', { name: '+ Juntar produto' }).click();
+  await sheet.getByRole('searchbox', { name: 'Escolha o produto' }).fill('fuba de milho');
+  await sheet.getByRole('button', { name: 'Fuba de milho 1 kg' }).click();
+  await sheet.getByLabel('Quantidade', { exact: true }).fill('10');
+  await sheet.getByLabel('Custo de cada (Kz)').fill('700');
+  await expect(sheet.getByText('7.000 Kz').first()).toBeVisible();
+  await sheet.getByRole('button', { name: 'A crédito (pagar depois)' }).click();
+  await sheet.getByRole('button', { name: '7 dias' }).click();
+  await sheet.getByRole('button', { name: 'Registar compra' }).click();
+  await expect(page.getByText('Compra registada: o stock subiu e o preço de custo foi actualizado.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Compra n\.º 4 · Armazém Kikolo/ })).toContainText('7.000 Kz');
+
+  await page.getByRole('tab', { name: 'Produtos' }).click();
+  await page.getByRole('button', { name: /Fuba de milho 1 kg/ }).click();
+  await expect(page.getByLabel('Preço de custo (Kz) — opcional')).toHaveValue('700');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  await page.getByRole('tab', { name: 'Fornecedores' }).click();
+  await kikolo.click();
+  const supplier = page.getByRole('dialog', { name: 'Armazém Kikolo' });
+  const owes = kzToCents(await supplier.locator('.text-3xl').textContent());
+  await supplier.getByRole('button', { name: 'Registar pagamento' }).click();
+  await supplier.getByLabel('Valor pago').fill('7.000');
+  await supplier.getByRole('button', { name: 'Confirmar' }).click();
+  await expect.poll(async () => kzToCents(await supplier.locator('.text-3xl').textContent())).toBe(owes - 700_000);
+  const order = await supplier.getByRole('link', { name: 'Encomendar por WhatsApp' }).getAttribute('href');
+  expect(order).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
+  expect(decodeURIComponent(order!)).toContain('Queria encomendar:');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  await nav(page, 'Hoje');
+  await expect(page.getByRole('button', { name: /A pagar a fornecedores/ })).toBeVisible();
+});

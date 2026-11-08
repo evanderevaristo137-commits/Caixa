@@ -460,6 +460,7 @@ describe('Store: money out and the end-of-day count', () => {
       cashSalesCents: 1_200_000,
       cashCreditPaymentsCents: 200_000,
       cashOutCents: 650_000,
+      cashPurchasesCents: 0,
       expectedCents: 1_250_000,
     });
     const close = await st.cash.close({ floatCents: 500_000, countedCents: 1_230_000, note: 'Notas velhas' });
@@ -476,5 +477,92 @@ describe('Store: money out and the end-of-day count', () => {
     expect((await store.settings.save({ cashFloatCents: 500_000 })).cashFloatCents).toBe(500_000);
     expect((await store.settings.save({ cashFloatCents: 0 })).cashFloatCents).toBeUndefined();
     await expect(store.settings.save({ cashFloatCents: 10.5 })).rejects.toSatisfy((x) => code(x) === 'invalid_float');
+  });
+});
+
+describe('Store: suppliers and purchases', () => {
+  const fixed = new Date(2026, 10, 8, 10, 0);
+  let tick = 0;
+  const clock = () => new Date(fixed.getTime() + tick++ * 1000);
+
+  it('a purchase raises the stock, follows the last cost and remembers the usual supplier', async () => {
+    const st = new Store(db, clock);
+    const arroz = await st.products.create({ name: 'Arroz', priceCents: 120_000, costCents: 95_000, minStock: 5 }, 2);
+    const feijao = await st.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 1_000, soldBy: 'weight' }, 500);
+    const kikolo = await st.suppliers.create(' Armazém Kikolo ', '923 000 000');
+    expect(kikolo.name).toBe('Armazém Kikolo');
+
+    const pu = await st.purchases.create({
+      supplierId: kikolo.id,
+      lines: [
+        { productId: arroz.id, quantity: 20, unitCostCents: 100_000 },
+        { productId: feijao.id, quantity: 25_000, unitCostCents: 110_000 },
+      ],
+      payment: 'cash',
+    });
+    expect(pu.number).toBe(1);
+    expect(pu.items.map((i) => i.lineTotalCents)).toEqual([2_000_000, 2_750_000]);
+    expect(pu.totalCents).toBe(4_750_000);
+    const a = (await st.products.get(arroz.id))!;
+    expect(a.stock).toBe(22);
+    expect(a.costCents).toBe(100_000);
+    expect(a.supplierId).toBe(kikolo.id);
+    expect((await st.products.get(feijao.id))!.stock).toBe(25_500);
+    expect((await st.products.movements(arroz.id)).some((m) => m.type === 'purchase' && m.purchaseId === pu.id)).toBe(true);
+
+    // Paid from the till: the cash expected that day goes down.
+    expect((await st.cash.drawer(fixed, 0)).cashPurchasesCents).toBe(4_750_000);
+
+    // Voiding brings the stock back down (the cost price stays).
+    await expect(st.purchases.void(pu.id, '')).rejects.toSatisfy((e) => code(e) === 'reason_required');
+    await st.purchases.void(pu.id, 'Mercadoria devolvida');
+    expect((await st.products.get(arroz.id))!.stock).toBe(2);
+    expect((await st.cash.drawer(fixed, 0)).cashPurchasesCents).toBe(0);
+  });
+
+  it('refuses invalid purchases; credit needs a supplier and a valid due date', async () => {
+    const st = new Store(db, clock);
+    const p = await st.products.create({ name: 'Óleo', priceCents: 185_000, minStock: 0 });
+    const line = { productId: p.id, quantity: 12, unitCostCents: 155_000 };
+    await expect(st.purchases.create({ lines: [], payment: 'cash' })).rejects.toSatisfy((e) => code(e) === 'empty_purchase');
+    await expect(st.purchases.create({ lines: [{ ...line, quantity: 0 }], payment: 'cash' })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_quantity',
+    );
+    await expect(st.purchases.create({ lines: [{ ...line, unitCostCents: -1 }], payment: 'cash' })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_cost',
+    );
+    await expect(st.purchases.create({ lines: [line, line], payment: 'cash' })).rejects.toSatisfy((e) => code(e) === 'duplicate_line');
+    await expect(st.purchases.create({ lines: [line], payment: 'credit' })).rejects.toSatisfy((e) => code(e) === 'supplier_required');
+    const s = await st.suppliers.create('Armazém');
+    await expect(st.purchases.create({ supplierId: s.id, lines: [line], payment: 'credit', dueDate: '2026-11-01' })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_due_date',
+    );
+    // Without a date, the usual 15 days.
+    const pu = await st.purchases.create({ supplierId: s.id, lines: [line], payment: 'credit' });
+    expect(pu.dueDate).toBe('2026-11-23');
+    // Nothing was half-saved by the refused attempts.
+    expect((await st.products.get(p.id))!.stock).toBe(12);
+  });
+
+  it('tracks what is owed to each supplier and refuses paying more than that', async () => {
+    const st = new Store(db, clock);
+    const p = await st.products.create({ name: 'Cerveja', priceCents: 50_000, minStock: 0 });
+    const s = await st.suppliers.create('Distribuidora');
+    await st.purchases.create({
+      supplierId: s.id,
+      lines: [{ productId: p.id, quantity: 48, unitCostCents: 37_000 }],
+      payment: 'credit',
+      dueDate: '2026-11-10',
+    });
+    expect(await st.payables.totalOwed(fixed)).toBe(1_776_000);
+    await expect(st.supplierPayments.add(s.id, 2_000_000, true)).rejects.toSatisfy((e) => code(e) === 'too_much');
+    await st.supplierPayments.add(s.id, 776_000, true);
+    const [row] = await st.payables.book(fixed);
+    expect(row).toMatchObject({ balanceCents: 1_000_000, dueState: 'soon', daysUntilDue: 2 });
+    // A supplier paid from the till lowers the cash expected that day.
+    expect((await st.cash.drawer(fixed, 0)).cashPurchasesCents).toBe(776_000);
+    const log = (await st.auditLog.list()).map((a) => a.entity);
+    expect(log).toContain('purchase');
+    expect(log).toContain('supplier_payment');
   });
 });

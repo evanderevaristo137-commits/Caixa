@@ -1,4 +1,18 @@
-import type { CashClose, CreditPayment, Customer, Expense, PaymentMethod, Product, Sale, SaleItem, StockMovement } from '../domain/types';
+import type {
+  CashClose,
+  CreditPayment,
+  Customer,
+  Expense,
+  PaymentMethod,
+  Product,
+  Purchase,
+  Sale,
+  SaleItem,
+  StockMovement,
+  Supplier,
+  SupplierPayment,
+} from '../domain/types';
+import { tillPurchasesCents } from './store';
 import { closeResult, drawer, summariseOutflows } from '../domain/cash';
 import { CURRENCY } from '../domain/types';
 import { openItems } from '../domain/credit';
@@ -99,7 +113,38 @@ export interface DemoData {
   expenses: Expense[];
   /** One end-of-day count for each past day (today is left open, to show closing in a visit). */
   closes: CashClose[];
+  suppliers: Supplier[];
+  purchases: Purchase[];
+  supplierPayments: SupplierPayment[];
 }
+
+// Fictitious suppliers (same WhatsApp test number as the customers). Drinks and bread have their own.
+const SUPPLIERS = ['Armazém Kikolo', 'Distribuidora Viana', 'Padaria do Bairro'];
+const supplierOf = (name: string) => (/^(Água|Gasosa|Sumo|Cerveja)/.test(name) ? 1 : name.startsWith('Pão') ? 2 : 0);
+// [day of the two weeks, supplier, payment, lines: product name and quantity]
+const PURCHASES: [number, number, Purchase['payment'], [string, number][]][] = [
+  [
+    4,
+    0,
+    'credit',
+    [
+      ['Arroz 1 kg', 20],
+      ['Óleo vegetal 1 L', 12],
+      ['Açúcar 1 kg', 20],
+    ],
+  ],
+  [
+    9,
+    1,
+    'cash',
+    [
+      ['Cerveja 330 ml', 48],
+      ['Gasosa 330 ml', 24],
+      ['Água 1,5 L', 24],
+    ],
+  ],
+  [12, 2, 'cash', [['Pão (unidade)', 30]]],
+];
 
 /** Builds two weeks of believable sales ending at `now`. Pure function (testable). */
 export function buildDemoData(now: Date): DemoData {
@@ -236,6 +281,41 @@ export function buildDemoData(now: Date): DemoData {
     }
   });
 
+  // Suppliers and purchases: one on credit (due in 2 days, part already paid), two paid from the till.
+  const suppliers: Supplier[] = SUPPLIERS.map((name) => ({
+    id: uuid(),
+    name,
+    phone: DEMO_WHATSAPP_TEST_NUMBER,
+    createdAt,
+    updatedAt: createdAt,
+  }));
+  products.forEach((p) => (p.supplierId = suppliers[supplierOf(p.name)]!.id));
+  const purchases: Purchase[] = [];
+  PURCHASES.forEach(([dayIndex, s, payment, lines], i) => {
+    const at = addDays(start, dayIndex);
+    at.setHours(10, 0);
+    const items = lines.map(([name, quantity]) => {
+      const p = products.find((x) => x.name === name)!;
+      return { productId: p.id, name, quantity, unitCostCents: p.costCents!, lineTotalCents: p.costCents! * quantity };
+    });
+    purchases.push({
+      id: uuid(),
+      number: i + 1,
+      supplierId: suppliers[s]!.id,
+      items,
+      totalCents: items.reduce((a, it) => a + it.lineTotalCents, 0),
+      payment,
+      dueDate: payment === 'credit' ? addDaysToDateString(toLocalDateString(now), 2) : undefined,
+      createdAt: iso(at),
+      updatedAt: iso(at),
+    });
+  });
+  const paidAt = addDays(start, 10);
+  paidAt.setHours(11, 0);
+  const supplierPayments: SupplierPayment[] = [
+    { id: uuid(), supplierId: suppliers[0]!.id, amountCents: 2_000_000, fromCash: false, createdAt: iso(paidAt), updatedAt: iso(paidAt) },
+  ];
+
   // Money out: transport most mornings, generator fuel every 3 days, the rent once, the owner's weekly withdrawal.
   const expenses: Expense[] = [];
   const addExpense = (dayIndex: number, hour: number, category: Expense['category'], kz: number, fromCash: boolean, note?: string) => {
@@ -266,6 +346,7 @@ export function buildDemoData(now: Date): DemoData {
       cashSalesCents: sales.filter((s) => inDay(s) && s.method === 'cash').reduce((a, s) => a + s.totalCents, 0),
       cashCreditPaymentsCents: payments.filter((p) => inDay(p) && p.method === 'cash').reduce((a, p) => a + p.amountCents, 0),
       cashOutCents: summariseOutflows(expenses.filter(inDay)).cashOutCents,
+      cashPurchasesCents: tillPurchasesCents(purchases.filter(inDay), supplierPayments.filter(inDay)),
     });
     const countedCents = d.expectedCents + differences[day]!;
     const at = addDays(start, day);
@@ -282,13 +363,28 @@ export function buildDemoData(now: Date): DemoData {
     });
   }
 
-  // Stock: initial delivery = what was sold + the target left on the shelf today.
+  // Stock: initial delivery + purchases − sales = the target left on the shelf today.
   const sold = new Map<string, number>();
   for (const s of sales) for (const it of s.items) sold.set(it.productId, (sold.get(it.productId) ?? 0) + it.quantity);
+  const bought = new Map<string, number>();
+  for (const pu of purchases) for (const it of pu.items) bought.set(it.productId, (bought.get(it.productId) ?? 0) + it.quantity);
   const movements: StockMovement[] = [];
+  for (const pu of purchases) {
+    for (const it of pu.items) {
+      movements.push({
+        id: uuid(),
+        productId: it.productId,
+        type: 'purchase',
+        delta: it.quantity,
+        purchaseId: pu.id,
+        createdAt: pu.createdAt,
+        updatedAt: pu.createdAt,
+      });
+    }
+  }
   products.forEach((p, i) => {
     const target = PRODUCTS[i]![4];
-    const initial = (sold.get(p.id) ?? 0) + target;
+    const initial = Math.max(0, (sold.get(p.id) ?? 0) + target - (bought.get(p.id) ?? 0));
     movements.push({
       id: uuid(),
       productId: p.id,
@@ -298,7 +394,7 @@ export function buildDemoData(now: Date): DemoData {
       createdAt,
       updatedAt: createdAt,
     });
-    p.stock = target;
+    p.stock = initial + (bought.get(p.id) ?? 0) - (sold.get(p.id) ?? 0);
   });
   for (const s of sales) {
     for (const it of s.items) {
@@ -314,7 +410,7 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
 
-  return { products, customers, sales, payments, movements, expenses, closes };
+  return { products, customers, sales, payments, movements, expenses, closes, suppliers, purchases, supplierPayments };
 }
 
 /** Wipes the demo database and fills it again. Only ever called on the demo database. */
@@ -333,6 +429,10 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.stockMovements.bulkAdd(data.movements);
     await db.expenses.bulkAdd(data.expenses);
     await db.cashCloses.bulkAdd(data.closes);
+    await db.suppliers.bulkAdd(data.suppliers);
+    await db.purchases.bulkAdd(data.purchases);
+    await db.supplierPayments.bulkAdd(data.supplierPayments);
+    await db.meta.put({ key: 'purchaseNumber', value: data.purchases.length });
     await db.settings.put({
       id: SETTINGS_ID,
       storeName: DEMO_STORE_NAME,

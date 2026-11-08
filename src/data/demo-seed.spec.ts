@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDemoData, ensureFreshDemo, seedDemo } from './demo-seed';
 import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
+import { payablesBook } from '../domain/payables';
 import { lowStockProducts, summariseDayView } from '../domain/today';
 import { CaixaDB } from './db';
 import { Store } from './store';
@@ -52,10 +53,28 @@ describe('demo data', () => {
       const cashSales = d.sales.filter((s) => inDay(s) && s.method === 'cash').reduce((a, s) => a + s.totalCents, 0);
       const cashPaid = d.payments.filter((p) => inDay(p) && p.method === 'cash').reduce((a, p) => a + p.amountCents, 0);
       const cashOut = d.expenses.filter((e) => inDay(e) && e.fromCash).reduce((a, e) => a + e.amountCents, 0);
-      expect(c.expectedCents).toBe(c.floatCents + cashSales + cashPaid - cashOut);
+      const cashBought =
+        d.purchases.filter((p) => inDay(p) && p.payment === 'cash').reduce((a, p) => a + p.totalCents, 0) +
+        d.supplierPayments.filter((p) => inDay(p) && p.fromCash).reduce((a, p) => a + p.amountCents, 0);
+      expect(c.expectedCents).toBe(c.floatCents + cashSales + cashPaid - cashOut - cashBought);
       expect(c.differenceCents).toBe(c.countedCents - c.expectedCents);
     }
     expect(d.closes.some((c) => c.differenceCents < 0)).toBe(true);
+  });
+
+  it('has suppliers, purchases that raised the stock and one supplier to pay soon', () => {
+    expect(d.suppliers.map((s) => s.name)).toEqual(['Armazém Kikolo', 'Distribuidora Viana', 'Padaria do Bairro']);
+    expect(d.products.every((p) => p.supplierId)).toBe(true);
+    expect(d.purchases.map((p) => p.payment)).toEqual(['credit', 'cash', 'cash']);
+    for (const pu of d.purchases) {
+      expect(pu.totalCents).toBe(pu.items.reduce((a, i) => a + i.lineTotalCents, 0));
+      for (const it of pu.items)
+        expect(d.movements.some((m) => m.purchaseId === pu.id && m.productId === it.productId && m.delta === it.quantity)).toBe(true);
+    }
+    const book = payablesBook(d.suppliers, d.purchases, d.supplierPayments, now);
+    expect(book[0]!.supplier.name).toBe('Armazém Kikolo');
+    expect(book[0]!.dueState).toBe('soon');
+    expect(book[0]!.balanceCents).toBe(d.purchases[0]!.totalCents - 2_000_000);
   });
 
   it('all 5 customers owe something and some products are low', () => {

@@ -21,6 +21,11 @@ describe('cash in the till', () => {
   it('expects float + cash sales + cash payments − money out', () => {
     const d = drawer({ floatCents: 500_000, cashSalesCents: 4_250_000, cashCreditPaymentsCents: 300_000, cashOutCents: 2_150_000 });
     expect(d.expectedCents).toBe(2_900_000);
+    // Goods bought (or suppliers paid) with money from the till also leave the drawer.
+    expect(
+      drawer({ floatCents: 0, cashSalesCents: 1_000_000, cashCreditPaymentsCents: 0, cashOutCents: 0, cashPurchasesCents: 400_000 })
+        .expectedCents,
+    ).toBe(600_000);
   });
 
   it('says whether the count is right, over or short', () => {

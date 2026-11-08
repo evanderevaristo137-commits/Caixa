@@ -18,14 +18,32 @@ import type {
   ExpenseCategory,
   PaymentMethod,
   Product,
+  Purchase,
+  PurchaseItem,
+  PurchasePayment,
   Sale,
   SaleItem,
   Settings,
   StockMovement,
+  Supplier,
+  SupplierPayment,
 } from '../domain/types';
-import { CURRENCY, EXPENSE_CATEGORIES } from '../domain/types';
+import { CURRENCY, EXPENSE_CATEGORIES, PURCHASE_PAYMENTS } from '../domain/types';
+import { purchaseLineTotal } from '../domain/purchases';
+import { payablesBook, payableStatus, totalPayable } from '../domain/payables';
 import { uuid } from '../lib/ids';
 import { CaixaDB } from './db';
+
+/** Purchases paid in cash and supplier payments made with money from the till. */
+export function tillPurchasesCents(
+  purchases: Pick<Purchase, 'payment' | 'totalCents' | 'voidedAt'>[],
+  supplierPayments: Pick<SupplierPayment, 'amountCents' | 'fromCash'>[],
+): number {
+  return (
+    purchases.filter((p) => p.payment === 'cash' && !p.voidedAt).reduce((a, p) => a + p.totalCents, 0) +
+    supplierPayments.filter((p) => p.fromCash).reduce((a, p) => a + p.amountCents, 0)
+  );
+}
 
 export class DomainError extends Error {
   constructor(public readonly code: string) {
@@ -50,6 +68,15 @@ export interface ProductInput {
 /** IVA in basis points: whole number from 0 to 10000 (0% to 100%). */
 const validTaxRate = (bp: number | undefined) => bp === undefined || (Number.isInteger(bp) && bp >= 0 && bp <= 10_000);
 const cleanShort = (s: string | undefined, max: number) => clean(s)?.slice(0, max);
+
+export interface NewPurchase {
+  supplierId?: string;
+  lines: { productId: string; quantity: number; unitCostCents: number }[];
+  payment: PurchasePayment;
+  /** On credit: "YYYY-MM-DD"; when missing, the usual term (15 days). */
+  dueDate?: string;
+  note?: string;
+}
 
 export interface NewSale {
   cart: Cart;
@@ -525,12 +552,23 @@ export class Store {
   readonly cash = {
     /** What the till should have on that local day (from the facts), with this opening float. */
     drawer: (day: Date, floatCents: number): Promise<Drawer> =>
-      this.db.transaction('r', [this.db.sales, this.db.creditPayments, this.db.expenses], () => this.drawerOn(day, floatCents)),
+      this.db.transaction('r', [this.db.sales, this.db.creditPayments, this.db.expenses, this.db.purchases, this.db.supplierPayments], () =>
+        this.drawerOn(day, floatCents),
+      ),
     /** Records the count. Expected cash is computed here, from the facts, never typed. Audited. */
     close: (input: { floatCents: number; countedCents: number; note?: string; day?: Date }): Promise<CashClose> =>
       this.db.transaction(
         'rw',
-        [this.db.cashCloses, this.db.sales, this.db.creditPayments, this.db.expenses, this.db.audit, this.db.meta],
+        [
+          this.db.cashCloses,
+          this.db.sales,
+          this.db.creditPayments,
+          this.db.expenses,
+          this.db.purchases,
+          this.db.supplierPayments,
+          this.db.audit,
+          this.db.meta,
+        ],
         async () => {
           if (!Number.isInteger(input.floatCents) || input.floatCents < 0) throw new DomainError('invalid_float');
           if (!Number.isInteger(input.countedCents) || input.countedCents < 0) throw new DomainError('invalid_amount');
@@ -560,22 +598,197 @@ export class Store {
     closes: () => this.db.cashCloses.orderBy('createdAt').toArray(),
   };
 
-  /** Call inside a transaction that reads sales, creditPayments and expenses. */
+  /** Call inside a transaction that reads sales, creditPayments, expenses, purchases and supplierPayments. */
   private async drawerOn(day: Date, floatCents: number): Promise<Drawer> {
     const from = startOfLocalDay(day).toISOString();
     const to = addDays(startOfLocalDay(day), 1).toISOString();
-    const [sales, payments, expenses] = await Promise.all([
+    const [sales, payments, expenses, purchases, supplierPayments] = await Promise.all([
       this.db.sales.where('createdAt').between(from, to, true, false).toArray(),
       this.db.creditPayments.where('createdAt').between(from, to, true, false).toArray(),
       this.db.expenses.where('createdAt').between(from, to, true, false).toArray(),
+      this.db.purchases.where('createdAt').between(from, to, true, false).toArray(),
+      this.db.supplierPayments.where('createdAt').between(from, to, true, false).toArray(),
     ]);
     return drawer({
       floatCents,
       cashSalesCents: sales.filter((s) => s.method === 'cash' && !s.voidedAt).reduce((a, s) => a + s.totalCents, 0),
       cashCreditPaymentsCents: payments.filter((p) => p.method === 'cash').reduce((a, p) => a + p.amountCents, 0),
       cashOutCents: summariseOutflows(expenses).cashOutCents,
+      cashPurchasesCents: tillPurchasesCents(purchases, supplierPayments),
     });
   }
+
+  // ---------- Suppliers, purchases and what the shop owes them ----------
+  readonly suppliers = {
+    list: async (): Promise<Supplier[]> => (await this.db.suppliers.toArray()).sort(byName),
+    get: (id: string) => this.db.suppliers.get(id),
+    create: (name: string, phone?: string): Promise<Supplier> =>
+      this.db.transaction('rw', [this.db.suppliers, this.db.audit], async () => {
+        if (!name.trim()) throw new DomainError('name_required');
+        const at = this.stamp();
+        const supplier: Supplier = { id: uuid(), name: name.trim(), phone: clean(phone), createdAt: at, updatedAt: at };
+        await this.db.suppliers.add(supplier);
+        await this.audit({ entity: 'supplier', entityId: supplier.id, action: 'created', after: supplier });
+        return supplier;
+      }),
+    update: (id: string, changes: { name?: string; phone?: string }): Promise<Supplier> =>
+      this.db.transaction('rw', [this.db.suppliers, this.db.audit], async () => {
+        const before = await this.db.suppliers.get(id);
+        if (!before) throw new DomainError('not_found');
+        const after: Supplier = { ...before, updatedAt: this.stamp() };
+        if ('name' in changes) {
+          if (!changes.name?.trim()) throw new DomainError('name_required');
+          after.name = changes.name.trim();
+        }
+        if ('phone' in changes) after.phone = clean(changes.phone);
+        await this.db.suppliers.put(after);
+        await this.audit({ entity: 'supplier', entityId: id, action: 'updated', before, after });
+        return after;
+      }),
+  };
+
+  readonly purchases = {
+    list: () => this.db.purchases.orderBy('createdAt').toArray(),
+    get: (id: string) => this.db.purchases.get(id),
+    between: (fromIso: string, toIso: string) => this.db.purchases.where('createdAt').between(fromIso, toIso, true, false).toArray(),
+    bySupplier: (supplierId: string) => this.db.purchases.where('supplierId').equals(supplierId).toArray(),
+    /**
+     * Goods received: stock goes up (one movement per line), each product's cost price becomes the
+     * cost of this purchase and its usual supplier this one. All or nothing, audited.
+     */
+    create: (input: NewPurchase): Promise<Purchase> =>
+      this.db.transaction(
+        'rw',
+        [this.db.purchases, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta, this.db.suppliers],
+        async () => {
+          if (input.lines.length === 0) throw new DomainError('empty_purchase');
+          if (!(PURCHASE_PAYMENTS as readonly string[]).includes(input.payment)) throw new DomainError('invalid_payment');
+          if (input.supplierId && !(await this.db.suppliers.get(input.supplierId))) throw new DomainError('supplier_required');
+          let dueDate: string | undefined;
+          if (input.payment === 'credit') {
+            if (!input.supplierId) throw new DomainError('supplier_required');
+            const today = toLocalDateString(this.now());
+            if (input.dueDate !== undefined && (!isValidDateString(input.dueDate) || input.dueDate < today)) {
+              throw new DomainError('invalid_due_date');
+            }
+            dueDate = input.dueDate ?? dueDateFromTerm(DEFAULT_TERM_DAYS, this.now());
+          }
+          const items: PurchaseItem[] = [];
+          for (const line of input.lines) {
+            const product = await this.db.products.get(line.productId);
+            if (!product || product.archivedAt) throw new DomainError('not_found');
+            if (!Number.isInteger(line.quantity) || line.quantity <= 0 || line.quantity > MAX_GRAMS)
+              throw new DomainError('invalid_quantity');
+            if (!Number.isInteger(line.unitCostCents) || line.unitCostCents < 0) throw new DomainError('invalid_cost');
+            if (items.some((i) => i.productId === line.productId)) throw new DomainError('duplicate_line');
+            const item: PurchaseItem = {
+              productId: product.id,
+              name: product.name,
+              quantity: line.quantity,
+              ...(product.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
+              unitCostCents: line.unitCostCents,
+              lineTotalCents: 0,
+            };
+            item.lineTotalCents = purchaseLineTotal(item);
+            items.push(item);
+          }
+          const counter = await this.db.meta.get('purchaseNumber');
+          const number = (typeof counter?.value === 'number' ? counter.value : 0) + 1;
+          await this.db.meta.put({ key: 'purchaseNumber', value: number });
+          const at = this.stamp();
+          const purchase: Purchase = {
+            id: uuid(),
+            number,
+            supplierId: input.supplierId,
+            items,
+            totalCents: items.reduce((a, i) => a + i.lineTotalCents, 0),
+            payment: input.payment,
+            dueDate,
+            note: cleanShort(input.note, 120),
+            deviceId: await this.deviceId(),
+            createdAt: at,
+            updatedAt: at,
+          };
+          await this.db.purchases.add(purchase);
+          await this.audit({ entity: 'purchase', entityId: purchase.id, action: 'created', after: purchase });
+          for (const item of items) {
+            await this.addMovement({ productId: item.productId, type: 'purchase', delta: item.quantity, purchaseId: purchase.id });
+            const before = (await this.db.products.get(item.productId))!;
+            const after: Product = { ...before, costCents: item.unitCostCents, updatedAt: this.stamp() };
+            if (input.supplierId) after.supplierId = input.supplierId;
+            if (after.costCents !== before.costCents || after.supplierId !== before.supplierId) {
+              await this.db.products.put(after);
+              await this.audit({ entity: 'product', entityId: item.productId, action: 'updated', before, after });
+            }
+          }
+          return purchase;
+        },
+      ),
+    /** A mistake stays in the history as voided; the stock goes back down. A reason is mandatory. */
+    void: (id: string, reason: string): Promise<Purchase> =>
+      this.db.transaction('rw', [this.db.purchases, this.db.products, this.db.stockMovements, this.db.audit], async () => {
+        const before = await this.db.purchases.get(id);
+        if (!before) throw new DomainError('not_found');
+        if (before.voidedAt) throw new DomainError('already_voided');
+        if (reason.trim().length < 3) throw new DomainError('reason_required');
+        const at = this.stamp();
+        const after: Purchase = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
+        await this.db.purchases.put(after);
+        await this.audit({ entity: 'purchase', entityId: id, action: 'voided', before, after });
+        for (const item of before.items) {
+          await this.addMovement({
+            productId: item.productId,
+            type: 'purchase_void',
+            delta: -item.quantity,
+            reason: reason.trim(),
+            purchaseId: id,
+          });
+        }
+        return after;
+      }),
+  };
+
+  readonly supplierPayments = {
+    list: () => this.db.supplierPayments.orderBy('createdAt').toArray(),
+    bySupplier: (supplierId: string) => this.db.supplierPayments.where('supplierId').equals(supplierId).toArray(),
+    between: (fromIso: string, toIso: string) => this.db.supplierPayments.where('createdAt').between(fromIso, toIso, true, false).toArray(),
+    add: (supplierId: string, amountCents: number, fromCash: boolean): Promise<SupplierPayment> =>
+      this.db.transaction('rw', [this.db.supplierPayments, this.db.purchases, this.db.suppliers, this.db.audit, this.db.meta], async () => {
+        if (!(await this.db.suppliers.get(supplierId))) throw new DomainError('not_found');
+        if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
+        const [purchases, payments] = await Promise.all([
+          this.db.purchases.where('supplierId').equals(supplierId).toArray(),
+          this.db.supplierPayments.where('supplierId').equals(supplierId).toArray(),
+        ]);
+        if (amountCents > payableStatus(supplierId, purchases, payments, this.now()).balanceCents) throw new DomainError('too_much');
+        const at = this.stamp();
+        const payment: SupplierPayment = {
+          id: uuid(),
+          supplierId,
+          amountCents,
+          fromCash,
+          deviceId: await this.deviceId(),
+          createdAt: at,
+          updatedAt: at,
+        };
+        await this.db.supplierPayments.add(payment);
+        await this.audit({ entity: 'supplier_payment', entityId: payment.id, action: 'created', after: payment });
+        return payment;
+      }),
+  };
+
+  readonly payables = {
+    /** Every supplier with what the shop owes, most urgent first. */
+    book: async (now = new Date()) => {
+      const [suppliers, purchases, payments] = await Promise.all([
+        this.suppliers.list(),
+        this.purchases.list(),
+        this.supplierPayments.list(),
+      ]);
+      return payablesBook(suppliers, purchases, payments, now);
+    },
+    totalOwed: async (now = new Date()) => totalPayable(await this.payables.book(now)),
+  };
 
   // ---------- Settings ----------
   readonly settings = {
