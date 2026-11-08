@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { creditAlerts, creditBook, creditStatus, dueDateFromTerm, openItems, totalOutstanding, validateCreditPayment } from './credit';
+import {
+  checkCreditLimit,
+  creditAlerts,
+  creditBook,
+  creditStatus,
+  dueDateFromTerm,
+  openItems,
+  totalOutstanding,
+  validateCreditPayment,
+} from './credit';
 import type { Customer } from './types';
 
 const now = new Date(2026, 10, 6, 15, 0); // 6 Nov 2026, local time
@@ -161,5 +170,32 @@ describe('due dates', () => {
     expect(dueDateFromTerm('month_end', now)).toBe('2026-11-30');
     // On the 29th, "end of the month" would be tomorrow: use the next month's end.
     expect(dueDateFromTerm('month_end', new Date(2026, 10, 29, 10))).toBe('2026-12-31');
+  });
+});
+
+describe('checkCreditLimit', () => {
+  it('lets the sale through within the limit', () => {
+    expect(checkCreditLimit({ balanceCents: 2_000_000, saleCents: 500_000, shopLimitCents: 3_000_000 })).toEqual({
+      limitCents: 3_000_000,
+      afterCents: 2_500_000,
+      exceedsByCents: 0,
+    });
+  });
+  it('says by how much a sale goes over the limit', () => {
+    expect(checkCreditLimit({ balanceCents: 2_955_000, saleCents: 550_000, shopLimitCents: 3_000_000 }).exceedsByCents).toBe(505_000);
+  });
+  it("uses the customer's own limit before the shop's, and 0/none means no limit", () => {
+    expect(
+      checkCreditLimit({ balanceCents: 0, saleCents: 600_000, customerLimitCents: 500_000, shopLimitCents: 5_000_000 }).exceedsByCents,
+    ).toBe(100_000);
+    expect(checkCreditLimit({ balanceCents: 9_000_000, saleCents: 1, shopLimitCents: 0 })).toEqual({
+      limitCents: undefined,
+      afterCents: 9_000_001,
+      exceedsByCents: 0,
+    });
+    expect(checkCreditLimit({ balanceCents: 9_000_000, saleCents: 1 }).limitCents).toBeUndefined();
+  });
+  it("money in the customer's favour does not raise the limit", () => {
+    expect(checkCreditLimit({ balanceCents: -200_000, saleCents: 100_000, shopLimitCents: 50_000 }).exceedsByCents).toBe(50_000);
   });
 });

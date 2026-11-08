@@ -40,6 +40,8 @@ export interface Customer extends BaseRecord {
   lastRemindedAt?: IsoDate;
   /** Optional NIF, for invoices issued in the customer's name (phase 3). Letters and digits. */
   nif?: string;
+  /** This customer's own credit limit (overrides the shop's usual one). */
+  creditLimitCents?: Cents;
 }
 
 export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay', 'credit'] as const;
@@ -76,6 +78,8 @@ export interface Sale extends BaseRecord {
   deviceId?: string;
   /** Phase 3: certified invoice (or credit note, after a void) obtained from the partner. */
   invoice?: InvoiceStatus;
+  /** Credit sale accepted above the customer's credit limit (with the owner code when there is one). */
+  creditLimitOverride?: { limitCents: Cents; balanceBeforeCents: Cents };
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
   /** Credit sales only: the day the customer must pay by ("YYYY-MM-DD", the phone's calendar). */
@@ -135,6 +139,8 @@ export interface Settings extends BaseRecord {
   nif?: string;
   /** Usual payment term for credit sales, in days (default 15). */
   creditTermDays?: number;
+  /** Usual credit limit per customer; none = no limit (the owner chooses it). */
+  creditLimitCents?: Cents;
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;

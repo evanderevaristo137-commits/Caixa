@@ -6,7 +6,7 @@ import { normaliseNif } from '../../domain/nif';
 import type { CreditPayment } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
-import { parseKz } from '../../lib/money';
+import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge, reminderLink } from './due';
 
@@ -32,6 +32,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const [name, setName] = useState<string | null>(null);
   const [nif, setNif] = useState<string | null>(null);
   const [nifError, setNifError] = useState<string | null>(null);
+  const [ownLimit, setOwnLimit] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
   if (!data?.customer) return null;
@@ -57,8 +59,17 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
     if (!nextName.trim()) return setNameError(t.products.nameRequired);
     if (nif !== null && !normaliseNif(nif).ok) return setNifError(t.settings.nifInvalid);
     setNifError(null);
-    await store.customers.update(customer.id, { name: nextName, phone: phone ?? customer.phone, ...(nif !== null ? { nif } : {}) });
+    const limitCents = ownLimit === null ? undefined : ownLimit.trim() === '' ? null : parseKz(ownLimit);
+    if (limitCents === null && ownLimit !== null && ownLimit.trim() !== '') return setLimitError(t.credit.limitInvalid);
+    setLimitError(null);
+    await store.customers.update(customer.id, {
+      name: nextName,
+      phone: phone ?? customer.phone,
+      ...(nif !== null ? { nif } : {}),
+      ...(limitCents !== undefined ? { creditLimitCents: limitCents } : {}),
+    });
     setNif(null);
+    setOwnLimit(null);
     setPhone(null);
     setName(null);
     setNameError(null);
@@ -183,7 +194,14 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           hint={t.settings.nifHint}
           error={nifError}
         />
-        {(phone !== null || name !== null || nif !== null) && (
+        <Field
+          label={t.credit.ownLimit}
+          value={ownLimit ?? (customer.creditLimitCents ? formatKz(customer.creditLimitCents).replace(' Kz', '') : '')}
+          onChange={(e) => setOwnLimit(e.target.value)}
+          inputMode="numeric"
+          error={limitError}
+        />
+        {(phone !== null || name !== null || nif !== null || ownLimit !== null) && (
           <Button className="w-full" onClick={() => void saveDetails()}>
             {t.common.save}
           </Button>

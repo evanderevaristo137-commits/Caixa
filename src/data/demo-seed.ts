@@ -256,6 +256,7 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
       storeName: DEMO_STORE_NAME,
       phone: '923 000 000',
       creditTermDays: 15,
+      creditLimitCents: 3_000_000,
       createdAt: at,
       updatedAt: at,
     });

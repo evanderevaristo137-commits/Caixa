@@ -64,3 +64,13 @@ describe('describeAudit', () => {
     );
   });
 });
+
+describe('describeAudit — credit limit', () => {
+  it('flags a credit sale accepted above the limit', () => {
+    const after = { number: 9, totalCents: 550_000, creditLimitOverride: { limitCents: 3_000_000, balanceBeforeCents: 2_955_000 } };
+    expect(describeAudit(entry({ action: 'created', after }), names)).toEqual({
+      text: 'Venda n.º 9 a crédito acima do limite: 5.500 Kz (já devia 29.550 Kz, limite 30.000 Kz)',
+      important: true,
+    });
+  });
+});

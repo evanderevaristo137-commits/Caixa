@@ -23,6 +23,13 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       const total = typeof s.totalCents === 'number' ? formatKz(s.totalCents) : '';
       if (e.action === 'voided')
         return { text: `Venda n.º ${s.number} anulada (${total}). Motivo: ${s.voidReason ?? '—'}`, important: true };
+      if (e.action === 'created' && s.creditLimitOverride) {
+        const o = s.creditLimitOverride;
+        return {
+          text: `Venda n.º ${s.number} a crédito acima do limite: ${total} (já devia ${formatKz(o.balanceBeforeCents)}, limite ${formatKz(o.limitCents)})`,
+          important: true,
+        };
+      }
       if (e.action === 'created')
         return { text: `Venda n.º ${s.number}: ${total} — ${s.method ? methodLabel[s.method] : ''}`, important: false };
       return null;

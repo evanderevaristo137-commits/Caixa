@@ -5,15 +5,31 @@ import { creditAlerts, DEFAULT_TERM_DAYS } from '../../domain/credit';
 import type { Settings } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { alertPermission, enableAlerts, showNotification, type AlertPermission } from '../../lib/notifications';
-import { Button, Card } from '../../ui/kit';
+import { Button, Card, Field } from '../../ui/kit';
+import { formatKz, parseKz } from '../../lib/money';
 
 const TERMS = [7, 15, 30];
+const LIMITS = [0, 1_000_000, 2_500_000, 5_000_000]; // cêntimos: sem limite, 10.000, 25.000, 50.000 Kz
 
 /** Usual payment term for credit sales and the phone notifications about customers' payments. */
 export function CreditSettingsCard({ settings }: { settings: Settings }) {
   const { store, showToast } = useApp();
   const [permission, setPermission] = useState<AlertPermission>(alertPermission);
   const term = settings.creditTermDays ?? DEFAULT_TERM_DAYS;
+
+  const limit = settings.creditLimitCents ?? 0;
+  const [otherLimit, setOtherLimit] = useState(LIMITS.includes(limit) ? '' : formatKz(limit).replace(' Kz', ''));
+  const [limitError, setLimitError] = useState<string | null>(null);
+  const setLimit = async (cents: number) => {
+    await store.settings.save({ creditLimitCents: cents });
+    setLimitError(null);
+    showToast(t.settings.saved);
+  };
+  const saveOtherLimit = async () => {
+    const cents = parseKz(otherLimit);
+    if (cents === null || cents <= 0) return setLimitError(t.credit.limitInvalid);
+    await setLimit(cents);
+  };
 
   const setTerm = async (days: number) => {
     await store.settings.save({ creditTermDays: days });
@@ -45,6 +61,36 @@ export function CreditSettingsCard({ settings }: { settings: Settings }) {
         ))}
       </div>
       <p className="text-sm text-slate-600">{t.alerts.termHint}</p>
+
+      <h2 className="pt-2 text-lg font-bold">{t.credit.limitTitle}</h2>
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label={t.credit.limitTitle}>
+        {LIMITS.map((cents) => (
+          <button
+            key={cents}
+            type="button"
+            aria-pressed={limit === cents}
+            onClick={() => void setLimit(cents)}
+            className={`min-h-12 rounded-xl border-2 text-base font-semibold ${limit === cents ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`}
+          >
+            {cents === 0 ? t.credit.noLimit : formatKz(cents)}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <Field
+            label={t.credit.limitOther}
+            value={otherLimit}
+            onChange={(e) => setOtherLimit(e.target.value)}
+            inputMode="numeric"
+            error={limitError}
+          />
+        </div>
+        <Button variant="secondary" onClick={() => void saveOtherLimit()}>
+          {t.common.save}
+        </Button>
+      </div>
+      <p className="text-sm text-slate-600">{t.credit.limitHint}</p>
 
       <h2 className="pt-2 text-lg font-bold">{t.alerts.title}</h2>
       <p className="text-sm text-slate-600">{t.alerts.hint}</p>

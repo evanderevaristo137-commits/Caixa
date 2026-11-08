@@ -163,3 +163,26 @@ export function validateCreditPayment(amountCents: Cents, balanceCents: Cents): 
   if (amountCents > balanceCents) return 'too_much';
   return 'ok';
 }
+
+export interface CreditLimitCheck {
+  /** The limit that applies (customer's own, else the shop's usual one); undefined = no limit. */
+  limitCents?: Cents;
+  /** What the customer will owe after this sale. */
+  afterCents: Cents;
+  /** How much the sale goes over the limit (0 when within it, or no limit). */
+  exceedsByCents: Cents;
+}
+
+/** Applies the credit limit: the customer's own limit wins over the shop's usual one; 0 or none = no limit. */
+export function checkCreditLimit(input: {
+  balanceCents: Cents;
+  saleCents: Cents;
+  customerLimitCents?: Cents;
+  shopLimitCents?: Cents;
+}): CreditLimitCheck {
+  const limit = input.customerLimitCents ?? input.shopLimitCents;
+  const limitCents = limit !== undefined && limit > 0 ? limit : undefined;
+  const afterCents = Math.max(0, input.balanceCents) + input.saleCents;
+  const exceedsByCents = limitCents === undefined ? 0 : Math.max(0, afterCents - limitCents);
+  return { limitCents, afterCents, exceedsByCents };
+}

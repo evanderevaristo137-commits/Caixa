@@ -3,9 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { payAndWait } from '../../providers/payment';
 import { uuid } from '../../lib/ids';
-import { DEFAULT_STORE_NAME } from '../../data/store';
+import { DEFAULT_STORE_NAME, DomainError } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
-import { creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
+import { checkCreditLimit, creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
 import { receiptText } from '../../domain/messages';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
@@ -15,9 +15,11 @@ import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { CustomerPicker } from './CustomerPicker';
 import { TermPicker } from './TermPicker';
+import { usePinGuard } from '../../ui/pin';
 
 export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: () => void; onDone: () => void }) {
   const { store, payments, showToast } = useApp();
+  const guard = usePinGuard();
   const settings = useLiveQuery(() => store.settings.get(), [store]);
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -34,12 +36,29 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const receivedCents = received ? parseKz(received) : null;
   const change = receivedCents !== null ? changeDue(total, receivedCents) : null;
 
+  // Credit sales: what the customer already owes, overdue payments and the credit limit.
+  const credit = useLiveQuery(async () => {
+    if (!customer) return undefined;
+    const [sales, paid] = await Promise.all([store.sales.byCustomer(customer.id), store.credit.byCustomer(customer.id)]);
+    return creditStatus(customer.id, sales, paid, new Date());
+  }, [store, customer?.id]);
+  const limit =
+    method === 'credit' && customer && credit
+      ? checkCreditLimit({
+          balanceCents: credit.balanceCents,
+          saleCents: total,
+          customerLimitCents: customer.creditLimitCents,
+          shopLimitCents: settings?.creditLimitCents,
+        })
+      : undefined;
+  const overLimit = (limit?.exceedsByCents ?? 0) > 0;
+
   // Credit sales: the usual term is pre-selected; the shopkeeper can pick another.
   const dueDate = chosenDueDate ?? dueDateFromTerm(settings?.creditTermDays ?? DEFAULT_TERM_DAYS, new Date());
   const canConfirm =
     method !== null && !busy && (method !== 'credit' || customer !== null) && (method !== 'cash' || !received || change !== null);
 
-  const confirm = async () => {
+  const confirm = async (allowOverLimit = false) => {
     if (!method || !canConfirm || submitting.current) return;
     submitting.current = true;
     setBusy(true);
@@ -70,6 +89,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         cashReceivedCents: method === 'cash' && receivedCents !== null ? receivedCents : undefined,
         dueDate: method === 'credit' ? dueDate : undefined,
         transactionRef,
+        allowOverLimit,
       });
       navigator.vibrate?.([40, 60, 40]);
       setSale(saved);
@@ -80,8 +100,8 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
           .then(([sales, credits]) => setBalanceAfter(creditStatus(customerId, sales, credits, new Date()).balanceCents))
           .catch(() => undefined);
       }
-    } catch {
-      showToast(t.errors.saveFailed);
+    } catch (e) {
+      showToast(e instanceof DomainError && e.code === 'credit_limit' ? t.credit.limitExceeded : t.errors.saveFailed);
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -177,6 +197,26 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         <div className="mt-4">
           <p className="mb-2 font-semibold">{t.sell.chooseCustomer}</p>
           <CustomerPicker selected={customer?.id} onSelect={setCustomer} />
+          {customer && credit && (
+            <div className="mt-3 space-y-1 rounded-xl bg-white p-3 text-base">
+              <p className="flex justify-between">
+                <span>{t.credit.owesNow}</span>
+                <Money cents={Math.max(0, credit.balanceCents)} className="font-semibold" />
+              </p>
+              {limit?.limitCents !== undefined && (
+                <p className="flex justify-between">
+                  <span>{t.credit.limitLabel}</span>
+                  <Money cents={limit.limitCents} className="font-semibold" />
+                </p>
+              )}
+              {credit.dueState === 'overdue' && <p className="font-semibold text-red-800">{t.credit.hasOverdue}</p>}
+              {overLimit && (
+                <p role="alert" className="rounded-lg bg-red-50 p-2 font-semibold text-red-800">
+                  {t.credit.overLimit(formatKz(limit!.exceedsByCents))}
+                </p>
+              )}
+            </div>
+          )}
           {customer && (
             <div className="mt-4">
               <TermPicker value={dueDate} onChange={setChosenDueDate} />
@@ -199,9 +239,15 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         </div>
       )}
 
-      <Button big className="mt-4 w-full" disabled={!canConfirm} onClick={() => void confirm()}>
-        {t.sell.confirmSale}
-      </Button>
+      {overLimit ? (
+        <Button big variant="dangerSolid" className="mt-4 w-full" disabled={!canConfirm} onClick={() => void guard(() => confirm(true))}>
+          {t.credit.confirmOverLimit}
+        </Button>
+      ) : (
+        <Button big className="mt-4 w-full" disabled={!canConfirm} onClick={() => void confirm()}>
+          {t.sell.confirmSale}
+        </Button>
+      )}
     </Sheet>
   );
 }

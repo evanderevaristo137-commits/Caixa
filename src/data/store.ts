@@ -1,6 +1,6 @@
 import { cartItems, cartTotal, type Cart } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
-import { creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../domain/credit';
+import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../domain/credit';
 import { isValidDateString, toLocalDateString } from '../lib/dates';
 import { byName } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
@@ -41,6 +41,8 @@ export interface NewSale {
   dueDate?: string;
   /** Electronic payments: reference typed by the shopkeeper (optional). */
   transactionRef?: string;
+  /** Credit sales: the shopkeeper confirmed going over the customer's credit limit. */
+  allowOverLimit?: boolean;
 }
 
 /** Owner code (PIN) is kept in `meta`, only as a salted hash. */
@@ -76,6 +78,16 @@ export class Store {
 
   private stamp() {
     return this.now().toISOString();
+  }
+
+  /** What a customer owes now: valid credit sales minus payments (call inside a transaction with sales and creditPayments). */
+  private async customerBalance(customerId: string): Promise<number> {
+    const [sales, payments] = await Promise.all([
+      this.db.sales.where('customerId').equals(customerId).toArray(),
+      this.db.creditPayments.where('customerId').equals(customerId).toArray(),
+    ]);
+    const bought = sales.filter((x) => x.method === 'credit' && !x.voidedAt).reduce((a, x) => a + x.totalCents, 0);
+    return bought - payments.reduce((a, p) => a + p.amountCents, 0);
   }
 
   /** Sale lines with the invoicing data that applies today (call inside the sale transaction). */
@@ -234,7 +246,7 @@ export class Store {
         await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
       }),
     /** Updates only the fields given. */
-    update: (id: string, changes: { name?: string; phone?: string; nif?: string }): Promise<Customer> =>
+    update: (id: string, changes: { name?: string; phone?: string; nif?: string; creditLimitCents?: number | null }): Promise<Customer> =>
       this.db.transaction('rw', [this.db.customers, this.db.audit], async () => {
         const before = await this.db.customers.get(id);
         if (!before) throw new DomainError('not_found');
@@ -248,6 +260,12 @@ export class Store {
           const nif = normaliseNif(changes.nif);
           if (!nif.ok) throw new DomainError('invalid_nif');
           after.nif = nif.value;
+        }
+        if ('creditLimitCents' in changes) {
+          const limit = changes.creditLimitCents;
+          if (limit === null || limit === undefined) delete after.creditLimitCents;
+          else if (!Number.isInteger(limit) || limit < 0) throw new DomainError('invalid_limit');
+          else after.creditLimitCents = limit;
         }
         await this.db.customers.put(after);
         await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
@@ -287,11 +305,21 @@ export class Store {
     create: (input: NewSale): Promise<Sale> =>
       this.db.transaction(
         'rw',
-        [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta, this.db.customers, this.db.settings],
+        [
+          this.db.sales,
+          this.db.products,
+          this.db.stockMovements,
+          this.db.audit,
+          this.db.meta,
+          this.db.customers,
+          this.db.settings,
+          this.db.creditPayments,
+        ],
         async () => {
           if (input.cart.length === 0) throw new DomainError('empty_cart');
           if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0)) throw new DomainError('invalid_quantity');
           let dueDate: string | undefined;
+          let creditLimitOverride: Sale['creditLimitOverride'];
           if (input.method === 'credit') {
             if (!input.customerId || !(await this.db.customers.get(input.customerId))) {
               throw new DomainError('customer_required');
@@ -302,6 +330,18 @@ export class Store {
             }
             const settings = await this.db.settings.get(SETTINGS_ID);
             dueDate = input.dueDate ?? dueDateFromTerm(settings?.creditTermDays ?? DEFAULT_TERM_DAYS, this.now());
+            const customer = (await this.db.customers.get(input.customerId))!;
+            const balanceBeforeCents = await this.customerBalance(input.customerId);
+            const limit = checkCreditLimit({
+              balanceCents: balanceBeforeCents,
+              saleCents: cartTotal(input.cart),
+              customerLimitCents: customer.creditLimitCents,
+              shopLimitCents: settings?.creditLimitCents,
+            });
+            if (limit.exceedsByCents > 0) {
+              if (!input.allowOverLimit) throw new DomainError('credit_limit');
+              creditLimitOverride = { limitCents: limit.limitCents!, balanceBeforeCents };
+            }
           }
           const counter = await this.db.meta.get('saleNumber');
           const number = (typeof counter?.value === 'number' ? counter.value : 0) + 1;
@@ -316,6 +356,7 @@ export class Store {
             method: input.method,
             customerId: input.method === 'credit' ? input.customerId : undefined,
             dueDate,
+            creditLimitOverride,
             paymentRef: input.paymentRef,
             transactionRef: input.method !== 'cash' && input.method !== 'credit' ? cleanReference(input.transactionRef) : undefined,
             deviceId: await this.deviceId(),
@@ -354,11 +395,7 @@ export class Store {
     ): Promise<CreditPayment> =>
       this.db.transaction('rw', [this.db.creditPayments, this.db.sales, this.db.audit, this.db.meta], async () => {
         if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
-        const owed =
-          (await this.db.sales.where('customerId').equals(customerId).toArray())
-            .filter((s) => s.method === 'credit' && !s.voidedAt)
-            .reduce((a, s) => a + s.totalCents, 0) -
-          (await this.db.creditPayments.where('customerId').equals(customerId).toArray()).reduce((a, p) => a + p.amountCents, 0);
+        const owed = await this.customerBalance(customerId);
         if (amountCents > owed) throw new DomainError('too_much');
         const at = this.stamp();
         const payment: CreditPayment = {
@@ -387,7 +424,9 @@ export class Store {
     },
     /** Updates only the fields given (so saving the shop name never erases the payment term). */
     save: (
-      input: Partial<Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays' | 'address' | 'vatRegime' | 'defaultTaxRateBp'>>,
+      input: Partial<
+        Pick<Settings, 'storeName' | 'phone' | 'nif' | 'creditTermDays' | 'creditLimitCents' | 'address' | 'vatRegime' | 'defaultTaxRateBp'>
+      >,
     ): Promise<Settings> =>
       this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
         const before = await this.db.settings.get(SETTINGS_ID);
@@ -408,6 +447,12 @@ export class Store {
         if ('defaultTaxRateBp' in input) {
           if (!validTaxRate(input.defaultTaxRateBp)) throw new DomainError('invalid_tax');
           after.defaultTaxRateBp = input.defaultTaxRateBp;
+        }
+        if ('creditLimitCents' in input) {
+          const limit = input.creditLimitCents;
+          if (limit !== undefined && (!Number.isInteger(limit) || limit < 0)) throw new DomainError('invalid_limit');
+          if (limit) after.creditLimitCents = limit;
+          else delete after.creditLimitCents; // 0 or none = no limit
         }
         if ('creditTermDays' in input) {
           const days = input.creditTermDays;

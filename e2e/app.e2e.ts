@@ -420,3 +420,39 @@ test('invoicing data (optional): what is missing, and the export for the certifi
   expect(data.documents[0]).toMatchObject({ kind: 'invoice', currency: 'AOA', seller: { nif: '5000000000', vatRegime: 'general' } });
   expect(JSON.stringify(data)).not.toContain('955502264');
 });
+
+test('credit limit: warns, needs explicit confirmation, is logged, and can be switched off', async ({ page }) => {
+  await openDemo(page);
+  const startCreditSale = async (customer: string, rice5kg: number) => {
+    await nav(page, 'Vender');
+    for (let i = 0; i < rice5kg; i++) await page.getByRole('button', { name: /Arroz 5 kg/ }).click();
+    await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cliente (a crédito)' }).click();
+    await page.getByRole('button', { name: customer }).click();
+  };
+
+  // A customer with overdue payments is flagged.
+  await startCreditSale('Joana Mateus', 1);
+  await expect(page.getByText('Este cliente tem pagamentos em atraso.')).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: /artigo/ }).click();
+  await page.getByRole('button', { name: 'Limpar' }).click();
+
+  // 6 × 5.500 Kz = 33.000 Kz: above the demo limit of 30.000 Kz whatever the customer owes.
+  await startCreditSale('Luísa Neto', 6);
+  await expect(page.getByRole('alert')).toContainText('Esta venda passa o limite em');
+  await expect(page.getByRole('button', { name: 'Confirmar venda' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Confirmar acima do limite' }).click();
+  await expect(page.getByText('Venda registada')).toBeVisible();
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Ver registo' }).click();
+  await expect(page.getByText(/Venda n\.º \d+ a crédito acima do limite: 33\.000 Kz/)).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('group', { name: 'Limite de crédito habitual' }).getByRole('button', { name: 'Sem limite' }).click();
+
+  await startCreditSale('Luísa Neto', 6);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirmar venda' })).toBeVisible();
+});

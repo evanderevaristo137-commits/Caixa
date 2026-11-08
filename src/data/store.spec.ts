@@ -316,3 +316,36 @@ describe('Store: data for certified invoicing (optional)', () => {
     await expect(store.customers.update(c.id, { nif: '12#' })).rejects.toSatisfy((e) => code(e) === 'invalid_nif');
   });
 });
+
+describe('Store: credit limit', () => {
+  it('refuses a credit sale over the limit unless explicitly allowed, and records the override', async () => {
+    await store.settings.save({ creditLimitCents: 1_000_000 });
+    const a = await store.products.create({ name: 'A', priceCents: 400_000, minStock: 0 }, 10);
+    const c = await store.customers.create('Cliente Exemplo');
+    await store.sales.create({ cart: addToCart([], a, 2), method: 'credit', customerId: c.id }); // owes 8.000 Kz
+    await expect(store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id })).rejects.toSatisfy(
+      (e) => code(e) === 'credit_limit',
+    );
+    expect(await store.sales.list()).toHaveLength(1);
+    expect((await store.products.get(a.id))!.stock).toBe(8);
+    const over = await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id, allowOverLimit: true });
+    expect(over.creditLimitOverride).toEqual({ limitCents: 1_000_000, balanceBeforeCents: 800_000 });
+    // Cash sales are never limited.
+    await store.sales.create({ cart: addToCart([], a), method: 'cash' });
+  });
+
+  it("a customer's own limit wins; removing it brings back the shop's; 0 = no limit", async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 400_000, minStock: 0 }, 10);
+    const c = await store.customers.create('Cliente de confiança');
+    await store.settings.save({ creditLimitCents: 300_000 });
+    await store.customers.update(c.id, { creditLimitCents: 2_000_000 });
+    await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+    await store.customers.update(c.id, { creditLimitCents: null });
+    await expect(store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id })).rejects.toSatisfy(
+      (e) => code(e) === 'credit_limit',
+    );
+    await store.settings.save({ creditLimitCents: 0 });
+    expect((await store.settings.get()).creditLimitCents).toBeUndefined();
+    await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+  });
+});
