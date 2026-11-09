@@ -8,6 +8,8 @@ import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
 import { LabelsSheet } from './LabelsSheet';
 import { ImportProductsSheet } from './ImportProductsSheet';
+import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
+import { inCategory } from '../../domain/categories';
 import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
 
@@ -56,10 +58,14 @@ function ProductsList() {
   const [labels, setLabels] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  const [category, setCategory] = useState<string | null>(null);
+  const shownCategory = products ? activeCategory(products, category) : null;
   const list = useMemo(() => {
     const q = normalise(query);
-    return (products ?? []).filter((p) => !q || normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-  }, [products, query]);
+    // A search looks in every category.
+    if (q) return (products ?? []).filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
+    return (products ?? []).filter((p) => inCategory(p, shownCategory));
+  }, [products, query, shownCategory]);
 
   return (
     <div>
@@ -83,6 +89,9 @@ function ProductsList() {
             {t.labels.open}
           </Button>
         </div>
+      )}
+      {products && products.length > 0 && !query.trim() && (
+        <CategoryChips products={products} value={shownCategory} onChange={setCategory} className="-mx-3 mb-3 px-3" />
       )}
       {!products ? (
         <Skeleton />
@@ -112,6 +121,7 @@ function ProductsList() {
                   <p className="truncate text-base font-semibold">{p.name}</p>
                   <span className="text-slate-600 tabular-nums">
                     {p.soldBy === 'weight' ? t.weight.perKg(formatKz(p.priceCents)) : formatKz(p.priceCents)}
+                    {p.category && <span className="text-slate-500"> · {p.category}</span>}
                   </span>
                 </div>
                 <span

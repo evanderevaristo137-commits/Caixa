@@ -77,6 +77,8 @@ export class CaixaDB extends Dexie {
       purchases: 'id, createdAt, supplierId, updatedAt',
       supplierPayments: 'id, supplierId, createdAt',
     });
+    // v5: products have an optional category, indexed to list the categories without reading every product.
+    this.version(5).stores({ products: 'id, name, barcode, category, updatedAt' });
   }
 }
 

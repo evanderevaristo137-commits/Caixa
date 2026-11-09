@@ -10,6 +10,7 @@ import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
 import { internalBarcode } from '../domain/barcode';
 import type { PlanRow } from '../domain/import-products';
+import { canonicalCategory } from '../domain/categories';
 import type {
   AuditEntry,
   CashClose,
@@ -194,7 +195,7 @@ export class Store {
           ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
           ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
           barcode: clean(input.barcode),
-          category: cleanShort(input.category, 40),
+          category: await this.categoryFor(input.category),
           minStock: input.minStock,
           unit: cleanShort(input.unit, 10),
           taxRateBp: input.taxRateBp,
@@ -227,7 +228,11 @@ export class Store {
           taxExemption: cleanShort(input.taxExemption, 120),
           updatedAt: this.stamp(),
         };
-        if ('category' in input) after.category = cleanShort(input.category, 40);
+        if ('category' in input) {
+          const category = await this.categoryFor(input.category);
+          if (category) after.category = category;
+          else delete after.category;
+        }
         // The cost price changes only when the form sends it (undefined clears it).
         if ('costCents' in input) {
           if (input.costCents === undefined) delete after.costCents;
@@ -260,6 +265,9 @@ export class Store {
         if ('error' in result) throw new DomainError(result.error satisfies StockChangeError);
         await this.addMovement({ productId: id, type: 'adjustment', delta: result.delta, reason: reason.trim() });
       }),
+    /** Category of every product that has one (archived ones too: their past sales still count). */
+    categoryMap: async (): Promise<Map<string, string>> =>
+      new Map((await this.db.products.orderBy('category').toArray()).flatMap((p) => (p.category ? [[p.id, p.category] as const] : []))),
     movements: (productId: string) => this.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt'),
     /**
      * Next free in-store barcode (EAN-13 starting with 20). The number is reserved at once,
@@ -324,6 +332,12 @@ export class Store {
         return { created, updated };
       }),
   };
+
+  /** The category as the shop already writes it ("bebidas" → "Bebidas"). Call inside a transaction with products. */
+  private async categoryFor(input: string | undefined): Promise<string | undefined> {
+    const known = (await this.db.products.orderBy('category').uniqueKeys()).filter((k): k is string => typeof k === 'string');
+    return canonicalCategory(input, known);
+  }
 
   /** Call inside a transaction with products and meta. Skips codes already used by any product. */
   private async reserveInternalBarcode(): Promise<string> {

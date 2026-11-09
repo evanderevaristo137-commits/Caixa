@@ -301,7 +301,7 @@ export function planImport(sheet: SheetRow[], existing: Product[]): ImportPlan {
       changes.push(c.min(formatQuantity(match.minStock, match.soldBy), formatQuantity(minStock, match.soldBy)));
     }
     if (barcode && barcode !== match.barcode) changes.push(c.barcode);
-    if (category && category !== match.category) changes.push(c.category(category));
+    if (category && norm(category) !== norm(match.category ?? '')) changes.push(c.category(category));
     if (stock !== undefined && stock !== match.stock) plan.stockKept += 1;
     plan.rows.push({
       line,

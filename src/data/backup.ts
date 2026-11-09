@@ -124,8 +124,14 @@ export function toCsv(rows: (string | number)[][]): string {
 }
 
 export async function salesCsv(db: CaixaDB): Promise<string> {
-  const [sales, customers] = await Promise.all([db.sales.orderBy('createdAt').toArray(), db.customers.toArray()]);
+  const [sales, customers, products] = await Promise.all([
+    db.sales.orderBy('createdAt').toArray(),
+    db.customers.toArray(),
+    db.products.toArray(),
+  ]);
   const names = new Map(customers.map((c) => [c.id, c.name]));
+  // The product's current category, as in the reports.
+  const categories = new Map(products.map((p) => [p.id, p.category ?? '']));
   const rows: (string | number)[][] = [
     [
       'Data',
@@ -143,6 +149,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Motivo da anulação',
       'Custo linha (Kz)',
       'Lucro linha (Kz)',
+      'Categoria',
     ],
   ];
   for (const s of sales) {
@@ -164,6 +171,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         s.voidReason ?? '',
         cost === undefined ? '' : kzNumber(cost),
         cost === undefined ? '' : kzNumber(it.lineTotalCents - cost),
+        categories.get(it.productId) ?? '',
       ]);
     }
   }

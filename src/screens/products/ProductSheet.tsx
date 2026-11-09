@@ -15,6 +15,7 @@ import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
+import { CategoryField } from './CategoryField';
 
 const ERRORS: Record<string, string> = {
   name_required: t.products.nameRequired,
@@ -82,6 +83,7 @@ function ProductForm({
   const [minStock, setMinStock] = useState(
     product ? (product.soldBy === 'weight' ? formatKg(product.minStock) : String(product.minStock)) : '3',
   );
+  const [category, setCategory] = useState(product?.category ?? '');
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [rate, setRate] = useState(product?.taxRateBp === undefined ? '' : formatBpAsPercent(product.taxRateBp));
   const [exemption, setExemption] = useState(product?.taxExemption ?? '');
@@ -109,6 +111,7 @@ function ProductForm({
       costCents,
       barcode,
       minStock: min,
+      category,
       unit,
       taxRateBp,
       taxExemption: taxRateBp === 0 ? exemption : undefined,
@@ -241,6 +244,7 @@ function ProductForm({
           inputMode="numeric"
           error={err('min')}
         />
+        <CategoryField value={category} onChange={setCategory} />
         <details className="rounded-xl bg-white p-3" open={err('tax') !== null}>
           <summary className="min-h-11 cursor-pointer py-2 font-semibold">{t.invoicing.title}</summary>
           <div className="mt-2 space-y-3">

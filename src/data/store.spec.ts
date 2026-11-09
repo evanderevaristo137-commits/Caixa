@@ -626,3 +626,39 @@ describe('Store: importing products from Excel', () => {
     expect(plan.stockKept).toBe(0);
   });
 });
+
+describe('Store: categories', () => {
+  it('keeps one spelling per category and can clear it', async () => {
+    await store.products.create({ name: 'Água 1,5 L', priceCents: 30_000, minStock: 0, category: 'Bebidas' });
+    const gasosa = await store.products.create({ name: 'Gasosa', priceCents: 40_000, minStock: 0, category: '  bebídas ' });
+    expect(gasosa.category).toBe('Bebidas');
+    const updated = await store.products.update(gasosa.id, { name: 'Gasosa', priceCents: 40_000, minStock: 0, category: '' });
+    expect(updated.category).toBeUndefined();
+    // Without the field, the category stays as it is.
+    await store.products.update(gasosa.id, { name: 'Gasosa', priceCents: 40_000, minStock: 0, category: 'BEBIDAS' });
+    expect((await store.products.update(gasosa.id, { name: 'Gasosa 330 ml', priceCents: 40_000, minStock: 0 })).category).toBe('Bebidas');
+  });
+
+  it('maps every product to its category, archived ones too', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 100, minStock: 0, category: 'Casa' });
+    await store.products.create({ name: 'B', priceCents: 100, minStock: 0 });
+    await store.products.archive(a.id);
+    expect([...(await store.products.categoryMap())]).toEqual([[a.id, 'Casa']]);
+  });
+
+  it('upgrades a version 4 database without losing products', async () => {
+    const { default: Dexie } = await import('dexie');
+    const name = `test-upgrade-${n++}`;
+    const old = new Dexie(name);
+    old.version(4).stores({ products: 'id, name, barcode, updatedAt' });
+    await old.table('products').bulkAdd([
+      { id: 'p1', name: 'Sal', priceCents: 30_000, stock: 1, minStock: 0, category: 'Mercearia', createdAt: '', updatedAt: '' },
+      { id: 'p2', name: 'Pão', priceCents: 15_000, stock: 1, minStock: 0, createdAt: '', updatedAt: '' },
+    ]);
+    old.close();
+    const upgraded = new CaixaDB(name);
+    expect(await upgraded.products.count()).toBe(2);
+    expect(await new Store(upgraded).products.categoryMap()).toEqual(new Map([['p1', 'Mercearia']]));
+    await upgraded.delete();
+  });
+});

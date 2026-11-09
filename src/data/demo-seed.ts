@@ -79,6 +79,32 @@ const PRODUCTS: [string, number, number, number, number, boolean?][] = [
   ['Açúcar a granel', 1_000, 820, 5_000, 12_000, true],
 ];
 
+// Categories of the demo products, by name (a test checks every product has one).
+const DEMO_CATEGORIES: Record<string, string[]> = {
+  Mercearia: [
+    'Arroz 1 kg',
+    'Arroz 5 kg',
+    'Fuba de milho 1 kg',
+    'Fuba de bombó 1 kg',
+    'Feijão manteiga 1 kg',
+    'Açúcar 1 kg',
+    'Óleo vegetal 1 L',
+    'Óleo de palma 1 L',
+    'Sal 1 kg',
+    'Massa esparguete 500 g',
+    'Massa de tomate 70 g',
+    'Leite em pó 400 g',
+    'Leite UHT 1 L',
+  ],
+  Conservas: ['Sardinha em lata', 'Atum em lata', 'Salsichas em lata'],
+  Frescos: ['Pão (unidade)', 'Ovos (dúzia)', 'Cebola 1 kg', 'Batata 1 kg'],
+  Bebidas: ['Água 1,5 L', 'Gasosa 330 ml', 'Sumo 1 L', 'Cerveja 330 ml'],
+  'Higiene e limpeza': ['Sabão em barra', 'Detergente em pó 500 g', 'Papel higiénico (4 rolos)', 'Pasta de dentes'],
+  Casa: ['Fósforos (caixa)', 'Carvão (saco)'],
+  Granel: ['Arroz a granel', 'Feijão a granel', 'Açúcar a granel'],
+};
+const DEMO_CATEGORY_OF = new Map(Object.entries(DEMO_CATEGORIES).flatMap(([category, names]) => names.map((n) => [n, category] as const)));
+
 // Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
 // receipts sent from the demo arrive on a phone we control (never on a stranger's phone).
 export const DEMO_WHATSAPP_TEST_NUMBER = '955 502 264';
@@ -101,6 +127,8 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 ];
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
+/** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
+export const DEMO_VERSION = 2;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -160,6 +188,7 @@ export function buildDemoData(now: Date): DemoData {
     priceCents: kz * 100,
     costCents: costKz * 100,
     ...(byWeight ? { soldBy: 'weight' as const } : {}),
+    category: DEMO_CATEGORY_OF.get(name),
     // Loose goods are weighed, not scanned.
     barcode: byWeight ? undefined : demoBarcode(i),
     minStock,
@@ -449,18 +478,20 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     // In-store codes made later in the demo start after the demo's own codes.
     await db.meta.put({ key: 'barcodeSeq', value: PRODUCTS.length });
     await db.meta.put({ key: 'demoSeededAt', value: at });
+    await db.meta.put({ key: 'demoVersion', value: DEMO_VERSION });
     await db.audit.add({ id: uuid(), entity: 'data', entityId: 'demo', action: 'reset', createdAt: at, updatedAt: at });
   });
 }
 
 /**
  * Re-seeds the demo when it was generated on another day, so "Hoje" always shows
- * today's sales during a visit. Returns true when it re-seeded.
+ * today's sales during a visit, or by an older version of the app. Returns true when it re-seeded.
  */
 export async function ensureFreshDemo(db: CaixaDB, now = new Date()): Promise<boolean> {
-  const row = await db.meta.get('demoSeededAt');
+  const [row, version] = await Promise.all([db.meta.get('demoSeededAt'), db.meta.get('demoVersion')]);
   const seededAt = typeof row?.value === 'string' ? new Date(row.value) : null;
-  if (seededAt && startOfLocalDay(seededAt).getTime() === startOfLocalDay(now).getTime()) return false;
+  const sameDay = seededAt !== null && startOfLocalDay(seededAt).getTime() === startOfLocalDay(now).getTime();
+  if (sameDay && version?.value === DEMO_VERSION) return false;
   await seedDemo(db, now);
   return true;
 }

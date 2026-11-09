@@ -513,6 +513,17 @@ export const t = {
     printHint: 'No ecrã de impressão pode escolher «Guardar como PDF» e enviar o ficheiro para imprimir noutro lado.',
     printAgain: 'Imprimir',
   },
+  categories: {
+    label: 'Categoria (opcional)',
+    hint: 'Por exemplo: Bebidas, Mercearia, Higiene e limpeza. Ajuda a encontrar os produtos e a ver o que vende mais.',
+    filter: 'Mostrar só uma categoria',
+    suggestions: 'Categorias da loja',
+    all: 'Todas',
+    none: 'Sem categoria',
+    title: 'Vendas por categoria',
+    profit: (kz: string) => `lucro ${kz}`,
+    hintReports: 'O lucro conta só os produtos com preço de custo.',
+  },
   importProducts: {
     open: 'Importar do Excel',
     title: 'Importar do Excel',

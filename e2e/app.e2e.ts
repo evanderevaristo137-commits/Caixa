@@ -851,3 +851,33 @@ test('a product list comes from Excel: first what will change, then everything a
   await sheet.getByRole('button', { name: 'Importar 1 produto' }).click();
   await expect(page.getByRole('button', { name: /Bolacha Maria.*600 Kz.*24 em stock/ })).toBeVisible();
 });
+
+test('categories: show one category when selling, pick one in the product form, sales by category', async ({ page }) => {
+  await openDemo(page);
+  const chips = page.getByRole('group', { name: 'Mostrar só uma categoria' });
+  await chips.getByRole('button', { name: 'Bebidas' }).click();
+  await expect(page.getByRole('button', { name: /Cerveja 330 ml/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
+  // A search looks in every category.
+  await page.getByLabel('Pesquisar produto ou código').fill('arroz 1');
+  await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toBeVisible();
+  await page.getByLabel('Pesquisar produto ou código').fill('');
+
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: '+ Novo produto' }).first().click();
+  const form = page.getByRole('dialog', { name: 'Novo produto' });
+  await form.getByLabel('Nome').fill('Sumo de múcua 1 L');
+  await form.getByLabel('Preço (Kz)').fill('1.500');
+  await form.getByRole('button', { name: 'Bebidas' }).click();
+  await expect(form.getByLabel('Categoria (opcional)')).toHaveValue('Bebidas');
+  await form.getByRole('button', { name: 'Guardar' }).click();
+  await chips.getByRole('button', { name: 'Bebidas' }).click();
+  await expect(page.getByRole('button', { name: /Sumo de múcua 1 L.*Bebidas/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
+
+  await nav(page, 'Hoje');
+  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  const report = page.getByRole('dialog', { name: 'Semana e mês' });
+  await expect(report.getByRole('heading', { name: 'Vendas por categoria' })).toBeVisible();
+  for (const c of ['Mercearia', 'Bebidas', 'Granel']) await expect(report.getByText(c, { exact: true })).toBeVisible();
+});

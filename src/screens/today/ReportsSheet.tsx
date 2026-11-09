@@ -23,6 +23,8 @@ import { formatKz } from '../../lib/money';
 import { ColumnChart } from '../../ui/ColumnChart';
 import { Button, Card, Sheet, Skeleton } from '../../ui/kit';
 import { StoreSheetView } from './StoreSheetView';
+import { CategoryReport } from './CategoryReport';
+import { salesByCategory, type CategorySales } from '../../domain/categories';
 
 const KINDS: PeriodKind[] = ['7d', '30d', '12m'];
 const pct = (bp: number) => `${Math.round(bp / 100)}%`;
@@ -35,10 +37,11 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
   const data = useLiveQuery(async (): Promise<ReportData> => {
     const now = new Date();
     const { from, to, prevFrom } = periodRange(kind, now);
-    const [sales, payments, expenses] = await Promise.all([
+    const [sales, payments, expenses, categoryOf] = await Promise.all([
       store.sales.between(prevFrom.toISOString(), to.toISOString()),
       store.credit.paymentsBetween(from.toISOString(), to.toISOString()),
       store.expenses.between(from.toISOString(), to.toISOString()),
+      store.products.categoryMap(),
     ]);
     const fromIso = from.toISOString();
     const inPeriod = sales.filter((s) => s.createdAt >= fromIso);
@@ -49,6 +52,7 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
       cols: fillBuckets(buckets(kind, now), sales),
       top: topProducts(inPeriod, 5),
       topProfit: profitByProduct(inPeriod).slice(0, 5),
+      byCategory: salesByCategory(inPeriod, categoryOf),
     };
   }, [store, kind]);
 
@@ -92,6 +96,7 @@ interface ReportData {
   cols: Bucket[];
   top: TopProduct[];
   topProfit: ProductProfit[];
+  byCategory: CategorySales[];
 }
 
 function Body({ data }: { data: ReportData }) {
@@ -186,6 +191,8 @@ function Body({ data }: { data: ReportData }) {
           </>
         )}
       </Card>
+
+      <CategoryReport rows={data.byCategory} totalCents={current.salesCents} />
 
       {(current.creditSoldCents > 0 || current.creditPaidCents > 0) && (
         <Card>

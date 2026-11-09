@@ -18,6 +18,8 @@ import { CartSheet } from './CartSheet';
 import { WeightSheet } from './WeightSheet';
 import { CheckoutSheet } from './CheckoutSheet';
 import { Scanner, scannerSupported } from './Scanner';
+import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
+import { inCategory } from '../../domain/categories';
 
 export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
@@ -64,12 +66,15 @@ export function SellScreen() {
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [creatingCode, setCreatingCode] = useState<string | null>(null);
 
+  const [category, setCategory] = useState<string | null>(null);
+  const shownCategory = products ? activeCategory(products, category) : null;
   const filtered = useMemo(() => {
     if (!ordered) return [];
     const q = normalise(query);
-    if (!q) return ordered;
-    return ordered.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-  }, [ordered, query]);
+    // A search looks in every category.
+    if (q) return ordered.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
+    return ordered.filter((p) => inCategory(p, shownCategory));
+  }, [ordered, query, shownCategory]);
 
   useEffect(() => {
     if (cart.length === 0 && sheet === 'checkout') setSheet('none');
@@ -197,6 +202,10 @@ export function SellScreen() {
             </button>
           ))}
         </div>
+      )}
+
+      {products && products.length > 0 && !query.trim() && (
+        <CategoryChips products={products} value={shownCategory} onChange={setCategory} className="px-3 pb-2" />
       )}
 
       {!products || !ordered ? (

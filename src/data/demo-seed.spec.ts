@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDemoData, ensureFreshDemo, seedDemo } from './demo-seed';
+import { buildDemoData, DEMO_VERSION, ensureFreshDemo, seedDemo } from './demo-seed';
 import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
 import { payablesBook } from '../domain/payables';
@@ -11,6 +11,11 @@ const now = new Date(2026, 10, 6, 16, 0);
 
 describe('demo data', () => {
   const d = buildDemoData(now);
+
+  it('puts every product in a category', () => {
+    expect(d.products.filter((p) => !p.category).map((p) => p.name)).toEqual([]);
+    expect(new Set(d.products.map((p) => p.category)).size).toBe(7);
+  });
 
   it('has 33 products (3 sold by weight), 5 customers and two weeks of sales', () => {
     expect(d.products).toHaveLength(33);
@@ -111,6 +116,10 @@ describe('ensureFreshDemo', () => {
     expect((await store.customers.list()).some((c) => c.name === 'Visita de hoje')).toBe(true);
     expect(await ensureFreshDemo(db, new Date(2026, 10, 7, 8, 0))).toBe(true);
     expect((await store.customers.list()).some((c) => c.name === 'Visita de hoje')).toBe(false);
+    // Example data from an older version of the app is renewed at once.
+    await db.meta.put({ key: 'demoVersion', value: DEMO_VERSION - 1 });
+    expect(await ensureFreshDemo(db, new Date(2026, 10, 7, 9, 0))).toBe(true);
+    expect(await ensureFreshDemo(db, new Date(2026, 10, 7, 10, 0))).toBe(false);
     await db.delete();
   });
 });

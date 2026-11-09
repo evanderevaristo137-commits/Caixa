@@ -99,12 +99,12 @@ describe('CSV', () => {
     const sale = (await new Store(db).sales.list())[0]!;
     expect(await salesCsv(db)).toContain(';Óleo;2;un;1850,50;3701,00;3701,00;QR KWiK;;;;');
     await new Store(db).sales.void(sale.id, 'Engano');
-    expect(await salesCsv(db)).toContain(';QR KWiK;;;Sim;Engano;;\r\n');
+    expect(await salesCsv(db)).toContain(';QR KWiK;;;Sim;Engano;;;\r\n');
     // With a cost price, each line shows its cost and profit.
     const b = await store.products.create({ name: 'Bolacha', priceCents: 50_000, costCents: 35_000, minStock: 0 }, 5);
     await store.sales.create({ cart: addToCart([], b, 3), method: 'cash' });
     expect(await productsCsv(db)).toContain('Bolacha;;;un;500,00;350,00;2;0\r\n');
-    expect(await salesCsv(db)).toContain(';Bolacha;3;un;500,00;1500,00;1500,00;Numerário;;;;;1050,00;450,00\r\n');
+    expect(await salesCsv(db)).toContain(';Bolacha;3;un;500,00;1500,00;1500,00;Numerário;;;;;1050,00;450,00;\r\n');
     const e = await store.expenses.create({ category: 'energy', amountCents: 400_000, fromCash: true, note: 'Gasóleo; 20 L' });
     await store.expenses.void(e.id, 'Valor errado');
     await store.expenses.create({ category: 'rent', amountCents: 3_000_000, fromCash: false });
