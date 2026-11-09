@@ -8,6 +8,7 @@ import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
 import { LabelsSheet } from './LabelsSheet';
 import { ImportProductsSheet } from './ImportProductsSheet';
+import { countedSoFar, StockCountSheet } from './StockCountSheet';
 import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { inCategory } from '../../domain/categories';
 import { PurchasesView } from './PurchasesView';
@@ -51,12 +52,15 @@ export default function ProductsScreen() {
 }
 
 function ProductsList() {
-  const { store } = useApp();
+  const { store, mode } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | 'new' | null>(null);
   const [labels, setLabels] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [counting, setCounting] = useState(false);
+  // An unfinished count is shown on its button (read again when the count sheet closes).
+  const inCount = useMemo(() => (counting ? 0 : countedSoFar(mode)), [counting, mode]);
 
   const [category, setCategory] = useState<string | null>(null);
   const shownCategory = products ? activeCategory(products, category) : null;
@@ -81,11 +85,14 @@ function ProductsList() {
         <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
       </div>
       {products && products.length > 0 && (
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          <Button variant="secondary" className="text-sm" onClick={() => setImporting(true)}>
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setCounting(true)}>
+            {inCount > 0 ? t.stockCount.resume(inCount) : t.stockCount.open}
+          </Button>
+          <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setImporting(true)}>
             {t.importProducts.open}
           </Button>
-          <Button variant="secondary" className="text-sm" onClick={() => setLabels(true)}>
+          <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setLabels(true)}>
             {t.labels.open}
           </Button>
         </div>
@@ -137,6 +144,7 @@ function ProductsList() {
       {open && <ProductSheet productId={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
       {labels && <LabelsSheet onClose={() => setLabels(false)} />}
       {importing && <ImportProductsSheet onClose={() => setImporting(false)} />}
+      {counting && <StockCountSheet onClose={() => setCounting(false)} />}
     </div>
   );
 }

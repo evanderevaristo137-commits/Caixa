@@ -524,6 +524,46 @@ export const t = {
     profit: (kz: string) => `lucro ${kz}`,
     hintReports: 'O lucro conta só os produtos com preço de custo.',
   },
+  stockCount: {
+    open: 'Contar o stock',
+    resume: (n: number) => `Continuar a contagem (${n})`,
+    title: 'Contagem de stock',
+    intro:
+      'Conte o que está nas prateleiras e escreva ao lado de cada produto. Se bate certo com a app, toque em «=». Pode parar a meio: a contagem fica guardada no telemóvel.',
+    search: 'Procurar produto ou código',
+    scan: 'Ler código de barras',
+    inApp: (q: string) => `na app: ${q}`,
+    counted: (name: string) => `Quantidade contada de ${name}`,
+    same: (q: string) => `Igual à app (${q})`,
+    progress: (n: number, total: number) => `Contados: ${n} de ${total}`,
+    withDiff: (n: number) => (n === 1 ? '1 com diferença' : `${n} com diferença`),
+    review: 'Ver diferenças',
+    showMore: 'Mostrar mais produtos',
+    noneFound: 'Nenhum produto encontrado.',
+    discard: 'Apagar a contagem',
+    discardConfirm: 'Apagar tudo o que contou até agora?',
+    reviewTitle: 'Diferenças da contagem',
+    summary: (counted: number, withDiff: number) =>
+      `Contou ${counted === 1 ? '1 produto' : `${counted} produtos`}: ${withDiff === 0 ? 'nenhum tem diferença' : withDiff === 1 ? '1 tem diferença' : `${withDiff} têm diferença`}.`,
+    missing: (kz: string) => `Falta mercadoria no valor de ${kz} (ao preço de custo).`,
+    surplus: (kz: string) => `Sobra mercadoria no valor de ${kz} (ao preço de custo).`,
+    withoutCost: (n: number) =>
+      n === 1 ? '1 produto sem preço de custo não entra nestes valores.' : `${n} produtos sem preço de custo não entram nestes valores.`,
+    allGood: 'Tudo certo: o que contou é igual ao que a app tem.',
+    line: (expected: string, counted: string) => `na app ${expected} · contado ${counted}`,
+    untouched: 'Os produtos que não contou ficam como estão.',
+    apply: 'Acertar o stock',
+    finish: 'Terminar a contagem',
+    applying: 'A acertar…',
+    back: 'Continuar a contar',
+    done: (adjusted: number) =>
+      adjusted === 0
+        ? 'Contagem registada: o stock já estava certo.'
+        : adjusted === 1
+          ? 'Stock acertado em 1 produto.'
+          : `Stock acertado em ${adjusted} produtos.`,
+    failed: 'Não foi possível acertar o stock. Nada foi mudado. Tente outra vez.',
+  },
   importProducts: {
     open: 'Importar do Excel',
     title: 'Importar do Excel',

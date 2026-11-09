@@ -47,6 +47,9 @@ export function tillPurchasesCents(
   );
 }
 
+/** Reason of the adjustments made by a stock count. */
+export const STOCK_COUNT_REASON = 'Contagem de stock';
+
 export class DomainError extends Error {
   constructor(public readonly code: string) {
     super(code);
@@ -268,6 +271,28 @@ export class Store {
     /** Category of every product that has one (archived ones too: their past sales still count). */
     categoryMap: async (): Promise<Map<string, string>> =>
       new Map((await this.db.products.orderBy('category').toArray()).flatMap((p) => (p.category ? [[p.id, p.category] as const] : []))),
+    /**
+     * Applies a stock count, all or nothing: each counted product gets an adjustment of
+     * (counted − what the app had when it was counted), so sales made meanwhile still count.
+     * Equal counts change nothing but are part of the audited count.
+     */
+    applyCount: (lines: { productId: string; counted: number; expected: number }[]): Promise<{ counted: number; adjusted: number }> =>
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
+        let adjusted = 0;
+        for (const line of lines) {
+          if (!Number.isInteger(line.counted) || line.counted < 0 || line.counted > MAX_GRAMS || !Number.isInteger(line.expected)) {
+            throw new DomainError('invalid_quantity');
+          }
+          const product = await this.db.products.get(line.productId);
+          if (!product || product.archivedAt) throw new DomainError('not_found');
+          const delta = line.counted - line.expected;
+          if (delta === 0) continue;
+          await this.addMovement({ productId: line.productId, type: 'adjustment', delta, reason: STOCK_COUNT_REASON });
+          adjusted += 1;
+        }
+        await this.audit({ entity: 'data', entityId: 'stock_count', action: 'counted', after: { counted: lines.length, adjusted } });
+        return { counted: lines.length, adjusted };
+      }),
     movements: (productId: string) => this.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt'),
     /**
      * Next free in-store barcode (EAN-13 starting with 20). The number is reserved at once,

@@ -662,3 +662,40 @@ describe('Store: categories', () => {
     await upgraded.delete();
   });
 });
+
+describe('Store: stock count', () => {
+  it('adjusts each counted product against what the app had when it was counted, in one go', async () => {
+    const beer = await store.products.create({ name: 'Cerveja', priceCents: 50_000, minStock: 0 }, 60);
+    const water = await store.products.create({ name: 'Água', priceCents: 30_000, minStock: 0 }, 40);
+    const beans = await store.products.create({ name: 'Feijão', priceCents: 140_000, minStock: 0, soldBy: 'weight' }, 3_500);
+    // Two beers sold after the beer was counted (55 on the shelf, 60 in the app at that moment).
+    await store.sales.create({ cart: addToCart(addToCart([], beer), beer), method: 'cash' });
+    const result = await store.products.applyCount([
+      { productId: beer.id, counted: 55, expected: 60 },
+      { productId: water.id, counted: 40, expected: 40 },
+      { productId: beans.id, counted: 4_000, expected: 3_500 },
+    ]);
+    expect(result).toEqual({ counted: 3, adjusted: 2 });
+    expect((await store.products.get(beer.id))!.stock).toBe(53);
+    expect((await store.products.get(water.id))!.stock).toBe(40);
+    expect((await store.products.get(beans.id))!.stock).toBe(4_000);
+    const moves = await store.products.movements(beer.id);
+    expect(moves.find((m) => m.type === 'adjustment')).toMatchObject({ delta: -5, reason: 'Contagem de stock' });
+    const audit = await store.auditLog.list();
+    expect(audit.find((a) => a.entityId === 'stock_count')).toMatchObject({ action: 'counted', after: { counted: 3, adjusted: 2 } });
+  });
+
+  it('saves nothing when a line is wrong', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 100, minStock: 0 }, 5);
+    await expect(
+      store.products.applyCount([
+        { productId: a.id, counted: 3, expected: 5 },
+        { productId: 'gone', counted: 1, expected: 1 },
+      ]),
+    ).rejects.toSatisfy((e) => code(e) === 'not_found');
+    await expect(store.products.applyCount([{ productId: a.id, counted: -1, expected: 5 }])).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_quantity',
+    );
+    expect((await store.products.get(a.id))!.stock).toBe(5);
+  });
+});

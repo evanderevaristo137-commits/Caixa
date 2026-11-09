@@ -221,7 +221,7 @@ export interface AuditEntry extends BaseRecord {
     | 'purchase'
     | 'supplier_payment';
   entityId: string;
-  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset';
+  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted';
   before?: unknown;
   after?: unknown;
 }

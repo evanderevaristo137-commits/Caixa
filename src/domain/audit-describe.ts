@@ -172,6 +172,10 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       };
     }
     case 'data':
+      if (e.action === 'counted' && e.entityId === 'stock_count') {
+        const r = obj<{ counted: number; adjusted: number }>(e.after);
+        return { text: `Contagem de stock: ${r.counted ?? 0} produtos contados, ${r.adjusted ?? 0} acertados`, important: true };
+      }
       if (e.action === 'imported' && e.entityId === 'products_import') {
         const r = obj<{ created: number; updated: number }>(e.after);
         return { text: `Produtos importados do Excel: ${r.created ?? 0} novos, ${r.updated ?? 0} actualizados`, important: true };

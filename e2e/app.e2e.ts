@@ -881,3 +881,34 @@ test('categories: show one category when selling, pick one in the product form, 
   await expect(report.getByRole('heading', { name: 'Vendas por categoria' })).toBeVisible();
   for (const c of ['Mercearia', 'Bebidas', 'Granel']) await expect(report.getByText(c, { exact: true })).toBeVisible();
 });
+
+test('stock count: count the shelves, stop and come back, see the differences in Kz, adjust at once', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: 'Contar o stock' }).click();
+  let sheet = page.getByRole('dialog', { name: 'Contagem de stock' });
+  await sheet.getByRole('group', { name: 'Mostrar só uma categoria' }).getByRole('button', { name: 'Bebidas' }).click();
+  await sheet.getByLabel('Quantidade contada de Cerveja 330 ml').fill('55');
+  await sheet
+    .getByRole('listitem')
+    .filter({ hasText: 'Água 1,5 L' })
+    .getByRole('button', { name: /^Igual à app/ })
+    .click();
+  await expect(sheet.getByText(/Contados: 2 de \d+ · 1 com diferença/)).toBeVisible();
+
+  // The count stays on the phone if the sheet (or the app) is closed.
+  await sheet.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await page.getByRole('button', { name: 'Continuar a contagem (2)' }).click();
+  sheet = page.getByRole('dialog', { name: 'Contagem de stock' });
+  await expect(sheet.getByLabel('Quantidade contada de Cerveja 330 ml')).toHaveValue('55');
+  await sheet.getByRole('button', { name: 'Ver diferenças' }).click();
+
+  const review = page.getByRole('dialog', { name: 'Diferenças da contagem' });
+  await expect(review).toContainText('Contou 2 produtos: 1 tem diferença.');
+  await expect(review).toContainText('Falta mercadoria no valor de 1.850 Kz (ao preço de custo).');
+  await expect(review).toContainText('na app 60 · contado 55');
+  await review.getByRole('button', { name: 'Acertar o stock' }).click();
+  await expect(page.getByText('Stock acertado em 1 produto.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cerveja 330 ml.*55 em stock/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Contar o stock' })).toBeVisible();
+});
