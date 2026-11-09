@@ -3,6 +3,7 @@ import { CaixaDB } from './db';
 import { DomainError, Store } from './store';
 import { addToCart, setWeightLine } from '../domain/cart';
 import { creditStatus } from '../domain/credit';
+import { parseCsv, planImport } from '../domain/import-products';
 
 let db: CaixaDB;
 let store: Store;
@@ -412,7 +413,7 @@ describe('Store: products sold by weight', () => {
     const { productsCsv, salesCsv } = await import('./backup');
     const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 5_000, soldBy: 'weight' }, 12_500);
     await store.sales.create({ cart: setWeightLine([], beans, 750), method: 'cash' });
-    expect(await productsCsv(db)).toContain('Feijão a granel;;kg;1400,00;11,75;5');
+    expect(await productsCsv(db)).toContain('Feijão a granel;;;kg;1400,00;;11,75;5');
     expect(await salesCsv(db)).toContain(';Feijão a granel;0,75;kg;1400,00;1050,00;1050,00;Numerário;');
   });
 });
@@ -571,5 +572,57 @@ describe('Store: suppliers and purchases', () => {
     const log = (await st.auditLog.list()).map((a) => a.entity);
     expect(log).toContain('purchase');
     expect(log).toContain('supplier_payment');
+  });
+});
+
+describe('Store: importing products from Excel', () => {
+  const csv = (...lines: string[]) =>
+    parseCsv(['Produto;Categoria;Código de barras;Vende-se por;Preço (Kz);Preço de custo (Kz);Stock;Stock mínimo', ...lines].join('\n'));
+
+  it('creates and updates in one go, never touching the stock of existing products', async () => {
+    const arroz = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, costCents: 90_000, minStock: 5 }, 20);
+    const plan = planImport(
+      csv('Bolacha Maria;Mercearia;;un;500;350;24;6', 'Feijão;Granel;;kg;1.400;;12,5;2', 'arroz 1 kg;Mercearia;;un;1.300;;99;'),
+      await store.products.list(),
+    );
+    expect(plan.errors).toEqual([]);
+    expect(await store.products.importMany(plan.rows)).toEqual({ created: 2, updated: 1 });
+
+    const after = await store.products.get(arroz.id);
+    expect(after).toMatchObject({ priceCents: 130_000, costCents: 90_000, stock: 20, minStock: 5, category: 'Mercearia' });
+    const list = await store.products.list();
+    expect(list.find((p) => p.name === 'Bolacha Maria')).toMatchObject({
+      stock: 24,
+      minStock: 6,
+      costCents: 35_000,
+      category: 'Mercearia',
+    });
+    expect(list.find((p) => p.name === 'Feijão')).toMatchObject({ soldBy: 'weight', stock: 12_500, minStock: 2_000, priceCents: 140_000 });
+    const audit = await store.auditLog.list();
+    expect(audit.find((a) => a.entityId === 'products_import')).toMatchObject({ action: 'imported', after: { created: 2, updated: 1 } });
+  });
+
+  it('saves nothing when one line fails', async () => {
+    const plan = planImport(csv('Pão;;2000000000015;un;150;;;', 'Leite;;;un;600;;;'), []);
+    // Someone gives that barcode to another product before the import is saved.
+    await store.products.create({ name: 'Outro', priceCents: 100, minStock: 0, barcode: '2000000000015' });
+    await expect(store.products.importMany(plan.rows)).rejects.toSatisfy((e) => code(e) === 'duplicate_barcode');
+    expect((await store.products.list()).map((p) => p.name)).toEqual(['Outro']);
+  });
+
+  it('reads back its own "Produtos" export with nothing to change', async () => {
+    const { productsCsv } = await import('./backup');
+    await store.products.create(
+      { name: 'Óleo', priceCents: 185_050, costCents: 155_000, minStock: 2, barcode: '0012345678905', category: 'Mercearia' },
+      3,
+    );
+    await store.products.create({ name: 'Feijão', priceCents: 140_000, minStock: 2_000, soldBy: 'weight' }, 12_750);
+    const plan = planImport(parseCsv(await productsCsv(db)), await store.products.list());
+    expect(plan.errors).toEqual([]);
+    expect(plan.rows.map((r) => [r.currentName, r.action])).toEqual([
+      ['Feijão', 'same'],
+      ['Óleo', 'same'],
+    ]);
+    expect(plan.stockKept).toBe(0);
   });
 });

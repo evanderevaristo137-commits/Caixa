@@ -9,6 +9,7 @@ import { MAX_GRAMS } from '../domain/quantity';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
 import { internalBarcode } from '../domain/barcode';
+import type { PlanRow } from '../domain/import-products';
 import type {
   AuditEntry,
   CashClose,
@@ -63,6 +64,8 @@ export interface ProductInput {
   taxExemption?: string;
   /** Only used when creating: 'weight' = sold by the kilo (price per kg, stock in grams). */
   soldBy?: 'weight';
+  /** Optional group ("Bebidas", "Mercearia"…). */
+  category?: string;
 }
 
 /** IVA in basis points: whole number from 0 to 10000 (0% to 100%). */
@@ -191,6 +194,7 @@ export class Store {
           ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
           ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
           barcode: clean(input.barcode),
+          category: cleanShort(input.category, 40),
           minStock: input.minStock,
           unit: cleanShort(input.unit, 10),
           taxRateBp: input.taxRateBp,
@@ -223,6 +227,7 @@ export class Store {
           taxExemption: cleanShort(input.taxExemption, 120),
           updatedAt: this.stamp(),
         };
+        if ('category' in input) after.category = cleanShort(input.category, 40);
         // The cost price changes only when the form sends it (undefined clears it).
         if ('costCents' in input) {
           if (input.costCents === undefined) delete after.costCents;
@@ -275,6 +280,48 @@ export class Store {
           count += 1;
         }
         return count;
+      }),
+    /**
+     * Saves an import from Excel, all or nothing: new products (with their initial stock) and updates
+     * of existing ones (price, cost, minimum, barcode, category; never the stock). Audited.
+     */
+    importMany: (rows: PlanRow[]): Promise<{ created: number; updated: number }> =>
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        let created = 0;
+        let updated = 0;
+        for (const row of rows) {
+          const p = row.product;
+          if (row.action === 'create') {
+            const input: ProductInput = {
+              name: p.name,
+              priceCents: p.priceCents,
+              costCents: p.costCents,
+              barcode: p.barcode,
+              minStock: p.minStock ?? 0,
+              category: p.category,
+              ...(p.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
+            };
+            await this.products.create(input, p.stock ?? 0);
+            created += 1;
+          } else if (row.action === 'update' && row.productId) {
+            const current = await this.db.products.get(row.productId);
+            if (!current || current.archivedAt) throw new DomainError('not_found');
+            await this.products.update(row.productId, {
+              name: current.name,
+              priceCents: p.priceCents,
+              ...(p.costCents !== undefined ? { costCents: p.costCents } : {}),
+              barcode: p.barcode ?? current.barcode,
+              minStock: p.minStock ?? current.minStock,
+              ...(p.category ? { category: p.category } : {}),
+              unit: current.unit,
+              taxRateBp: current.taxRateBp,
+              taxExemption: current.taxExemption,
+            });
+            updated += 1;
+          }
+        }
+        await this.audit({ entity: 'data', entityId: 'products_import', action: 'imported', after: { created, updated } });
+        return { created, updated };
       }),
   };
 

@@ -3,6 +3,7 @@ import { formatDate, formatDateString, formatDateTime } from '../lib/dates';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { formatKg } from '../domain/quantity';
+import { TEMPLATE_HEADER } from '../domain/import-products';
 import { lineCostCents } from '../domain/profit';
 import { payablesBook } from '../domain/payables';
 import { DB_NAMES, LATER_TABLES, TABLES, type CaixaDB, type TableName } from './db';
@@ -169,18 +170,33 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
   return toCsv(rows);
 }
 
+/** ="…" keeps a barcode as text when Excel opens the file (no 4,00638E+12, no lost zeros). The import reads it back. */
+const excelText = (s: string) => `="${s.replace(/"/g, '""')}"`;
+
+/** Products in the import format (TEMPLATE_HEADER): change them in Excel and import them back. */
 export async function productsCsv(db: CaixaDB): Promise<string> {
   const products = (await db.products.orderBy('name').toArray()).filter((p) => !p.archivedAt);
   return toCsv([
-    ['Produto', 'Código de barras', 'Vende-se por', 'Preço (Kz)', 'Stock', 'Stock mínimo', 'Preço de custo (Kz)'],
+    TEMPLATE_HEADER,
     ...products.map((p) => {
-      const cost = p.costCents === undefined ? '' : kzNumber(p.costCents);
-      return p.soldBy === 'weight'
-        ? [p.name, p.barcode ?? '', 'kg', kzNumber(p.priceCents), formatKg(p.stock), formatKg(p.minStock), cost]
-        : [p.name, p.barcode ?? '', 'un', kzNumber(p.priceCents), p.stock, p.minStock, cost];
+      const byWeight = p.soldBy === 'weight';
+      const qty = (n: number) => (byWeight ? formatKg(n) : n);
+      return [
+        p.name,
+        p.category ?? '',
+        p.barcode ? excelText(p.barcode) : '',
+        byWeight ? 'kg' : 'un',
+        kzNumber(p.priceCents),
+        p.costCents === undefined ? '' : kzNumber(p.costCents),
+        qty(p.stock),
+        qty(p.minStock),
+      ];
     }),
   ]);
 }
+
+/** Empty template for the import: just the column names. */
+export const productsTemplateCsv = (): string => toCsv([TEMPLATE_HEADER]);
 
 export async function expensesCsv(db: CaixaDB): Promise<string> {
   const expenses = await db.expenses.orderBy('createdAt').toArray();

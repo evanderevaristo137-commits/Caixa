@@ -30,6 +30,8 @@ export interface Product extends BaseRecord {
   archivedAt?: IsoDate;
   /** Usual supplier: the one of the last purchase (used to split orders by supplier). */
   supplierId?: string;
+  /** Optional group ("Bebidas", "Mercearia"…) to find products faster and see sales by group. */
+  category?: string;
   // ---- Optional data for certified invoicing (phase 3, through an AGT-certified partner) ----
   /** Unit as written on invoices ("un", "kg", "L", "cx"…). Quantities stay whole numbers in phase 1. */
   unit?: string;

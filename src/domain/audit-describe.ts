@@ -172,6 +172,10 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       };
     }
     case 'data':
+      if (e.action === 'imported' && e.entityId === 'products_import') {
+        const r = obj<{ created: number; updated: number }>(e.after);
+        return { text: `Produtos importados do Excel: ${r.created ?? 0} novos, ${r.updated ?? 0} actualizados`, important: true };
+      }
       if (e.action === 'imported') return { text: 'Cópia de segurança recuperada (todos os dados substituídos)', important: true };
       if (e.action === 'reset') return { text: 'Dados de demonstração repostos', important: false };
       return null;
