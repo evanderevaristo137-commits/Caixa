@@ -9,6 +9,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 1. No Chrome do Android, abra: **https://evanderevaristo137-commits.github.io/Caixa/** (com «C» maiúsculo)
 2. Toque em **Instalar app** (no ecrã «Mais», ou nos três pontos ⋮ do Chrome → «Instalar app» / «Adicionar ao ecrã inicial»).
 3. A partir daí abre pelo ícone «Caixa», mesmo sem internet.
+4. Na primeira vez, a app mostra os **Termos de uso** e a **Política de privacidade**: toque em «Aceitar e começar» para usar com os dados da sua loja, ou em «Ver só a demonstração».
 
 ## Mostrar a um comerciante (modo demonstração)
 
@@ -46,6 +47,10 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 - **Código do dono (opcional):** em **Mais → Código do dono**. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos e recuperar cópias de segurança. Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.
 - **Verificar os dados:** em **Mais**, confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos; se o stock de algum produto não bater, um toque corrige-o.
 - **Registo de alterações:** em **Mais**, a lista do que foi feito e quando (anulações, mudanças de preço, acertos de stock, pagamentos, cópias), em português simples.
+
+## Termos e condições
+
+Em **Mais → Termos e condições** estão, para ler sem internet: Termos de uso, Política de privacidade, Condições do piloto e Condições do crédito para stock (retenção dos pagamentos digitais, mínimo digital e alarme). São **minutas** para rever com um advogado antes do piloto: os ficheiros estão em [`docs/legal`](docs/legal/README.md), com a lista do que falta preencher.
 
 ## Preparado para a facturação certificada e para pagamentos
 

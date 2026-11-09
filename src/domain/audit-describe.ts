@@ -98,6 +98,12 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       return null; // e.g. "last reminder" bookkeeping
     }
     case 'settings': {
+      if (e.entityId === 'terms') {
+        return {
+          text: `Termos de uso e privacidade aceites (versão ${obj<{ version: string }>(e.after).version ?? '—'})`,
+          important: true,
+        };
+      }
       if (e.entityId === 'owner_pin') {
         const removed = obj<{ pin: string }>(e.after).pin === 'removed';
         return { text: removed ? 'Código do dono removido' : 'Código do dono definido', important: true };

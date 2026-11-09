@@ -7,9 +7,17 @@ export async function nav(page: Page, tab: 'Vender' | 'Clientes' | 'Hoje' | 'Pro
   await expect(button).toHaveAttribute('aria-current', 'page');
 }
 
+/** First visit: the Terms of use appear; this accepts them and opens the real shop. */
+export async function openStore(page: Page) {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Aceitar e começar' }).click();
+  await expect(page.getByRole('dialog', { name: 'Bem-vindo à Caixa' })).toHaveCount(0);
+}
+
+/** First visit: goes straight to the demo (no terms needed: its data is fictitious). */
 export async function openDemo(page: Page) {
   await page.goto('./');
-  await page.getByRole('button', { name: 'Entrar no modo demonstração' }).click();
+  await page.getByRole('button', { name: 'Ver só a demonstração' }).click();
   await expect(page.getByText('MODO DEMONSTRAÇÃO')).toBeVisible();
   await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toBeVisible();
 }

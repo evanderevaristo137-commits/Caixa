@@ -15,6 +15,7 @@ import { CreditSettingsCard } from './settings/CreditSettingsCard';
 import { CashFloatCard } from './settings/CashFloatCard';
 import { PilotCard } from './settings/PilotCard';
 import { DigitalMinCard } from './settings/DigitalMinCard';
+import { LegalCard } from './settings/LegalCard';
 import { InvoicingCard } from './settings/InvoicingCard';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
       <AuditLogCard />
       <PilotCard key={`pilot-${store.db.name}`} settings={settings} />
       <DemoCard />
+      <LegalCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
     </div>
   );

@@ -867,6 +867,24 @@ export class Store {
       }),
   };
 
+  /** Terms of use and privacy policy: which version the shop accepted, and when. */
+  readonly legal = {
+    /** null = never accepted (undefined is left for "still loading" in the screens). */
+    accepted: async (): Promise<{ version: string; at?: string } | null> => {
+      const [v, at] = await Promise.all([this.db.meta.get('termsAccepted'), this.db.meta.get('termsAcceptedAt')]);
+      return typeof v?.value === 'string' ? { version: v.value, at: typeof at?.value === 'string' ? at.value : undefined } : null;
+    },
+    accept: (version: string): Promise<void> =>
+      this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
+        const at = this.stamp();
+        await this.db.meta.bulkPut([
+          { key: 'termsAccepted', value: version },
+          { key: 'termsAcceptedAt', value: at },
+        ]);
+        await this.audit({ entity: 'settings', entityId: 'terms', action: 'updated', after: { version, acceptedAt: at } });
+      }),
+  };
+
   /** This phone's id (created once). Used to tell phones apart in the pilot and, later, in synchronisation. */
   readonly device = {
     id: (): Promise<string> => this.db.transaction('rw', [this.db.meta], () => this.deviceId()),

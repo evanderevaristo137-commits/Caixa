@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { kzToCents, nav, openDemo, sellInCash } from './helpers';
+import { kzToCents, nav, openDemo, openStore, sellInCash } from './helpers';
 
 test('a 3-product sale gives a non-fiscal WhatsApp receipt', async ({ page }) => {
   await openDemo(page);
@@ -140,7 +140,7 @@ test('works without internet after the first visit', async ({ page, context }) =
 });
 
 test('the real shop and the demo never share data', async ({ page }) => {
-  await page.goto('./');
+  await openStore(page);
   await nav(page, 'Produtos');
   await page.getByRole('button', { name: '+ Novo produto' }).first().click();
   await page.getByLabel('Nome').fill('Produto da loja real');
@@ -192,7 +192,7 @@ test('a fiado sale receipt shows the total owed, and reminders are remembered', 
 });
 
 test('first use: create the first product straight from the Sell screen', async ({ page }) => {
-  await page.goto('./');
+  await openStore(page);
   await page.getByRole('button', { name: '+ Criar o primeiro produto' }).click();
   await page.getByLabel('Nome').fill('Primeiro produto');
   await page.getByLabel('Preço (Kz)').fill('250');
@@ -269,7 +269,7 @@ test('a double tap on "Confirmar venda" records one sale', async ({ page }) => {
 
 test('with the app closed, Android wakes the background check and the shop gets one notification a day', async ({ page, context }) => {
   await context.grantPermissions(['notifications']);
-  await page.goto('./');
+  await openStore(page);
   // Real shop: a credit sale due today.
   await page.getByRole('button', { name: '+ Criar o primeiro produto' }).click();
   await page.getByLabel('Nome').fill('Produto de teste');
@@ -493,7 +493,7 @@ test('selling by weight: by weight or by amount, change the weight, receipt in k
 });
 
 test('a real shop creates a product sold by the kilo and its stock goes down in kg', async ({ page }) => {
-  await page.goto('./');
+  await openStore(page);
   await nav(page, 'Produtos');
   await page.getByRole('button', { name: '+ Novo produto' }).first().click();
   await page.getByLabel('Nome').fill('Batata a granel');
@@ -546,7 +546,7 @@ test('cost price gives the day profit; the app makes barcodes and prints labels'
       w.printed += 1;
     };
   });
-  await page.goto('./');
+  await openStore(page);
   await nav(page, 'Produtos');
   await page.getByRole('button', { name: '+ Novo produto' }).first().click();
   await page.getByLabel('Nome').fill('Bolacha Maria');
@@ -787,4 +787,29 @@ test('credit for stock: digital payments against the contract minimum, with an a
   await nav(page, 'Mais');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText('Mínimo de pagamentos digitais (crédito para stock): 90%')).toBeVisible();
+});
+
+test('the shop accepts the terms before using its own data, and can read them any time offline', async ({ page }) => {
+  await page.goto('./');
+  const gate = page.getByRole('dialog', { name: 'Bem-vindo à Caixa' });
+  await expect(gate).toContainText('Os dados ficam só no seu telemóvel.');
+  await gate.getByRole('button', { name: 'Ler os Termos de uso' }).click();
+  const doc = page.getByRole('dialog', { name: 'Termos de uso' });
+  await expect(doc).toContainText('Não emite facturas nem documentos fiscais.');
+  await doc.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await gate.getByRole('button', { name: 'Aceitar e começar' }).click();
+  await expect(gate).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: '+ Criar o primeiro produto' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Bem-vindo à Caixa' })).toHaveCount(0);
+
+  await nav(page, 'Mais');
+  await expect(
+    page.getByText(/A loja aceitou os Termos e a Política de privacidade em \d\d\/\d\d\/\d{4} \(versão 2026-11-09\)\./),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Condições do crédito para stock' }).click();
+  await expect(page.getByRole('dialog', { name: 'Condições do crédito para stock' })).toContainText('Compromisso de pagamentos digitais');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await page.getByRole('button', { name: 'Ver registo' }).click();
+  await expect(page.getByText('Termos de uso e privacidade aceites (versão 2026-11-09)')).toBeVisible();
 });

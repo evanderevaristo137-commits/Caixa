@@ -12,6 +12,7 @@ import TodayScreen from './screens/today/TodayScreen';
 import ProductsScreen from './screens/products/ProductsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import { UpdateBanner } from './app/UpdateBanner';
+import { TermsGate } from './app/TermsGate';
 
 const TABS = ['sell', 'credit', 'today', 'products', 'settings'] as const;
 type Tab = (typeof TABS)[number];
@@ -93,6 +94,7 @@ export function App() {
           ))}
         </div>
       </nav>
+      <TermsGate />
       {toast && (
         <div
           role="status"
