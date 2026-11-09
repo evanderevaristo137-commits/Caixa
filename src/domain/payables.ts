@@ -1,4 +1,5 @@
 import { daysBetweenDateStrings, toLocalDateString } from '../lib/dates';
+import { comparePt, compareText } from './ranking';
 import { dueStateOf, type DueState } from './credit';
 import type { Cents, Purchase, Supplier, SupplierPayment } from './types';
 
@@ -25,7 +26,7 @@ export interface PayableStatus {
 export function payableStatus(supplierId: string, purchases: PurchaseLike[], payments: PaymentLike[], now: Date): PayableStatus {
   const onCredit = purchases
     .filter((p) => p.payment === 'credit' && p.supplierId === supplierId && !p.voidedAt)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => compareText(a.createdAt, b.createdAt));
   const totalCredit = onCredit.reduce((a, p) => a + p.totalCents, 0);
   const totalPaid = payments.filter((p) => p.supplierId === supplierId).reduce((a, p) => a + p.amountCents, 0);
   const base: PayableStatus = { supplierId, balanceCents: totalCredit - totalPaid, dueNowCents: 0 };
@@ -64,10 +65,7 @@ export function payablesBook(suppliers: Supplier[], purchases: PurchaseLike[], p
   return suppliers
     .map((supplier) => ({ supplier, ...payableStatus(supplier.id, purchases, payments, now) }))
     .sort(
-      (a, b) =>
-        rank(a) - rank(b) ||
-        (a.nextDueDate ?? '').localeCompare(b.nextDueDate ?? '') ||
-        a.supplier.name.localeCompare(b.supplier.name, 'pt'),
+      (a, b) => rank(a) - rank(b) || compareText(a.nextDueDate ?? '', b.nextDueDate ?? '') || comparePt(a.supplier.name, b.supplier.name),
     );
 }
 

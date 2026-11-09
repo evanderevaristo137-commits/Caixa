@@ -1,4 +1,5 @@
 import { lineCostCents } from './profit';
+import { comparePt } from './ranking';
 import type { Cents, Product, Sale, SaleItem } from './types';
 
 /**
@@ -31,7 +32,7 @@ export function canonicalCategory(input: string | undefined, known: readonly str
 export function categoriesOf(products: Pick<Product, 'category' | 'archivedAt'>[]): string[] {
   const seen = new Set<string>();
   for (const p of products) if (p.category && !p.archivedAt) seen.add(p.category);
-  return [...seen].sort((a, b) => a.localeCompare(b, 'pt'));
+  return [...seen].sort((a, b) => comparePt(a, b));
 }
 
 /** null = every product; NO_CATEGORY = the products without one. */
@@ -70,5 +71,5 @@ export function salesByCategory(sales: SaleLike[], categoryOf: ReadonlyMap<strin
       rows.set(category, row);
     }
   }
-  return [...rows.values()].sort((a, b) => b.salesCents - a.salesCents || a.category.localeCompare(b.category, 'pt'));
+  return [...rows.values()].sort((a, b) => b.salesCents - a.salesCents || comparePt(a.category, b.category));
 }

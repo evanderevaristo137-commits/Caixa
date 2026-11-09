@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, setWeightLine, type Cart } from '../../domain/cart';
 import { formatKg, formatQuantity } from '../../domain/quantity';
 import { formatKz } from '../../lib/money';
-import { salesFrequency, sortByFrequency } from '../../domain/ranking';
+import { sortByFrequency } from '../../domain/ranking';
+import { useFrozenRanking } from './use-ranking';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
-import { addDays, formatTime } from '../../lib/dates';
+import { formatTime } from '../../lib/dates';
 import { hold, parseHeld, resume, type HeldCart } from '../../domain/held';
 import { uuid } from '../../lib/ids';
 import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
@@ -25,16 +26,9 @@ export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
   const canInstall = useCanInstall();
   const products = useLiveQuery(() => store.products.list(), [store]);
-  // Best sellers of the last 30 days come first. The order is fixed when the screen opens,
-  // so products don't jump around while the shopkeeper is tapping.
-  const freq = useLiveQuery(() => store.sales.since(addDays(new Date(), -30).toISOString()).then(salesFrequency), [store]);
-  const frozenFreq = useRef<Map<string, number> | undefined>(undefined);
-  if (freq && !frozenFreq.current) frozenFreq.current = freq;
-  const rankingReady = freq !== undefined;
-  const ordered = useMemo(
-    () => (products && rankingReady ? sortByFrequency(products, frozenFreq.current) : undefined),
-    [products, rankingReady],
-  );
+  // Best sellers of the last 30 days first, fixed when the screen opens.
+  const ranking = useFrozenRanking(store, mode, products);
+  const ordered = useMemo(() => (products && ranking ? sortByFrequency(products, ranking) : undefined), [products, ranking]);
   // The cart is saved on the phone, so it survives if Android closes the app mid-sale.
   const cartKey = `caixa.cart.${mode}`;
   const [cart, setCart] = useState<Cart>(() => {

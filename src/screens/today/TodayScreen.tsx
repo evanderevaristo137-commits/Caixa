@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { daySummaryText, shoppingListText } from '../../domain/messages';
@@ -54,7 +55,7 @@ export default function TodayScreen() {
       : [[], []];
     const digital = isToday ? digitalStatus(watchSales, watchPayments, now, settings.digitalMinShareBp) : undefined;
     const dayStartIso = day.toISOString();
-    const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => compareText(b.createdAt, a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
     const view = summariseDayView(sales, payments, day, now);
     const profit = summariseProfit(daySales);
@@ -77,7 +78,7 @@ export default function TodayScreen() {
       outflows,
       drawer,
       lastClose,
-      dayExpenses: dayExpenses.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      dayExpenses: dayExpenses.sort((a, b) => compareText(b.createdAt, a.createdAt)),
       defaultFloatCents: settings.cashFloatCents ?? 0,
       topProfit: profitByProduct(daySales).slice(0, 3),
       summaryLink,

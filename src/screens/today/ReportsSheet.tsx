@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { useLoaded } from '../../ui/use-loaded';
 import { formatMargin, marginBp, profitByProduct, type ProductProfit } from '../../domain/profit';
 import { formatQuantity } from '../../domain/quantity';
 import {
@@ -34,7 +34,7 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
   const { store } = useApp();
   const [kind, setKind] = useState<PeriodKind>('7d');
   const [sheet, setSheet] = useState(false);
-  const data = useLiveQuery(async (): Promise<ReportData> => {
+  const data = useLoaded(async (): Promise<ReportData> => {
     const now = new Date();
     const { from, to, prevFrom } = periodRange(kind, now);
     const [sales, payments, expenses, categoryOf] = await Promise.all([

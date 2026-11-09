@@ -1,4 +1,5 @@
 import { addDays, addDaysToDateString, calendarDaysBetween, daysBetweenDateStrings, toLocalDateString } from '../lib/dates';
+import { compareText } from './ranking';
 import type { Cents, CreditPayment, Customer, Sale } from './types';
 
 export type CreditSale = Pick<Sale, 'customerId' | 'method' | 'totalCents' | 'createdAt' | 'voidedAt' | 'dueDate'> & { id?: string };
@@ -54,7 +55,7 @@ export function dueDateOf(sale: Pick<Sale, 'createdAt' | 'dueDate'>): string {
 export function openItems(customerId: string, sales: CreditSale[], payments: PaymentLike[]): OpenItem[] {
   const creditSales = sales
     .filter((s) => s.method === 'credit' && s.customerId === customerId && !s.voidedAt)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => compareText(a.createdAt, b.createdAt));
   let paid = payments.filter((p) => p.customerId === customerId).reduce((acc, p) => acc + p.amountCents, 0);
   const open: OpenItem[] = [];
   for (const sale of creditSales) {
@@ -114,14 +115,30 @@ const URGENCY: Record<DueState, number> = { overdue: 0, today: 1, soon: 2, later
 /** All customers with their balance: overdue first (longest first), then due today, soon, later, then settled. */
 export function creditBook(customers: Customer[], sales: CreditSale[], payments: PaymentLike[], now: Date): CustomerWithCredit[] {
   const rank = (c: CreditStatus) => (c.balanceCents > 0 && c.dueState ? URGENCY[c.dueState] : 4);
+  // Sales and payments grouped by customer once: each customer then only looks at their own
+  // (not at every sale of the shop again, which is slow with months of sales).
+  const salesBy = groupBy(sales, (s) => s.customerId);
+  const paymentsBy = groupBy(payments, (p) => p.customerId);
   return customers
-    .map((customer) => ({ customer, ...creditStatus(customer.id, sales, payments, now) }))
+    .map((customer) => ({ customer, ...creditStatus(customer.id, salesBy.get(customer.id) ?? [], paymentsBy.get(customer.id) ?? [], now) }))
     .sort((a, b) => {
       const r = rank(a) - rank(b);
       if (r !== 0) return r;
       if (a.dueState === 'overdue' && b.dueState === 'overdue') return (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0);
       return (a.daysUntilDue ?? 0) - (b.daysUntilDue ?? 0) || b.balanceCents - a.balanceCents;
     });
+}
+
+function groupBy<T>(items: T[], key: (item: T) => string | undefined): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    if (k === undefined) continue;
+    const list = out.get(k);
+    if (list) list.push(item);
+    else out.set(k, [item]);
+  }
+  return out;
 }
 
 export function totalOutstanding(book: Pick<CreditStatus, 'balanceCents'>[]): Cents {

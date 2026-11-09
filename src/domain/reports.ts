@@ -1,4 +1,5 @@
 import { addDays, startOfLocalDay } from '../lib/dates';
+import { comparePt } from './ranking';
 import { summariseOutflows, type OutflowSummary } from './cash';
 import { summariseProfit, type ProfitSummary } from './profit';
 import type { Cents, CreditPayment, Expense, PaymentMethod, Sale } from './types';
@@ -81,13 +82,31 @@ export function buckets(kind: PeriodKind, now: Date): Bucket[] {
   return out;
 }
 
-/** Puts the valid sales into their buckets, with the profit of each bucket. */
+/**
+ * Puts the valid sales into their buckets, with the profit of each bucket. One pass over the sales
+ * (a year of sales is thousands of them): dates are compared as ISO text, the bucket found by
+ * binary search (buckets are consecutive and in time order).
+ */
 export function fillBuckets(empty: Bucket[], sales: SaleLike[]): Bucket[] {
-  return empty.map((b) => {
-    const inside = sales.filter((s) => {
-      const t = new Date(s.createdAt).getTime();
-      return !s.voidedAt && t >= b.start.getTime() && t < b.end.getTime();
-    });
+  const starts = empty.map((b) => b.start.toISOString());
+  const ends = empty.map((b) => b.end.toISOString());
+  const groups: SaleLike[][] = empty.map(() => []);
+  for (const s of sales) {
+    if (s.voidedAt) continue;
+    let lo = 0;
+    let hi = starts.length - 1;
+    let at = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (starts[mid]! <= s.createdAt) {
+        at = mid;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    if (at >= 0 && s.createdAt < ends[at]!) groups[at]!.push(s);
+  }
+  return empty.map((b, i) => {
+    const inside = groups[i]!;
     const profit = summariseProfit(inside);
     return {
       ...b,
@@ -114,13 +133,12 @@ export interface PeriodSummary {
   daysWithSales: number;
 }
 
-const between = (iso: string, from: Date, to: Date) => {
-  const t = new Date(iso).getTime();
-  return t >= from.getTime() && t < to.getTime();
-};
-
 export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expenses: ExpenseLike[], from: Date, to: Date): PeriodSummary {
-  const valid = sales.filter((s) => !s.voidedAt && between(s.createdAt, from, to));
+  // ISO dates compare as text: no date parsing for each of thousands of sales.
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  const between = (iso: string) => iso >= fromIso && iso < toIso;
+  const valid = sales.filter((s) => !s.voidedAt && between(s.createdAt));
   const byMethod = Object.fromEntries(PAYMENT_METHODS.map((m) => [m, 0])) as Record<PaymentMethod, Cents>;
   for (const s of valid) byMethod[s.method] += s.totalCents;
   const salesCents = valid.reduce((a, s) => a + s.totalCents, 0);
@@ -133,9 +151,9 @@ export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expens
     byMethod,
     electronicCents: PAYMENT_METHODS.filter((m) => m !== 'cash' && m !== 'credit').reduce((a, m) => a + byMethod[m], 0),
     profit: summariseProfit(valid),
-    outflows: summariseOutflows(expenses.filter((e) => between(e.createdAt, from, to))),
+    outflows: summariseOutflows(expenses.filter((e) => between(e.createdAt))),
     creditSoldCents: byMethod.credit,
-    creditPaidCents: payments.filter((p) => between(p.createdAt, from, to)).reduce((a, p) => a + p.amountCents, 0),
+    creditPaidCents: payments.filter((p) => between(p.createdAt)).reduce((a, p) => a + p.amountCents, 0),
     daysWithSales: days.size,
   };
 }
@@ -180,7 +198,7 @@ export function topProducts(sales: SaleLike[], limit = 5): TopProduct[] {
       map.set(i.productId, row);
     }
   }
-  return [...map.values()].sort((a, b) => b.revenueCents - a.revenueCents || a.name.localeCompare(b.name, 'pt')).slice(0, limit);
+  return [...map.values()].sort((a, b) => b.revenueCents - a.revenueCents || comparePt(a.name, b.name)).slice(0, limit);
 }
 
 /** "150 mil", "1,5 M", "800": short amounts in Kz for chart axes and labels. */

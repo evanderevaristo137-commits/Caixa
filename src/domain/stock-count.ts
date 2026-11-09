@@ -1,4 +1,5 @@
 import type { Cents, Product } from './types';
+import { comparePt } from './ranking';
 
 /**
  * Counting the stock on the shelves (inventory). The count is kept on the phone while it is
@@ -99,7 +100,7 @@ export function summariseCount(draft: CountDraft, products: Product[]): CountSum
     summary.differences.push({ product, expected: line.expected, counted: line.counted, delta, valueCents });
   }
   summary.differences.sort(
-    (a, b) => (a.valueCents ?? 0) - (b.valueCents ?? 0) || a.delta - b.delta || a.product.name.localeCompare(b.product.name, 'pt'),
+    (a, b) => (a.valueCents ?? 0) - (b.valueCents ?? 0) || a.delta - b.delta || comparePt(a.product.name, b.product.name),
   );
   return summary;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditStatus, validateCreditPayment } from '../../domain/credit';
@@ -90,7 +91,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
         s.items.map((i) => `${formatQuantity(i.quantity, i.soldBy)} × ${i.name}`).join(', '),
     })),
     ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, voided: false, cents: p.amountCents, label: methodLabel[p.method] })),
-  ].sort((a, b) => b.at.localeCompare(a.at));
+  ].sort((a, b) => compareText(b.at, a.at));
 
   return (
     <Sheet title={customer.name} onClose={onClose}>

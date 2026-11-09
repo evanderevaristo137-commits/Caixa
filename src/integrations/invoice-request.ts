@@ -3,6 +3,7 @@
  * Caixa never issues invoices: it only prepares the data. Formats are documented in docs/INTEGRACOES.md.
  */
 import type { Customer, PaymentMethod, Sale, Settings, VatRegime } from '../domain/types';
+import { compareText } from '../domain/ranking';
 
 export const INVOICE_REQUEST_SCHEMA = 'caixa.invoice-request/1';
 export const FINAL_CONSUMER = 'Consumidor final';
@@ -133,7 +134,7 @@ export function missingInvoiceData(settings: Settings, sales: Pick<Sale, 'items'
 export function invoiceExport(sales: Sale[], settings: Settings, customers: Customer[], now: Date) {
   const byId = new Map(customers.map((c) => [c.id, c]));
   const documents: (InvoiceRequest | CreditNoteRequest)[] = [];
-  for (const sale of [...sales].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+  for (const sale of [...sales].sort((a, b) => compareText(a.createdAt, b.createdAt))) {
     const customer = sale.customerId ? byId.get(sale.customerId) : undefined;
     documents.push(buildInvoiceRequest(sale, settings, customer));
     if (sale.voidedAt) documents.push(buildCreditNoteRequest(sale, settings, customer));

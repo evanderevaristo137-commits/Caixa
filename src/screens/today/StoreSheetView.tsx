@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { useLoaded } from '../../ui/use-loaded';
 import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatMargin } from '../../domain/profit';
 import { formatChange } from '../../domain/reports';
@@ -19,7 +19,7 @@ const pct = (bp: number) => `${Math.round(bp / 100)}%`;
 /** "Ficha da loja": up to 12 months on one page, to print (or save as PDF) or send by WhatsApp. */
 export function StoreSheetView({ onClose }: { onClose: () => void }) {
   const { store, mode } = useApp();
-  const sheet = useLiveQuery(async () => {
+  const sheet = useLoaded(async () => {
     const now = new Date();
     const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString();
     const [sales, payments, settings, book] = await Promise.all([

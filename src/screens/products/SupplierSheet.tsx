@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DomainError } from '../../data/store';
@@ -81,7 +82,7 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
       voided: false,
       credit: false,
     })),
-  ].sort((a, b) => b.at.localeCompare(a.at));
+  ].sort((a, b) => compareText(b.at, a.at));
 
   const chip = (selected: boolean) =>
     `min-h-12 rounded-xl border-2 px-2 text-sm font-semibold ${selected ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`;

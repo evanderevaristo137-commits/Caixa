@@ -293,7 +293,12 @@ test('with the app closed, Android wakes the background check and the shop gets 
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
   await expect(page.getByText('Venda registada')).toBeVisible();
 
-  // The app keeps the short list the background checker reads.
+  // The app keeps the short lists the background checker reads, when the shop leaves the app
+  // (screen off or another app): simulated here.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
   const readMeta = (key: string) =>
     page.evaluate(
       (k) =>

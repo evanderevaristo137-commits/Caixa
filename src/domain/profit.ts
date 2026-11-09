@@ -1,4 +1,5 @@
 import type { Cents, Sale, SaleItem } from './types';
+import { comparePt } from './ranking';
 
 /**
  * Estimated profit of sales: what the customer paid minus what the goods cost the shop.
@@ -87,7 +88,7 @@ export function profitByProduct(sales: SaleLike[]): ProductProfit[] {
       map.set(item.productId, row);
     }
   }
-  return [...map.values()].sort((a, b) => b.profitCents - a.profitCents || a.name.localeCompare(b.name, 'pt'));
+  return [...map.values()].sort((a, b) => b.profitCents - a.profitCents || comparePt(a.name, b.name));
 }
 
 /** What the shop earns on one unit (or one kg) at this price and cost. */

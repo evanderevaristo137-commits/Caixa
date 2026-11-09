@@ -1,4 +1,5 @@
 import { methodLabel, t } from '../i18n/pt-AO';
+import { compareText } from './ranking';
 import { formatDate, formatDateString } from '../lib/dates';
 import { formatKz } from '../lib/money';
 import { creditStatus, dueDateOf } from './credit';
@@ -45,7 +46,7 @@ export function statementLines(customerId: string, sales: SaleLike[], payments: 
         delta: -p.amountCents,
         text: `${shortDate(p.createdAt)} — Pagamento: ${formatKz(p.amountCents)} (${methodLabel[p.method]})`,
       })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || (a.kind === 'purchase' ? -1 : 1));
+  ].sort((a, b) => compareText(a.at, b.at) || (a.kind === 'purchase' ? -1 : 1));
 
   let balance = 0;
   let start = 0;

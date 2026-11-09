@@ -44,7 +44,9 @@ export class CaixaDB extends Dexie {
   supplierPayments!: Table<SupplierPayment, string>;
 
   constructor(name: string) {
-    super(name);
+    // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
+    // which is slow on cheap phones. Screens still update after each change, once it is saved.
+    super(name, { cache: 'disabled' });
     this.version(1).stores({
       products: 'id, name, barcode, updatedAt',
       customers: 'id, name, updatedAt',
