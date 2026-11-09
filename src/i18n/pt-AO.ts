@@ -720,7 +720,7 @@ export const t = {
   },
   alerts: {
     title: 'Avisos de pagamentos',
-    hint: 'O telemóvel avisa quando um pagamento de cliente vence daqui a 2 dias, no próprio dia e quando atrasa.',
+    hint: 'Um aviso por dia, mesmo com a app fechada: pagamentos de clientes e a fornecedores (2 dias antes, no próprio dia e quando atrasam) e o alarme dos pagamentos digitais do crédito para stock.',
     enable: 'Activar avisos',
     test: 'Testar aviso',
     on: 'Avisos activos.',

@@ -1,8 +1,10 @@
 /*
- * Payment reminders for the shopkeeper, run by Android in the background (Periodic Background Sync),
+ * Reminders for the shopkeeper, run by Android in the background (Periodic Background Sync),
  * even when the app is closed. Loaded into the service worker with importScripts.
- * It only READS what the app prepared (meta key "creditAlertItems" in the real shop's database)
- * and shows at most one notification per day. Nothing leaves the phone.
+ * It only READS what the app prepared in the real shop's database (meta keys "creditAlertItems",
+ * "supplierAlertItems" and "digitalAlert", see src/data/background-alerts.ts) and shows at most
+ * one notification per day. Nothing leaves the phone.
+ * caixaDailyAlert must say exactly what dailyAlert in src/domain/alerts.ts says (a test compares them).
  * Texts are in Portuguese here because this file is not part of the app bundle.
  */
 /* eslint-disable */
@@ -40,6 +42,59 @@ function caixaMeta(db, mode, fn) {
   });
 }
 
+function caixaPct(bp) {
+  return Math.round(bp / 100) + '%';
+}
+
+function caixaDueText(items, today) {
+  const soonLimit = caixaAddDays(today, CAIXA_SOON_DAYS);
+  const overdue = items.filter((i) => i.dueDate < today).length;
+  const dueToday = items.filter((i) => i.dueDate === today).length;
+  const soon = items.filter((i) => i.dueDate > today && i.dueDate <= soonLimit).length;
+  const parts = [];
+  if (overdue) parts.push(overdue + ' em atraso');
+  if (dueToday) parts.push(dueToday === 1 ? '1 vence hoje' : dueToday + ' vencem hoje');
+  if (soon) parts.push(soon === 1 ? '1 vence nos próximos dias' : soon + ' vencem nos próximos dias');
+  return parts.join(' · ');
+}
+
+/** The one notification of the day, or null. Same rules as dailyAlert in src/domain/alerts.ts. */
+function caixaDailyAlert(today, credit, suppliers, digital) {
+  const sections = [];
+  const customers = caixaDueText(credit, today);
+  if (customers) sections.push({ title: 'Pagamentos de clientes', label: 'Clientes', text: customers, hash: '#/credit' });
+  const owed = caixaDueText(suppliers, today);
+  if (owed) sections.push({ title: 'Pagamentos a fornecedores', label: 'Fornecedores', text: owed, hash: '#/today' });
+  const fresh = !!digital && (digital.on === today || digital.on === caixaAddDays(today, -1));
+  if (fresh && digital.alarm) {
+    const text =
+      digital.belowMinimum && typeof digital.minShareBp === 'number'
+        ? 'abaixo do mínimo do contrato: ' + caixaPct(digital.shareBp) + ' (mínimo ' + caixaPct(digital.minShareBp) + ')'
+        : 'desceram muito nos últimos 7 dias: ' + caixaPct(digital.shareBp) + ' dos recebimentos';
+    sections.push({ title: 'Pagamentos digitais', label: 'Pagamentos digitais', text: text, hash: '#/today' });
+  }
+  if (sections.length === 0) return null;
+  if (sections.length === 1) {
+    const only = sections[0];
+    const body = only.text.charAt(0).toUpperCase() + only.text.slice(1);
+    const tail = only.hash === '#/credit' ? 'Toque para ver e lembrar os clientes.' : 'Toque para ver.';
+    return { title: only.title, body: body + '. ' + tail, hash: only.hash };
+  }
+  return {
+    title: 'Avisos da loja',
+    body: sections.map((x) => x.label + ': ' + x.text).join('. ') + '. Toque para ver.',
+    hash: '#/today',
+  };
+}
+
+function caixaParse(row, fallback) {
+  try {
+    return row && typeof row.value === 'string' ? JSON.parse(row.value) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
 async function caixaCheckAndNotify(force) {
   const db = await caixaOpenDb();
   if (!db) return;
@@ -47,22 +102,16 @@ async function caixaCheckAndNotify(force) {
     const today = caixaLocalDate(new Date());
     const last = await caixaMeta(db, 'readonly', (s) => s.get('alertsNotifiedOn'));
     if (!force && last && last.value === today) return;
-    const row = await caixaMeta(db, 'readonly', (s) => s.get('creditAlertItems'));
-    const items = row && typeof row.value === 'string' ? JSON.parse(row.value) : [];
-    const soonLimit = caixaAddDays(today, CAIXA_SOON_DAYS);
-    const overdue = items.filter((i) => i.dueDate < today).length;
-    const dueToday = items.filter((i) => i.dueDate === today).length;
-    const soon = items.filter((i) => i.dueDate > today && i.dueDate <= soonLimit).length;
-    const parts = [];
-    if (overdue) parts.push(overdue + ' em atraso');
-    if (dueToday) parts.push(dueToday === 1 ? '1 vence hoje' : dueToday + ' vencem hoje');
-    if (soon) parts.push(soon === 1 ? '1 vence nos próximos dias' : soon + ' vencem nos próximos dias');
-    if (parts.length === 0) return;
-    await self.registration.showNotification('Pagamentos de clientes', {
-      body: parts.join(' · ') + '. Toque para ver e lembrar os clientes.',
+    const credit = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('creditAlertItems')), []);
+    const suppliers = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('supplierAlertItems')), []);
+    const digital = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('digitalAlert')), null);
+    const alert = caixaDailyAlert(today, credit, suppliers, digital);
+    if (!alert) return;
+    await self.registration.showNotification(alert.title, {
+      body: alert.body,
       tag: CAIXA_TAG,
       icon: 'icon-192.png',
-      data: { hash: '#/credit' },
+      data: { hash: alert.hash },
     });
     await caixaMeta(db, 'readwrite', (s) => s.put({ key: 'alertsNotifiedOn', value: today }));
   } finally {

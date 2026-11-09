@@ -1,33 +1,41 @@
 import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { BackgroundAlertItem } from '../domain/alerts';
-import { creditBook } from '../domain/credit';
+import { ALERT_KEYS, digitalAlertInfo, dueItems } from '../data/background-alerts';
 import { registerPeriodicCheck } from '../lib/notifications';
 import type { Store } from '../data/store';
 
 /**
- * Keeps, on the phone, the short list the background checker reads (public/sw-alerts.js):
- * who owes and by when. Always from the real shop, never from the demo.
+ * Keeps, on the phone, the short lists the background checker reads (public/sw-alerts.js):
+ * who owes and by when, what the shop owes its suppliers, and the digital payments alarm.
+ * Always from the real shop, never from the demo.
  */
 export function useBackgroundAlerts(realStore: Store) {
-  const items = useLiveQuery(async () => {
-    const [customers, sales, payments] = await Promise.all([
-      realStore.customers.list(),
-      realStore.sales.onCredit(),
-      realStore.credit.payments(),
-    ]);
-    return creditBook(customers, sales, payments, new Date())
-      .filter((b) => b.balanceCents > 0 && b.nextDueDate)
-      .map((b): BackgroundAlertItem => ({ name: b.customer.name, dueDate: b.nextDueDate! }));
-  }, [realStore]);
-
+  const due = useLiveQuery(() => dueItems(realStore, new Date()), [realStore]);
   useEffect(() => {
-    if (items) void realStore.db.meta.put({ key: 'creditAlertItems', value: JSON.stringify(items) });
-  }, [items, realStore]);
+    if (!due) return;
+    void realStore.db.meta.bulkPut([
+      { key: ALERT_KEYS.credit, value: JSON.stringify(due.credit) },
+      { key: ALERT_KEYS.suppliers, value: JSON.stringify(due.suppliers) },
+    ]);
+  }, [due, realStore]);
+
+  // The digital alarm looks at complete days only: computed when the app opens and when the
+  // contract minimum changes, not after every sale.
+  const minShare = useLiveQuery(() => realStore.settings.get().then((s) => s.digitalMinShareBp ?? null), [realStore]);
+  useEffect(() => {
+    if (minShare === undefined) return;
+    let cancelled = false;
+    void digitalAlertInfo(realStore, new Date()).then((info) => {
+      if (!cancelled) void realStore.db.meta.put({ key: ALERT_KEYS.digital, value: JSON.stringify(info) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [minShare, realStore]);
 
   useEffect(() => {
     void registerPeriodicCheck();
-    // Tapping the notification asks the open app to show the customers, without reloading it.
+    // Tapping the notification asks the open app to show the right screen, without reloading it.
     const onMessage = (e: MessageEvent) => {
       const data: unknown = e.data;
       if (typeof data === 'object' && data !== null && (data as { type?: unknown }).type === 'caixa-navigate') {

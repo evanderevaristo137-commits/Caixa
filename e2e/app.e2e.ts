@@ -101,10 +101,13 @@ test('the usual payment term and payment notifications are set in Mais', async (
   await terms.getByRole('button', { name: '30 dias' }).click();
   await expect(terms.getByRole('button', { name: '30 dias' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('Avisos activos.')).toBeVisible();
+  // The test shows what the phone would show today: the demo has customers and suppliers to pay.
   await page.getByRole('button', { name: 'Testar aviso' }).click();
   await expect
-    .poll(() => page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => n.title)))
-    .toContain('Pagamentos de clientes');
+    .poll(() =>
+      page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}: ${n.body}`)),
+    )
+    .toEqual([expect.stringMatching(/^Avisos da loja: Clientes: .+\. Fornecedores: .+\. Toque para ver\.$/)]);
 
   await nav(page, 'Vender');
   await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
@@ -329,6 +332,35 @@ test('with the app closed, Android wakes the background check and the shop gets 
   await wake();
   await page.waitForTimeout(500);
   expect(await notifications()).toEqual([]);
+
+  // The app also keeps what the shop owes its suppliers and the digital payments alarm.
+  await expect.poll(() => readMeta('supplierAlertItems')).toBe('[]');
+  await expect.poll(() => readMeta('digitalAlert')).toContain(`"on":"${today}"`);
+  // Another day with all three: still one notification, which says everything and opens Hoje.
+  await page.evaluate(
+    (day) =>
+      new Promise<void>((resolve) => {
+        const r = indexedDB.open('caixa-loja');
+        r.onsuccess = () => {
+          const tx = r.result.transaction('meta', 'readwrite');
+          const meta = tx.objectStore('meta');
+          meta.put({ key: 'supplierAlertItems', value: JSON.stringify([{ dueDate: day }]) });
+          meta.put({
+            key: 'digitalAlert',
+            value: JSON.stringify({ on: day, alarm: true, belowMinimum: true, shareBp: 3200, minShareBp: 4000 }),
+          });
+          meta.delete('alertsNotifiedOn');
+          tx.oncomplete = () => resolve();
+        };
+      }),
+    today,
+  );
+  await wake();
+  await expect
+    .poll(notifications)
+    .toEqual([
+      'Avisos da loja: Clientes: 1 vence hoje. Fornecedores: 1 vence hoje. Pagamentos digitais: abaixo do mínimo do contrato: 32% (mínimo 40%). Toque para ver.',
+    ]);
 });
 
 test('the owner code protects voids and price changes, and everything shows in the activity log', async ({ page }) => {
