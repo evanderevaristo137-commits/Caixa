@@ -473,6 +473,13 @@ describe('Store: money out and the end-of-day count', () => {
     await expect(st.cash.close({ floatCents: -1, countedCents: 0 })).rejects.toSatisfy((x) => code(x) === 'invalid_float');
   });
 
+  it('keeps the contract minimum of digital payments (0 = no contract), audited', async () => {
+    expect((await store.settings.save({ digitalMinShareBp: 4000 })).digitalMinShareBp).toBe(4000);
+    expect((await store.settings.save({ digitalMinShareBp: 0 })).digitalMinShareBp).toBeUndefined();
+    await expect(store.settings.save({ digitalMinShareBp: 10_001 })).rejects.toSatisfy((x) => code(x) === 'invalid_share');
+    expect((await store.auditLog.list()).filter((a) => a.entity === 'settings')).toHaveLength(2);
+  });
+
   it('keeps the usual float in the settings (0 = none)', async () => {
     expect((await store.settings.save({ cashFloatCents: 500_000 })).cashFloatCents).toBe(500_000);
     expect((await store.settings.save({ cashFloatCents: 0 })).cashFloatCents).toBeUndefined();

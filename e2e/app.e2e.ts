@@ -763,3 +763,28 @@ test('the pilot summary carries only the shop numbers, never customer names or p
   expect(text).toMatch(/Também usou \(30 dias\): \d+ fechos? do dia/);
   for (const name of ['Joana', 'António', 'Esperança', 'Manuel', 'Luísa', '955']) expect(text).not.toContain(name);
 });
+
+test('credit for stock: digital payments against the contract minimum, with an alarm when below', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  // The demo has a 40% minimum and keeps about half of its receipts digital.
+  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Pagamentos digitais (últimos 7 dias)' }) });
+  await expect(card).toContainText('Mínimo do contrato de crédito: 40% · Dentro do mínimo do contrato.');
+  await expect(card).toContainText(/Recebido pelo telemóvel: [\d.]+ Kz de [\d.]+ Kz/);
+
+  // A stricter contract (90%): the alarm appears at the top of Today and in the activity log.
+  await nav(page, 'Mais');
+  await page.getByLabel('Mínimo de pagamentos digitais (%) — vazio = sem contrato').fill('90');
+  await page
+    .locator('div.rounded-2xl')
+    .filter({ has: page.getByRole('heading', { name: 'Pagamentos digitais (crédito para stock)' }) })
+    .getByRole('button', { name: 'Guardar' })
+    .click();
+  await nav(page, 'Hoje');
+  const alarm = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Alarme: pagamentos digitais' }) });
+  await expect(alarm).toContainText(/Abaixo do mínimo do contrato: \d+% \(mínimo 90%\)\./);
+  await expect(alarm).toContainText('cobrar em numerário para fugir à retenção é incumprimento');
+  await nav(page, 'Mais');
+  await page.getByRole('button', { name: 'Ver registo' }).click();
+  await expect(page.getByText('Mínimo de pagamentos digitais (crédito para stock): 90%')).toBeVisible();
+});

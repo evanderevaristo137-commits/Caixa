@@ -4,6 +4,7 @@ import type { Store } from '../data/store';
 import { creditAlerts, totalOutstanding } from '../domain/credit';
 import { pilotText } from '../domain/pilot';
 import { addDays, startOfLocalDay } from '../lib/dates';
+import { digitalStatus } from '../domain/digital-watch';
 
 /**
  * Gathers the shop's numbers for the pilot summary (no names, no phones) and writes the message.
@@ -11,20 +12,25 @@ import { addDays, startOfLocalDay } from '../lib/dates';
  */
 export async function buildPilotSummary(store: Store, mode: DataMode, now = new Date()): Promise<string> {
   const from = addDays(startOfLocalDay(now), -29).toISOString();
+  // 7 complete days and the 4 weeks before them, for the digital payments alarm.
+  const watchFrom = addDays(startOfLocalDay(now), -36).toISOString();
   const until = addDays(now, 1).toISOString();
-  const [settings, device, firstSale, allProducts, sales, book, products, closes, expenses, purchases, backupAt] = await Promise.all([
-    store.settings.get(),
-    store.db.meta.get('deviceId'),
-    store.db.sales.orderBy('createdAt').first(),
-    store.db.products.toArray(),
-    store.sales.since(from),
-    store.credit.book(now),
-    store.products.list(),
-    store.cash.closes(),
-    store.expenses.between(from, until),
-    store.purchases.between(from, until),
-    lastBackupAt(store.db),
-  ]);
+  const [settings, device, firstSale, allProducts, sales, book, products, closes, expenses, purchases, backupAt, payments] =
+    await Promise.all([
+      store.settings.get(),
+      store.db.meta.get('deviceId'),
+      store.db.sales.orderBy('createdAt').first(),
+      store.db.products.toArray(),
+      store.sales.since(watchFrom),
+      store.credit.book(now),
+      store.products.list(),
+      store.cash.closes(),
+      store.expenses.between(from, until),
+      store.purchases.between(from, until),
+      lastBackupAt(store.db),
+      store.credit.paymentsBetween(watchFrom, until),
+    ]);
+  const digital = digitalStatus(sales, payments, now, settings.digitalMinShareBp);
   const firsts = [firstSale?.createdAt, ...allProducts.map((p) => p.createdAt)].filter((x): x is string => !!x).sort();
   const deviceId = typeof device?.value === 'string' ? device.value : '—';
   const owing = book.filter((c) => c.balanceCents > 0);
@@ -44,5 +50,6 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
     expenses: expenses.filter((e) => !e.voidedAt).length,
     purchases: purchases.filter((p) => !p.voidedAt).length,
     lastBackupAt: backupAt,
+    digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
   });
 }

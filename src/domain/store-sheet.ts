@@ -3,6 +3,7 @@ import { formatKz } from '../lib/money';
 import { formatMargin, marginBp, summariseProfit } from './profit';
 import { changeBp, formatChange, MONTHS, periodSummary, shareBp } from './reports';
 import type { Cents, CreditPayment, Sale } from './types';
+import { digitalLineText, type DigitalLine } from './pilot';
 
 /**
  * "Ficha da loja": the shop's history on one page (up to 12 months), for the owner to show a bank
@@ -43,6 +44,8 @@ export interface StoreSheet {
   months: StoreSheetMonth[];
   /** Last 3 complete months against the 3 before them (needs 6 complete months). */
   growthBp?: number;
+  /** Credit for stock: digital share of the last 7 complete days, the contract minimum and the alarm. */
+  digital?: DigitalLine;
 }
 
 export function buildStoreSheet(input: {
@@ -54,6 +57,7 @@ export function buildStoreSheet(input: {
   owedCents: Cents;
   overdueCustomers: number;
   now: Date;
+  digital?: DigitalLine;
 }): StoreSheet {
   const { now } = input;
   const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -107,6 +111,7 @@ export function buildStoreSheet(input: {
     overdueCustomers: input.overdueCustomers,
     months,
     growthBp,
+    digital: input.digital,
   };
 }
 
@@ -126,6 +131,7 @@ export function storeSheetText(d: StoreSheet): string {
   out.push(`Dados de ${formatDate(d.firstSaleAt)} a ${formatDate(d.generatedAt)} (${d.periodDays} dias, ${d.activeDays} com vendas)`, '');
   out.push(`Vendas: ${formatKz(d.totalSalesCents)} em ${d.count} vendas (média de ${formatKz(d.avgDailyCents)} por dia)`);
   out.push(`Pagamentos electrónicos: ${Math.round(d.electronicShareBp / 100)}% das vendas`);
+  if (d.digital) out.push(digitalLineText(d.digital));
   if (d.profit) {
     out.push(
       `Lucro estimado: ${formatKz(d.profit.profitCents)} (margem de ${formatMargin(d.profit.marginBp)})${d.profit.partial ? ' — só dos produtos com preço de custo' : ''}`,

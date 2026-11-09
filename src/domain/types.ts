@@ -250,6 +250,11 @@ export interface Settings extends BaseRecord {
   cashFloatCents?: Cents;
   /** WhatsApp number of whoever runs the pilot (receives the pilot summary). Optional. */
   pilotPhone?: string;
+  /**
+   * Credit for stock (phase 4): minimum share of digital receipts the contract asks for, in basis
+   * points (4000 = 40%). None = no contract. In phase 4 it comes from the contract, not from the shop.
+   */
+  digitalMinShareBp?: number;
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;

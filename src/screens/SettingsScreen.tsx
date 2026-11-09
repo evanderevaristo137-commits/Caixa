@@ -14,6 +14,7 @@ import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
 import { CashFloatCard } from './settings/CashFloatCard';
 import { PilotCard } from './settings/PilotCard';
+import { DigitalMinCard } from './settings/DigitalMinCard';
 import { InvoicingCard } from './settings/InvoicingCard';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <CreditSettingsCard settings={settings} />
       <CashFloatCard key={`float-${store.db.name}`} settings={settings} />
+      <DigitalMinCard key={`digital-${store.db.name}`} settings={settings} />
       <InvoicingCard settings={settings} />
       <OwnerPinCard />
       <DataCard />

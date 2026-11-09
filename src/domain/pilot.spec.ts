@@ -55,6 +55,16 @@ describe('pilot summary', () => {
     );
   });
 
+  it('tells whether the digital payments alarm is on', () => {
+    const text = pilotText({ ...base, digital: { shareBp: 2100, minShareBp: 4000, alarm: true } });
+    expect(text).toContain(
+      'Pagamentos electrónicos (30 dias): 10%\nPagamentos digitais (7 dias completos): 21% · mínimo 40% · alarme: SIM\n',
+    );
+    expect(pilotText({ ...base, digital: { shareBp: 4500, alarm: false } })).toContain(
+      'Pagamentos digitais (7 dias completos): 45% · alarme: não',
+    );
+  });
+
   it('marks the demo so it is not counted, and copes with a new shop', () => {
     const text = pilotText({ ...base, demo: true, sales: [], firstUseAt: undefined, lastBackupAt: undefined });
     expect(text.startsWith('*DEMONSTRAÇÃO — dados fictícios, não contar no piloto*')).toBe(true);

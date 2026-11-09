@@ -6,6 +6,7 @@ import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatMargin } from '../../domain/profit';
 import { formatChange } from '../../domain/reports';
 import { buildStoreSheet, DEMO_NOTE, SHEET_NOTE, storeSheetText, type StoreSheet } from '../../domain/store-sheet';
+import { digitalStatus } from '../../domain/digital-watch';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { t } from '../../i18n/pt-AO';
 import { formatDate } from '../../lib/dates';
@@ -27,6 +28,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
       store.settings.get(),
       store.credit.book(now),
     ]);
+    const digital = digitalStatus(sales, payments, now, settings.digitalMinShareBp);
     return buildStoreSheet({
       storeName: settings.storeName,
       nif: settings.nif,
@@ -36,6 +38,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
       owedCents: totalOutstanding(book),
       overdueCustomers: creditAlerts(book).overdue.length,
       now,
+      digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
     });
   }, [store, mode]);
   const close = useRef(onClose);
@@ -94,6 +97,18 @@ function SheetBody({ sheet: d }: { sheet: StoreSheet }) {
             <Figure label={t.sheet.total} value={formatKz(d.totalSalesCents)} note={t.sheet.count(d.count)} />
             <Figure label={t.sheet.daily} value={formatKz(d.avgDailyCents)} />
             <Figure label={t.sheet.electronic} value={pct(d.electronicShareBp)} />
+            {d.digital && (
+              <Figure
+                label={t.sheet.digitalWeek}
+                value={pct(d.digital.shareBp)}
+                note={[
+                  d.digital.minShareBp !== undefined ? t.sheet.digitalMin(pct(d.digital.minShareBp)) : '',
+                  d.digital.alarm ? t.sheet.digitalAlarm : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
+            )}
             {d.profit && (
               <Figure
                 label={t.sheet.profit}

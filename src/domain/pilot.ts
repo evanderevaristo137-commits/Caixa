@@ -29,6 +29,20 @@ export interface PilotInput {
   expenses: number;
   purchases: number;
   lastBackupAt?: string;
+  /** Credit for stock: digital share of the last 7 complete days, the contract minimum and the alarm. */
+  digital?: DigitalLine;
+}
+
+export interface DigitalLine {
+  shareBp: number;
+  minShareBp?: number;
+  alarm: boolean;
+}
+
+/** "Pagamentos digitais (7 dias completos): 39% · mínimo 40% · alarme: sim" */
+export function digitalLineText(d: DigitalLine): string {
+  const min = d.minShareBp !== undefined ? ` · mínimo ${Math.round(d.minShareBp / 100)}%` : '';
+  return `Pagamentos digitais (7 dias completos): ${Math.round(d.shareBp / 100)}%${min} · alarme: ${d.alarm ? 'SIM' : 'não'}`;
 }
 
 interface Window {
@@ -68,6 +82,7 @@ export function pilotText(p: PilotInput): string {
   out.push(line('Últimos 7 dias', w7));
   out.push(line('Últimos 30 dias', w30));
   if (w30.count > 0) out.push(`Pagamentos electrónicos (30 dias): ${Math.round((w30.electronicCents * 100) / w30.salesCents)}%`);
+  if (p.digital) out.push(digitalLineText(p.digital));
   out.push(`Vendas anuladas (30 dias): ${w30.voided}`);
   out.push(`Clientes com dívida: ${p.customersOwing} · em dívida: ${formatKz(p.owedCents)} · em atraso: ${p.customersOverdue}`);
   out.push(`Produtos: ${p.products} (${p.productsWithCost} com preço de custo)`);

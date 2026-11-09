@@ -144,6 +144,17 @@ Os pagamentos electrónicos **não passam pela app**: a loja confirma que recebe
 - Devoluções (totais e parciais): como e em quanto tempo?
 - Comissões, prazos de liquidação na conta da loja e requisitos para a loja aderir.
 
+### Crédito para stock (fase 4): retenção e mínimo de pagamentos digitais
+
+O crédito para stock paga-se com uma **retenção** de uma parte de cada pagamento digital recebido pela loja. Para a loja não fugir à retenção cobrando em numerário, o contrato exige uma parte mínima de **recebimentos digitais** e a Caixa dá o alarme quando eles caem de repente. Regras actuais (a acertar com o banco e o prestador; código em `src/domain/digital-watch.ts`):
+
+- **Recebimentos** = vendas pagas na hora (numerário ou digital) + pagamentos de clientes a crédito. Digitais = QR KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay.
+- Medição: últimos **7 dias completos**, contra a média semanal das **4 semanas anteriores**.
+- **Alarme** quando: a parte digital fica abaixo do mínimo do contrato; ou os recebimentos digitais caem **40% ou mais** com o total a cair **menos de 25%**; ou a parte digital desce **15 pontos** ou mais.
+- Na fase 4 pedimos ao prestador os **totais diários de pagamentos digitais por loja** (sem dados dos clientes), para confirmar no servidor o que a app regista.
+
+Perguntas ao prestador e ao banco: a retenção pode ser feita pelo prestador na liquidação? Em que prazo chegam os totais diários? Que falhas de rede ou do prestador ficam registadas (para não penalizar a loja por quedas que não são culpa dela)?
+
 ## 4. Validação e registo na Caixa
 
 - **Auditoria:** cada alteração guarda quem/o quê/quando e o antes/depois (registo «Registo de alterações» na app).

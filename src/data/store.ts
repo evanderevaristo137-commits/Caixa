@@ -813,6 +813,7 @@ export class Store {
           | 'defaultTaxRateBp'
           | 'cashFloatCents'
           | 'pilotPhone'
+          | 'digitalMinShareBp'
         >
       >,
     ): Promise<Settings> =>
@@ -826,6 +827,12 @@ export class Store {
         }
         if ('phone' in input) after.phone = clean(input.phone);
         if ('pilotPhone' in input) after.pilotPhone = cleanShort(input.pilotPhone, 20);
+        if ('digitalMinShareBp' in input) {
+          const bp = input.digitalMinShareBp;
+          if (bp !== undefined && (!Number.isInteger(bp) || bp < 0 || bp > 10_000)) throw new DomainError('invalid_share');
+          if (bp) after.digitalMinShareBp = bp;
+          else delete after.digitalMinShareBp; // 0 or none = no contract minimum
+        }
         if ('nif' in input) {
           const nif = normaliseNif(input.nif);
           if (!nif.ok) throw new DomainError('invalid_nif');

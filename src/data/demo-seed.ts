@@ -440,6 +440,8 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
       creditTermDays: 15,
       creditLimitCents: 3_000_000,
       cashFloatCents: DEMO_FLOAT_CENTS,
+      // Example of a credit-for-stock contract: at least 40% of receipts in digital payments.
+      digitalMinShareBp: 4000,
       createdAt: at,
       updatedAt: at,
     });

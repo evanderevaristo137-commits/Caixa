@@ -104,6 +104,14 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       }
       const before = obj<Settings>(e.before);
       const after = obj<Settings>(e.after);
+      if (before.digitalMinShareBp !== after.digitalMinShareBp) {
+        return {
+          text: after.digitalMinShareBp
+            ? `Mínimo de pagamentos digitais (crédito para stock): ${Math.round(after.digitalMinShareBp / 100)}%`
+            : 'Mínimo de pagamentos digitais retirado',
+          important: true,
+        };
+      }
       if (before.cashFloatCents !== after.cashFloatCents) {
         return {
           text: after.cashFloatCents ? `Fundo de caixa: ${formatKz(after.cashFloatCents)}` : 'Sem fundo de caixa',

@@ -20,6 +20,8 @@ import { SalesList } from './SalesList';
 import { PaymentAlerts } from './PaymentAlerts';
 import { ProfitCard } from './ProfitCard';
 import { CashCard } from './CashCard';
+import { DigitalCard } from './DigitalCard';
+import { digitalStatus } from '../../domain/digital-watch';
 import { ReportsSheet } from './ReportsSheet';
 
 export default function TodayScreen() {
@@ -45,6 +47,12 @@ export default function TodayScreen() {
         store.supplierPayments.between(day.toISOString(), to),
         isToday ? store.payables.book(now) : Promise.resolve([]),
       ]);
+    // Credit for stock: digital receipts of the last 7 complete days against the 4 weeks before.
+    const watchFrom = addDays(day, -36).toISOString();
+    const [watchSales, watchPayments] = isToday
+      ? await Promise.all([store.sales.since(watchFrom), store.credit.paymentsBetween(watchFrom, to)])
+      : [[], []];
+    const digital = isToday ? digitalStatus(watchSales, watchPayments, now, settings.digitalMinShareBp) : undefined;
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
@@ -64,6 +72,7 @@ export default function TodayScreen() {
       offset,
       isToday,
       view,
+      digital,
       profit,
       outflows,
       drawer,
@@ -126,6 +135,7 @@ export default function TodayScreen() {
       {header}
 
       {isToday && <PaymentAlerts alerts={data.alerts} storeName={data.storeName} />}
+      {data.digital?.alarm && <DigitalCard status={data.digital} />}
 
       <Card className="bg-brand-700 text-white">
         <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>
@@ -179,6 +189,8 @@ export default function TodayScreen() {
       {(day.count > 0 || data.outflows.expensesCents > 0) && (
         <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
       )}
+
+      {data.digital && !data.digital.alarm && data.digital.minShareBp !== undefined && <DigitalCard status={data.digital} />}
 
       <CashCard
         drawer={data.drawer}
