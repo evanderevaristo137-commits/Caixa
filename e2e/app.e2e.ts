@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { kzToCents, nav, openDemo, openStore, sellInCash } from './helpers';
+import { simpleXlsx } from '../src/lib/test-xlsx';
 
 test('a 3-product sale gives a non-fiscal WhatsApp receipt', async ({ page }) => {
   await openDemo(page);
@@ -578,7 +579,7 @@ test('cost price gives the day profit; the app makes barcodes and prints labels'
   expect(decodeURIComponent(summary!)).toContain('Lucro estimado: 300 Kz (margem de 30%) — só dos produtos com preço de custo');
 
   await nav(page, 'Produtos');
-  await page.getByRole('button', { name: 'Etiquetas com código de barras' }).click();
+  await page.getByRole('button', { name: 'Imprimir etiquetas' }).click();
   await page.getByRole('button', { name: 'Gerar código para 1 produto sem código' }).click();
   await expect(page.getByText('1 código gerado.')).toBeVisible();
   await page.getByRole('button', { name: 'Mais uma cópia' }).click();
@@ -812,4 +813,41 @@ test('the shop accepts the terms before using its own data, and can read them an
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText('Termos de uso e privacidade aceites (versão 2026-11-09)')).toBeVisible();
+});
+
+test('a product list comes from Excel: first what will change, then everything at once', async ({ page }) => {
+  await openStore(page);
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: 'Importar do Excel' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Importar do Excel' });
+  const xlsx = await simpleXlsx([
+    ['Produto', 'Categoria', 'Código de barras', 'Vende-se por', 'Preço (Kz)', 'Preço de custo (Kz)', 'Stock', 'Stock mínimo'],
+    ['Bolacha Maria', 'Mercearia', '5601234567893', 'un', 500, 350, 24, 6],
+    ['Feijão a granel', 'Granel', '', 'kg', 1400, 1100, 12.5, 2],
+    ['Sumo 1 L', '', '', 'caixa', 1200, '', '', ''],
+  ]);
+  await sheet.locator('input[type=file]').setInputFiles({
+    name: 'produtos.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from(xlsx),
+  });
+  await expect(sheet).toContainText('2 produtos novos');
+  await expect(sheet).toContainText('Linha 4: «Vende-se por» deve ser un ou kg (está «caixa»)');
+  await sheet.getByRole('button', { name: 'Importar 2 produtos' }).click();
+  await expect(page.getByText('Importação feita: 2 novos, 0 actualizados.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Bolacha Maria.*24 em stock/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Feijão a granel.*12,5 kg em stock/ })).toBeVisible();
+
+  // A CSV saved by an old Excel (Windows encoding) changes a price; the stock stays as it is.
+  await page.getByRole('button', { name: 'Importar do Excel' }).click();
+  await sheet.locator('input[type=file]').setInputFiles({
+    name: 'precos.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Produto;Preço (Kz);Stock\r\nBolacha Maria;600;99\r\n', 'latin1'),
+  });
+  await expect(sheet).toContainText('1 a actualizar');
+  await expect(sheet).toContainText('preço 500 Kz → 600 Kz');
+  await expect(sheet).toContainText('A importação não muda o stock');
+  await sheet.getByRole('button', { name: 'Importar 1 produto' }).click();
+  await expect(page.getByRole('button', { name: /Bolacha Maria.*600 Kz.*24 em stock/ })).toBeVisible();
 });

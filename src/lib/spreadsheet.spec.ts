@@ -1,70 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { planImport } from '../domain/import-products';
 import { decodeText, readSpreadsheet, SpreadsheetError } from './spreadsheet';
+import { REL_NS, SHEET_NS, simpleXlsx, zipFiles } from './test-xlsx';
 
 const enc = new TextEncoder();
+const zip = zipFiles;
 
-async function deflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-function concat(parts: Uint8Array[]): Uint8Array {
-  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
-}
-
-/** A minimal ZIP writer, enough to build test .xlsx files (the reader ignores the CRC). */
-async function zip(files: Record<string, string>, compress: boolean): Promise<Uint8Array> {
-  const parts: Uint8Array[] = [];
-  const central: Uint8Array[] = [];
-  let offset = 0;
-  for (const [name, text] of Object.entries(files)) {
-    const raw = enc.encode(text);
-    const data = compress ? await deflateRaw(raw) : raw;
-    const nameBytes = enc.encode(name);
-    const local = new Uint8Array(30 + nameBytes.length);
-    const lv = new DataView(local.buffer);
-    lv.setUint32(0, 0x04034b50, true);
-    lv.setUint16(8, compress ? 8 : 0, true);
-    lv.setUint32(18, data.length, true);
-    lv.setUint32(22, raw.length, true);
-    lv.setUint16(26, nameBytes.length, true);
-    local.set(nameBytes, 30);
-    const entry = new Uint8Array(46 + nameBytes.length);
-    const cv = new DataView(entry.buffer);
-    cv.setUint32(0, 0x02014b50, true);
-    cv.setUint16(10, compress ? 8 : 0, true);
-    cv.setUint32(20, data.length, true);
-    cv.setUint32(24, raw.length, true);
-    cv.setUint16(28, nameBytes.length, true);
-    cv.setUint32(42, offset, true);
-    entry.set(nameBytes, 46);
-    parts.push(local, data);
-    central.push(entry);
-    offset += local.length + data.length;
-  }
-  const end = new Uint8Array(22);
-  const ev = new DataView(end.buffer);
-  ev.setUint32(0, 0x06054b50, true);
-  ev.setUint16(8, central.length, true);
-  ev.setUint16(10, central.length, true);
-  ev.setUint32(
-    12,
-    central.reduce((n, c) => n + c.length, 0),
-    true,
-  );
-  ev.setUint32(16, offset, true);
-  return concat([...parts, ...central, end]);
-}
-
-const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
-const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const NS = SHEET_NS;
+const REL = REL_NS;
 
 // As Excel writes them: shared strings, a hidden first sheet, numbers, a formula, rich text, sparse cells.
 const excelFiles = {
@@ -114,6 +57,21 @@ describe('reading Excel files (.xlsx)', () => {
     expect(await readSpreadsheet(await zip(files, false))).toEqual([
       { line: 1, cells: ['Produto', 'Preço'] },
       { line: 2, cells: ['Sal', '300'] },
+    ]);
+  });
+
+  it('reads the simple workbooks used by the end-to-end test', async () => {
+    expect(
+      await readSpreadsheet(
+        await simpleXlsx([
+          ['Produto', 'Preço (Kz)'],
+          ['Feijão & arroz', 12.5],
+          ['', ''],
+        ]),
+      ),
+    ).toEqual([
+      { line: 1, cells: ['Produto', 'Preço (Kz)'] },
+      { line: 2, cells: ['Feijão & arroz', '12.5'] },
     ]);
   });
 

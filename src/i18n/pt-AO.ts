@@ -271,7 +271,7 @@ export const t = {
     barcode: 'Código de barras (opcional)',
     stock: 'Stock inicial',
     minStock: 'Stock mínimo (avisar quando chegar a)',
-    empty: 'Ainda não há produtos. Toque em «Novo produto».',
+    empty: 'Ainda não há produtos. Junte um a um em «Novo produto», ou a lista inteira de uma folha do Excel.',
     invalidPrice: 'Preço inválido.',
     invalidNumber: 'Use um número inteiro.',
     nameRequired: 'Escreva o nome.',
@@ -496,6 +496,7 @@ export const t = {
   },
   labels: {
     title: 'Etiquetas com código de barras',
+    open: 'Imprimir etiquetas',
     hint: 'Imprima e cole nos produtos ou na prateleira. Os códigos criados pela app só funcionam dentro da sua loja.',
     generateMissing: (n: number) => (n === 1 ? 'Gerar código para 1 produto sem código' : `Gerar códigos para ${n} produtos sem código`),
     generated: (n: number) => (n === 1 ? '1 código gerado.' : `${n} códigos gerados.`),

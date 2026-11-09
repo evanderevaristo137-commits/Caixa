@@ -7,6 +7,7 @@ import { formatKz } from '../../lib/money';
 import { Button, Empty, normalise, Skeleton } from '../../ui/kit';
 import { ProductSheet } from './ProductSheet';
 import { LabelsSheet } from './LabelsSheet';
+import { ImportProductsSheet } from './ImportProductsSheet';
 import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
 
@@ -53,6 +54,7 @@ function ProductsList() {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | 'new' | null>(null);
   const [labels, setLabels] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const list = useMemo(() => {
     const q = normalise(query);
@@ -73,14 +75,30 @@ function ProductsList() {
         <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
       </div>
       {products && products.length > 0 && (
-        <Button variant="secondary" className="mb-3 w-full" onClick={() => setLabels(true)}>
-          {t.labels.title}
-        </Button>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <Button variant="secondary" className="text-sm" onClick={() => setImporting(true)}>
+            {t.importProducts.open}
+          </Button>
+          <Button variant="secondary" className="text-sm" onClick={() => setLabels(true)}>
+            {t.labels.open}
+          </Button>
+        </div>
       )}
       {!products ? (
         <Skeleton />
       ) : products.length === 0 ? (
-        <Empty action={<Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>}>{t.products.empty}</Empty>
+        <Empty
+          action={
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                {t.importProducts.open}
+              </Button>
+            </div>
+          }
+        >
+          {t.products.empty}
+        </Empty>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl bg-white shadow-sm">
           {list.map((p) => (
@@ -108,6 +126,7 @@ function ProductsList() {
       )}
       {open && <ProductSheet productId={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
       {labels && <LabelsSheet onClose={() => setLabels(false)} />}
+      {importing && <ImportProductsSheet onClose={() => setImporting(false)} />}
     </div>
   );
 }
