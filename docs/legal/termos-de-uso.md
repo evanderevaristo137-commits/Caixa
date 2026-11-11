@@ -1,6 +1,6 @@
 # Termos de uso da app Caixa
 
-Versão de 9 de Novembro de 2026. **Minuta para revisão por advogado.** Os campos entre [parênteses rectos] estão por preencher.
+Versão de 11 de Novembro de 2026. **Minuta para revisão por advogado.** Os campos entre [parênteses rectos] estão por preencher.
 
 ## 1. Quem somos
 
@@ -13,6 +13,7 @@ A app Caixa é disponibilizada por **[Nome da empresa]**, com sede em [morada], 
 - **Não movimenta dinheiro.** Os pagamentos (numerário, QR KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay) são apenas registados pela loja.
 - **Não empresta dinheiro.** O crédito para stock, quando existir, é concedido por um banco ou instituição autorizada pelo BNA, com contrato próprio (ver as «Condições do crédito para stock»).
 - O lucro, a margem e o resultado do dia são **estimativas** feitas a partir do que a loja regista. Não substituem a contabilidade.
+- **Não é o INSS e não recebe contribuições.** «A minha reforma (INSS)» ajuda a guardar dinheiro, a lembrar o pagamento e a registar o que a loja diz ter pago. O pagamento faz-se sempre ao INSS. O valor da reforma que a app mostra é uma **estimativa** com as regras que conhecemos: o que vale são as regras, os comprovativos e o extracto do INSS.
 
 ## 3. Aceitação
 

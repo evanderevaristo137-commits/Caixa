@@ -6,6 +6,7 @@ import type {
   CreditPayment,
   Customer,
   Expense,
+  InssContribution,
   Product,
   Purchase,
   Sale,
@@ -16,6 +17,7 @@ import type {
 } from './types';
 import { t } from '../i18n/pt-AO';
 import { formatDateString } from '../lib/dates';
+import { monthLong, monthlyCents } from './inss';
 
 export interface AuditLine {
   text: string;
@@ -127,7 +129,22 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       if (before.creditTermDays !== after.creditTermDays && after.creditTermDays) {
         return { text: `Prazo habitual para clientes: ${after.creditTermDays} dias`, important: false };
       }
+      if (JSON.stringify(before.inss) !== JSON.stringify(after.inss)) {
+        if (!after.inss) return { text: 'Reforma (INSS): deixou de acompanhar', important: true };
+        const wages = after.inss.wages === 1 ? '1 salário mínimo' : `${after.inss.wages} salários mínimos`;
+        const plan = `${wages}, ${formatKz(monthlyCents(after.inss))} por mês`;
+        return {
+          text: before.inss ? `Reforma (INSS): plano alterado — ${plan}` : `Reforma (INSS): começou a acompanhar — ${plan}`,
+          important: true,
+        };
+      }
       return { text: 'Dados da loja alterados', important: false };
+    }
+    case 'inss_contribution': {
+      const c = obj<InssContribution>(e.after);
+      const what = `${c.month ? monthLong(c.month) : '—'}, ${formatKz(c.amountCents ?? 0)}`;
+      if (e.action === 'voided') return { text: `Pagamento ao INSS anulado: ${what}. Motivo: ${c.voidReason ?? '—'}`, important: true };
+      return { text: `Pagamento ao INSS registado: ${what}${c.receipt ? ` (comprovativo ${c.receipt})` : ''}`, important: true };
     }
     case 'expense': {
       const x = obj<Expense>(e.after);

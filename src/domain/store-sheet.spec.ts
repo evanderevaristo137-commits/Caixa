@@ -78,6 +78,25 @@ describe('store sheet', () => {
     expect(sheet.profit).toBeUndefined();
   });
 
+  it('shows the INSS contributions the shop recorded, marked as its own record', () => {
+    const input = {
+      storeName: 'Loja',
+      demo: false,
+      sales: [sale(2026, 10, 10, 100_000)],
+      payments: [],
+      owedCents: 0,
+      overdueCustomers: 0,
+      now,
+    };
+    expect(storeSheetText(buildStoreSheet({ ...input, inss: { months: 14, streak: 13 } }))).toContain(
+      'INSS (registado pela loja): 14 meses pagos, 13 seguidos\n',
+    );
+    expect(storeSheetText(buildStoreSheet({ ...input, inss: { months: 1, streak: 1 } }))).toContain(
+      'INSS (registado pela loja): 1 mês pago\n',
+    );
+    expect(storeSheetText(buildStoreSheet(input))).not.toContain('INSS');
+  });
+
   it('says when there are no sales yet', () => {
     const sheet = buildStoreSheet({ storeName: 'Loja', demo: false, sales: [], payments: [], owedCents: 0, overdueCustomers: 0, now });
     expect(storeSheetText(sheet)).toContain('Ainda não há vendas registadas.');

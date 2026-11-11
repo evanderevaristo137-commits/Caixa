@@ -6,7 +6,7 @@ import piloto from '../../docs/legal/condicoes-do-piloto.md?raw';
 import credito from '../../docs/legal/condicoes-credito-stock.md?raw';
 
 /** Change it when the Terms of use or the Privacy policy change: the app asks for acceptance again. */
-export const TERMS_VERSION = '2026-11-09';
+export const TERMS_VERSION = '2026-11-11';
 
 export type LegalDocId = 'termos' | 'privacidade' | 'piloto' | 'credito';
 

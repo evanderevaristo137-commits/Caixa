@@ -7,6 +7,7 @@ import { formatMargin } from '../../domain/profit';
 import { formatChange } from '../../domain/reports';
 import { buildStoreSheet, DEMO_NOTE, SHEET_NOTE, storeSheetText, type StoreSheet } from '../../domain/store-sheet';
 import { digitalStatus } from '../../domain/digital-watch';
+import { inssStatus } from '../../domain/inss';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { t } from '../../i18n/pt-AO';
 import { formatDate } from '../../lib/dates';
@@ -22,12 +23,15 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
   const sheet = useLoaded(async () => {
     const now = new Date();
     const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString();
-    const [sales, payments, settings, book] = await Promise.all([
+    const [sales, payments, settings, book, contributions] = await Promise.all([
       store.sales.since(windowStart),
       store.credit.paymentsBetween(windowStart, new Date(now.getTime() + 60_000).toISOString()),
       store.settings.get(),
       store.credit.book(now),
+      store.inss.list(),
     ]);
+    // The owner's INSS record goes on the sheet once there is something to show.
+    const inss = settings.inss ? inssStatus(settings.inss, contributions, now) : undefined;
     const digital = digitalStatus(sales, payments, now, settings.digitalMinShareBp);
     return buildStoreSheet({
       storeName: settings.storeName,
@@ -39,6 +43,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
       overdueCustomers: creditAlerts(book).overdue.length,
       now,
       digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
+      inss: inss && inss.totalMonths > 0 ? { months: inss.totalMonths, streak: inss.streak } : undefined,
     });
   }, [store, mode]);
   const close = useRef(onClose);
@@ -107,6 +112,13 @@ function SheetBody({ sheet: d }: { sheet: StoreSheet }) {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
+              />
+            )}
+            {d.inss && (
+              <Figure
+                label={t.sheet.inss}
+                value={t.inss.months(d.inss.months)}
+                note={d.inss.streak > 1 ? t.inss.streak(d.inss.streak) : ''}
               />
             )}
             {d.profit && (

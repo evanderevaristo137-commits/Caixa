@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DomainError } from '../../data/store';
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '../../domain/types';
@@ -11,6 +12,9 @@ const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000];
 /** Records money going out: an expense (transport, rent, generator…) or the owner's withdrawal. */
 export function ExpenseSheet({ onClose }: { onClose: () => void }) {
   const { store, showToast } = useApp();
+  // Setting money aside for the INSS is only offered to those who follow it in the app.
+  const withInss = useLiveQuery(() => store.settings.get().then((x) => !!x.inss), [store]);
+  const categories = EXPENSE_CATEGORIES.filter((c) => c !== 'inss' || withInss);
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [amount, setAmount] = useState('');
   const [fromCash, setFromCash] = useState(true);
@@ -46,7 +50,7 @@ export function ExpenseSheet({ onClose }: { onClose: () => void }) {
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-700">{t.expenses.category}</p>
           <div className="grid grid-cols-3 gap-2" role="group" aria-label={t.expenses.category}>
-            {EXPENSE_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -62,8 +66,10 @@ export function ExpenseSheet({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           {error?.field === 'category' && <p className="mt-1 text-sm font-medium text-red-700">{error.msg}</p>}
-          {category === 'withdrawal' && (
-            <p className="mt-2 rounded-lg bg-slate-100 p-2 text-sm text-slate-700">{t.expenses.withdrawalHint}</p>
+          {(category === 'withdrawal' || category === 'inss') && (
+            <p className="mt-2 rounded-lg bg-slate-100 p-2 text-sm text-slate-700">
+              {category === 'inss' ? t.expenses.inssHint : t.expenses.withdrawalHint}
+            </p>
           )}
         </div>
         <Field

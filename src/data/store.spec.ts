@@ -3,6 +3,7 @@ import { CaixaDB } from './db';
 import { DomainError, Store } from './store';
 import { addToCart, setWeightLine } from '../domain/cart';
 import { creditStatus } from '../domain/credit';
+import { summariseOutflows } from '../domain/cash';
 import { parseCsv, planImport } from '../domain/import-products';
 
 let db: CaixaDB;
@@ -697,5 +698,111 @@ describe('Store: stock count', () => {
       (e) => code(e) === 'invalid_quantity',
     );
     expect((await store.products.get(a.id))!.stock).toBe(5);
+  });
+});
+
+describe('Store: the owner retirement plan (INSS)', () => {
+  const start = new Date(2026, 10, 11, 10, 0); // 11 November 2026
+  let tick = 0;
+  const clock = () => new Date(start.getTime() + tick++ * 1000);
+
+  it('starts, changes and stops the plan, keeping the month it started', async () => {
+    let now = start;
+    const st = new Store(db, () => now);
+    await st.settings.save({ storeName: 'Cantina Exemplo' });
+    const started = await st.inss.savePlan({ wages: 1, modality: 'normal', birthYear: 1981, number: ' 0012345 ', monthsBefore: 0 });
+    expect(started.inss).toEqual({ wages: 1, modality: 'normal', startMonth: '2026-11', birthYear: 1981, number: '0012345' });
+    now = new Date(2027, 0, 5, 9, 0);
+    const changed = await st.inss.savePlan({ wages: 2, modality: 'extended', monthsBefore: 24 });
+    expect(changed.inss).toEqual({ wages: 2, modality: 'extended', startMonth: '2026-11', monthsBefore: 24 });
+    await expect(st.inss.savePlan({ wages: 0, modality: 'normal' })).rejects.toSatisfy((e) => code(e) === 'invalid_wages');
+    await expect(st.inss.savePlan({ wages: 1, modality: 'normal', birthYear: 2020 })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_birth_year',
+    );
+    const stopped = await st.inss.savePlan(null);
+    expect(stopped.inss).toBeUndefined();
+    expect(stopped.storeName).toBe('Cantina Exemplo');
+  });
+
+  it('sets money aside (not an expense), uses it to pay, and undoes a payment cleanly', async () => {
+    const st = new Store(db, clock);
+    await expect(st.inss.pay({ month: '2026-10', amountCents: 800_000 })).rejects.toSatisfy((e) => code(e) === 'no_plan');
+    await st.inss.savePlan({ wages: 1, modality: 'normal' });
+    const firstSaving = await st.expenses.create({ category: 'inss', amountCents: 500_000, fromCash: true });
+    await st.expenses.create({ category: 'inss', amountCents: 60_000, fromCash: false });
+    expect(await st.inss.saved()).toBe(560_000);
+    expect(summariseOutflows(await st.expenses.list())).toMatchObject({ expensesCents: 0, inssCents: 560_000, cashOutCents: 500_000 });
+
+    // Not more than what is set aside.
+    await expect(st.inss.pay({ month: '2026-10', amountCents: 800_000, fromSavedCents: 800_000 })).rejects.toSatisfy(
+      (e) => code(e) === 'not_saved',
+    );
+    // October: 5.600 Kz from what was set aside and 2.400 Kz straight from the till.
+    const paid = await st.inss.pay({
+      month: '2026-10',
+      amountCents: 800_000,
+      receipt: ' REF 123 ',
+      fromSavedCents: 560_000,
+      fromCashCents: 240_000,
+    });
+    expect(paid).toMatchObject({
+      month: '2026-10',
+      amountCents: 800_000,
+      baseCents: 10_000_000,
+      paidOn: '2026-11-11',
+      receipt: 'REF 123',
+      savedUsedCents: 800_000,
+    });
+    expect(await st.inss.saved()).toBe(0);
+    const fromTill = (await st.expenses.list()).find((e) => e.id === paid.expenseId)!;
+    expect(fromTill).toMatchObject({
+      category: 'inss',
+      amountCents: 240_000,
+      fromCash: true,
+      note: 'Pagamento ao INSS de Outubro de 2026',
+    });
+    expect(summariseOutflows(await st.expenses.list()).cashOutCents).toBe(740_000);
+
+    const refuses = (input: Parameters<typeof st.inss.pay>[0], why: string) =>
+      expect(st.inss.pay(input)).rejects.toSatisfy((e) => code(e) === why);
+    await refuses({ month: '2026-10', amountCents: 800_000 }, 'duplicate_month');
+    await refuses({ month: '2026-12', amountCents: 800_000 }, 'invalid_month');
+    await refuses({ month: '2026-09', amountCents: 0 }, 'invalid_amount');
+    await refuses({ month: '2026-09', amountCents: 800_000, fromCashCents: 900_000 }, 'invalid_source');
+    await refuses({ month: '2026-09', amountCents: 800_000, paidOn: '2026-11-12' }, 'invalid_date');
+
+    // Money a payment already used cannot be voided on its own.
+    await expect(st.expenses.void(firstSaving.id, 'Engano')).rejects.toSatisfy((e) => code(e) === 'inss_used');
+    await expect(st.inss.void(paid.id, '')).rejects.toSatisfy((e) => code(e) === 'reason_required');
+    // Voiding the payment gives the money back and voids the outflow recorded with it.
+    const voided = await st.inss.void(paid.id, 'Mês errado');
+    expect(voided.voidReason).toBe('Mês errado');
+    expect(await st.inss.saved()).toBe(560_000);
+    expect((await st.expenses.list()).find((e) => e.id === paid.expenseId)!.voidedAt).toBeDefined();
+    await st.expenses.void(firstSaving.id, 'Engano');
+    expect(await st.inss.saved()).toBe(60_000);
+
+    // The month can be recorded again, this time paid from elsewhere: what is set aside stays.
+    await st.inss.pay({ month: '2026-10', amountCents: 800_000, paidOn: '2026-11-09' });
+    expect(await st.inss.saved()).toBe(60_000);
+    expect((await st.inss.list()).map((c) => [c.month, c.paidOn, !!c.voidedAt])).toEqual([
+      ['2026-10', '2026-11-09', false],
+      ['2026-10', '2026-11-11', true],
+    ]);
+    const log = (await st.auditLog.list()).filter((a) => a.entity === 'inss_contribution').map((a) => a.action);
+    expect(log.sort()).toEqual(['created', 'created', 'voided']);
+  });
+
+  it('upgrades a version 5 database and keeps its data', async () => {
+    const { default: Dexie } = await import('dexie');
+    const name = `test-upgrade-${n++}`;
+    const old = new Dexie(name);
+    old.version(5).stores({ expenses: 'id, createdAt, category, updatedAt', settings: 'id' });
+    await old.table('expenses').add({ id: 'e1', category: 'rent', amountCents: 100, fromCash: true, createdAt: '', updatedAt: '' });
+    old.close();
+    const upgraded = new CaixaDB(name);
+    expect(await upgraded.expenses.count()).toBe(1);
+    expect(await new Store(upgraded).inss.list()).toEqual([]);
+    await upgraded.delete();
   });
 });

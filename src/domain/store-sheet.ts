@@ -46,6 +46,19 @@ export interface StoreSheet {
   growthBp?: number;
   /** Credit for stock: digital share of the last 7 complete days, the contract minimum and the alarm. */
   digital?: DigitalLine;
+  /** The owner's INSS contributions as recorded by the shop (not checked with the INSS). */
+  inss?: InssLine;
+}
+
+export interface InssLine {
+  months: number;
+  streak: number;
+}
+
+/** "INSS (registado pela loja): 14 meses pagos, 13 seguidos" */
+export function inssLineText(i: InssLine): string {
+  const months = i.months === 1 ? '1 mês pago' : `${i.months} meses pagos`;
+  return `INSS (registado pela loja): ${months}${i.streak > 1 ? `, ${i.streak} seguidos` : ''}`;
 }
 
 export function buildStoreSheet(input: {
@@ -58,6 +71,7 @@ export function buildStoreSheet(input: {
   overdueCustomers: number;
   now: Date;
   digital?: DigitalLine;
+  inss?: InssLine;
 }): StoreSheet {
   const { now } = input;
   const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -112,6 +126,7 @@ export function buildStoreSheet(input: {
     months,
     growthBp,
     digital: input.digital,
+    inss: input.inss,
   };
 }
 
@@ -144,6 +159,7 @@ export function storeSheetText(d: StoreSheet): string {
   out.push(
     `Em dívida hoje: ${formatKz(d.owedCents)}${d.overdueCustomers ? ` · ${d.overdueCustomers === 1 ? '1 cliente' : `${d.overdueCustomers} clientes`} em atraso` : ''}`,
   );
+  if (d.inss) out.push(inssLineText(d.inss));
   out.push('', 'Por mês:');
   for (const m of d.months) out.push(`• ${m.label}: ${formatKz(m.salesCents)} (${m.count === 1 ? '1 venda' : `${m.count} vendas`})`);
   out.push('', SHEET_NOTE);

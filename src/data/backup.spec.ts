@@ -86,6 +86,26 @@ describe('backups and the tables added later', () => {
     expect(await db.expenses.count()).toBe(1);
     expect(await db.cashCloses.count()).toBe(1);
   });
+
+  it('carries the INSS plan and contributions, and still reads backups made before they existed', async () => {
+    const db = newDb('test-bk-inss');
+    const store = new Store(db, () => new Date(2026, 10, 11, 10, 0));
+    await store.inss.savePlan({ wages: 1, modality: 'normal', birthYear: 1981 });
+    await store.inss.pay({ month: '2026-10', amountCents: 800_000, receipt: 'REF 1' });
+    const backup = await exportBackup(db);
+    expect(backup.data.inssContributions).toHaveLength(1);
+
+    const other = newDb('test-bk-inss-2');
+    await importBackup(other, JSON.parse(JSON.stringify(backup)));
+    expect((await new Store(other).settings.get()).inss).toMatchObject({ wages: 1, startMonth: '2026-11' });
+    expect((await new Store(other).inss.list())[0]).toMatchObject({ month: '2026-10', receipt: 'REF 1' });
+
+    const old = JSON.parse(JSON.stringify(backup));
+    delete old.data.inssContributions;
+    expect(validateBackup(old)).toBeNull();
+    await importBackup(other, old);
+    expect(await other.inssContributions.count()).toBe(0);
+  });
 });
 
 describe('CSV', () => {

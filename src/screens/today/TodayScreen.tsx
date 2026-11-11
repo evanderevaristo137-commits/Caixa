@@ -24,6 +24,7 @@ import { CashCard } from './CashCard';
 import { DigitalCard } from './DigitalCard';
 import { digitalStatus } from '../../domain/digital-watch';
 import { ReportsSheet } from './ReportsSheet';
+import { InssCard } from '../inss/InssCard';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -260,6 +261,7 @@ export default function TodayScreen() {
               </Card>
             </button>
           )}
+          <InssCard />
           <Card>
             <h2 className="mb-2 font-bold">{t.today.lowStock}</h2>
             {data.lowStock.length === 0 ? (

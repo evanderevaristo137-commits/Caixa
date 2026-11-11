@@ -19,6 +19,23 @@ export interface DigitalAlertInfo {
   minShareBp?: number;
 }
 
+/** Last month's INSS contribution, when the owner follows the INSS and has not recorded it as paid. */
+export interface InssAlert {
+  /** Month name ("Outubro"). */
+  label: string;
+  /** "YYYY-MM-DD": the last day to pay, and the days between which the phone reminds. */
+  dueDate: string;
+  from: string;
+  until: string;
+}
+
+function inssText(inss: InssAlert | null, today: string): string {
+  if (!inss || today < inss.from || today > inss.until) return '';
+  if (today < inss.dueDate) return `pagar a contribuição de ${inss.label} até dia ${Number(inss.dueDate.slice(8, 10))}`;
+  if (today === inss.dueDate) return `a contribuição de ${inss.label} vence hoje`;
+  return `contribuição de ${inss.label} em atraso`;
+}
+
 export interface DailyAlert {
   title: string;
   body: string;
@@ -42,11 +59,17 @@ function dueText(items: DueItem[], today: string): string {
 
 /**
  * The one notification of the day, from what the app prepared: customers' and suppliers'
- * payments by due date, and the digital payments alarm (trusted only when it was computed
- * today or yesterday). public/sw-alerts.js builds the same text with the app closed;
- * a test checks that both always say the same.
+ * payments by due date, the digital payments alarm (trusted only when it was computed
+ * today or yesterday) and the owner's INSS contribution around its due date.
+ * public/sw-alerts.js builds the same text with the app closed; a test checks that both always say the same.
  */
-export function dailyAlert(today: string, credit: DueItem[], suppliers: DueItem[], digital: DigitalAlertInfo | null): DailyAlert | null {
+export function dailyAlert(
+  today: string,
+  credit: DueItem[],
+  suppliers: DueItem[],
+  digital: DigitalAlertInfo | null,
+  inss: InssAlert | null = null,
+): DailyAlert | null {
   const sections: { title: string; label: string; text: string; hash: string }[] = [];
   const customers = dueText(credit, today);
   if (customers) sections.push({ title: 'Pagamentos de clientes', label: 'Clientes', text: customers, hash: '#/credit' });
@@ -60,6 +83,8 @@ export function dailyAlert(today: string, credit: DueItem[], suppliers: DueItem[
         : `desceram muito nos últimos 7 dias: ${pct(digital.shareBp)} dos recebimentos`;
     sections.push({ title: 'Pagamentos digitais', label: 'Pagamentos digitais', text, hash: '#/today' });
   }
+  const retirement = inssText(inss, today);
+  if (retirement) sections.push({ title: 'A minha reforma (INSS)', label: 'INSS', text: retirement, hash: '#/today' });
   if (sections.length === 0) return null;
   if (sections.length === 1) {
     const only = sections[0]!;

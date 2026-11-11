@@ -15,7 +15,7 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
   // 7 complete days and the 4 weeks before them, for the digital payments alarm.
   const watchFrom = addDays(startOfLocalDay(now), -36).toISOString();
   const until = addDays(now, 1).toISOString();
-  const [settings, device, firstSale, allProducts, sales, book, products, closes, expenses, purchases, backupAt, payments] =
+  const [settings, device, firstSale, allProducts, sales, book, products, closes, expenses, purchases, backupAt, payments, inss] =
     await Promise.all([
       store.settings.get(),
       store.db.meta.get('deviceId'),
@@ -29,6 +29,7 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
       store.purchases.between(from, until),
       lastBackupAt(store.db),
       store.credit.paymentsBetween(watchFrom, until),
+      store.inss.list(),
     ]);
   const digital = digitalStatus(sales, payments, now, settings.digitalMinShareBp);
   const firsts = [firstSale?.createdAt, ...allProducts.map((p) => p.createdAt)].filter((x): x is string => !!x).sort();
@@ -51,5 +52,6 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
     purchases: purchases.filter((p) => !p.voidedAt).length,
     lastBackupAt: backupAt,
     digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
+    inssMonths: settings.inss ? inss.filter((c) => !c.voidedAt).length : undefined,
   });
 }

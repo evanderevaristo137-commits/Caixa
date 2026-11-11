@@ -31,6 +31,8 @@ export interface PilotInput {
   lastBackupAt?: string;
   /** Credit for stock: digital share of the last 7 complete days, the contract minimum and the alarm. */
   digital?: DigitalLine;
+  /** The owner's INSS plan: payments recorded in the app (none = the shop does not use it). Never the number or the amounts. */
+  inssMonths?: number;
 }
 
 export interface DigitalLine {
@@ -88,6 +90,9 @@ export function pilotText(p: PilotInput): string {
   out.push(`Produtos: ${p.products} (${p.productsWithCost} com preço de custo)`);
   out.push(
     `Também usou (30 dias): ${plural(p.closes, 'fecho do dia', 'fechos do dia')} · ${plural(p.expenses, 'saída', 'saídas')} · ${plural(p.purchases, 'compra', 'compras')}`,
+  );
+  out.push(
+    `Reforma (INSS): ${p.inssMonths === undefined ? 'não usa' : `acompanha na app · ${plural(p.inssMonths, 'pagamento registado', 'pagamentos registados')}`}`,
   );
   out.push(`Última cópia de segurança: ${p.lastBackupAt ? formatDate(p.lastBackupAt) : 'nenhuma'}`);
   out.push('', 'Só números da loja: nenhum nome nem telefone de clientes.');

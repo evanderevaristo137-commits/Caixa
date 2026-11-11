@@ -142,7 +142,14 @@ describe('daySummaryText', () => {
   it('adds money out, the float and the end-of-day count', () => {
     const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
     const text = daySummaryText('Loja', 'Hoje', view, {
-      outflows: { expensesCents: 150_000, withdrawalsCents: 2_000_000, cashOutCents: 2_150_000, byCategory: {}, count: 2 },
+      outflows: {
+        expensesCents: 150_000,
+        withdrawalsCents: 2_000_000,
+        inssCents: 27_000,
+        cashOutCents: 2_177_000,
+        byCategory: {},
+        count: 3,
+      },
       drawer: {
         floatCents: 500_000,
         cashSalesCents: 0,
@@ -163,7 +170,7 @@ describe('daySummaryText', () => {
       },
     });
     expect(text).toContain(
-      'Despesas: 1.500 Kz\nRetiradas do dono: 20.000 Kz\nDinheiro que devia estar na caixa: 5.000 Kz\nFecho: contou 4.800 Kz — faltam 200 Kz',
+      'Despesas: 1.500 Kz\nRetiradas do dono: 20.000 Kz\nGuardado para o INSS: 270 Kz\nDinheiro que devia estar na caixa: 5.000 Kz\nFecho: contou 4.800 Kz — faltam 200 Kz',
     );
   });
 });

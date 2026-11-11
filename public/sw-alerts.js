@@ -2,7 +2,7 @@
  * Reminders for the shopkeeper, run by Android in the background (Periodic Background Sync),
  * even when the app is closed. Loaded into the service worker with importScripts.
  * It only READS what the app prepared in the real shop's database (meta keys "creditAlertItems",
- * "supplierAlertItems" and "digitalAlert", see src/data/background-alerts.ts) and shows at most
+ * "supplierAlertItems", "digitalAlert" and "inssAlert", see src/data/background-alerts.ts) and shows at most
  * one notification per day. Nothing leaves the phone.
  * caixaDailyAlert must say exactly what dailyAlert in src/domain/alerts.ts says (a test compares them).
  * Texts are in Portuguese here because this file is not part of the app bundle.
@@ -58,8 +58,15 @@ function caixaDueText(items, today) {
   return parts.join(' · ');
 }
 
+function caixaInssText(inss, today) {
+  if (!inss || today < inss.from || today > inss.until) return '';
+  if (today < inss.dueDate) return 'pagar a contribuição de ' + inss.label + ' até dia ' + Number(inss.dueDate.slice(8, 10));
+  if (today === inss.dueDate) return 'a contribuição de ' + inss.label + ' vence hoje';
+  return 'contribuição de ' + inss.label + ' em atraso';
+}
+
 /** The one notification of the day, or null. Same rules as dailyAlert in src/domain/alerts.ts. */
-function caixaDailyAlert(today, credit, suppliers, digital) {
+function caixaDailyAlert(today, credit, suppliers, digital, inss) {
   const sections = [];
   const customers = caixaDueText(credit, today);
   if (customers) sections.push({ title: 'Pagamentos de clientes', label: 'Clientes', text: customers, hash: '#/credit' });
@@ -73,6 +80,8 @@ function caixaDailyAlert(today, credit, suppliers, digital) {
         : 'desceram muito nos últimos 7 dias: ' + caixaPct(digital.shareBp) + ' dos recebimentos';
     sections.push({ title: 'Pagamentos digitais', label: 'Pagamentos digitais', text: text, hash: '#/today' });
   }
+  const retirement = caixaInssText(inss, today);
+  if (retirement) sections.push({ title: 'A minha reforma (INSS)', label: 'INSS', text: retirement, hash: '#/today' });
   if (sections.length === 0) return null;
   if (sections.length === 1) {
     const only = sections[0];
@@ -105,7 +114,8 @@ async function caixaCheckAndNotify(force) {
     const credit = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('creditAlertItems')), []);
     const suppliers = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('supplierAlertItems')), []);
     const digital = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('digitalAlert')), null);
-    const alert = caixaDailyAlert(today, credit, suppliers, digital);
+    const inss = caixaParse(await caixaMeta(db, 'readonly', (s) => s.get('inssAlert')), null);
+    const alert = caixaDailyAlert(today, credit, suppliers, digital, inss);
     if (!alert) return;
     await self.registration.showNotification(alert.title, {
       body: alert.body,

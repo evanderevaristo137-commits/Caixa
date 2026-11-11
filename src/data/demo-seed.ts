@@ -3,6 +3,8 @@ import type {
   CreditPayment,
   Customer,
   Expense,
+  InssContribution,
+  InssPlan,
   PaymentMethod,
   Product,
   Purchase,
@@ -16,6 +18,7 @@ import { tillPurchasesCents } from './store';
 import { closeResult, drawer, summariseOutflows } from '../domain/cash';
 import { CURRENCY } from '../domain/types';
 import { openItems } from '../domain/credit';
+import { addMonths, baseCents, dailyCents, INSS_RULES, monthlyCents, monthOf } from '../domain/inss';
 import { lineTotalFor } from '../domain/quantity';
 import { addDays, addDaysToDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import { uuid } from '../lib/ids';
@@ -128,7 +131,7 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 2;
+export const DEMO_VERSION = 3;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -144,6 +147,9 @@ export interface DemoData {
   suppliers: Supplier[];
   purchases: Purchase[];
   supplierPayments: SupplierPayment[];
+  /** Dona Teresa follows her INSS in the app: 45 years old, one minimum wage, paying for over a year. */
+  inssPlan: InssPlan;
+  inssContributions: InssContribution[];
 }
 
 // Fictitious suppliers (same WhatsApp test number as the customers). Drinks and bread have their own.
@@ -360,6 +366,29 @@ export function buildDemoData(now: Date): DemoData {
   }
   addExpense(2, 10, 'rent', 30_000, false, 'Renda do mês');
 
+  // The owner's retirement: a little set aside every evening, and the INSS paid every month for over a year.
+  // Until day 10 last month is still to pay (to show the reminder); after it, it was paid on the 8th.
+  const inssPlan: InssPlan = { wages: 1, modality: 'normal', startMonth: addMonths(monthOf(now), -14), birthYear: now.getFullYear() - 45 };
+  const monthly = monthlyCents(inssPlan);
+  for (let day = 0; day <= 14; day++) addExpense(day, 19, 'inss', dailyCents(monthly) / 100, true);
+  const lastPaid = addMonths(monthOf(now), now.getDate() > INSS_RULES.dueDay ? -1 : -2);
+  const inssContributions: InssContribution[] = [];
+  for (let m = inssPlan.startMonth; m <= lastPaid; m = addMonths(m, 1)) {
+    const paidOn = `${addMonths(m, 1)}-08`;
+    const at = iso(new Date(`${paidOn}T10:00:00`));
+    inssContributions.push({
+      id: uuid(),
+      month: m,
+      amountCents: monthly,
+      baseCents: baseCents(inssPlan),
+      paidOn,
+      receipt: `TESTE-${m}`,
+      savedUsedCents: 0,
+      createdAt: at,
+      updatedAt: at,
+    });
+  }
+
   // End-of-day counts for the past days: mostly right, sometimes a little over or short.
   const closes: CashClose[] = [];
   const differences = [0, 0, -20_000, 0, 10_000, 0, 0, -50_000, 0, 0, 0, 20_000, 0, -10_000];
@@ -439,7 +468,20 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
 
-  return { products, customers, sales, payments, movements, expenses, closes, suppliers, purchases, supplierPayments };
+  return {
+    products,
+    customers,
+    sales,
+    payments,
+    movements,
+    expenses,
+    closes,
+    suppliers,
+    purchases,
+    supplierPayments,
+    inssPlan,
+    inssContributions,
+  };
 }
 
 /** Wipes the demo database and fills it again. Only ever called on the demo database. */
@@ -461,11 +503,13 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.suppliers.bulkAdd(data.suppliers);
     await db.purchases.bulkAdd(data.purchases);
     await db.supplierPayments.bulkAdd(data.supplierPayments);
+    await db.inssContributions.bulkAdd(data.inssContributions);
     await db.meta.put({ key: 'purchaseNumber', value: data.purchases.length });
     await db.settings.put({
       id: SETTINGS_ID,
       storeName: DEMO_STORE_NAME,
       phone: '923 000 000',
+      inss: data.inssPlan,
       creditTermDays: 15,
       creditLimitCents: 3_000_000,
       cashFloatCents: DEMO_FLOAT_CENTS,

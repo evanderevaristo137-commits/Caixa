@@ -1,6 +1,6 @@
 # Termos e condições da Caixa
 
-**Minutas** em linguagem simples, para rever com um advogado angolano antes de as usar com lojas reais. Versão de 9 de Novembro de 2026.
+**Minutas** em linguagem simples, para rever com um advogado angolano antes de as usar com lojas reais. Os Termos de uso e a Política de privacidade são de 11 de Novembro de 2026 (passaram a falar de «A minha reforma (INSS)»); os outros dois documentos são de 9 de Novembro de 2026.
 
 | Documento                                                     | Para quê                                                           | Na app                                           |
 | ------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
@@ -18,9 +18,11 @@ A app mostra estes mesmos ficheiros (sem internet). Quando os Termos de uso ou a
 - Número de lojas e duração do piloto; apoio oferecido.
 - Crédito para stock: percentagem de retenção, mínimo digital, prazos, consequências de incumprimento (a acertar com o banco).
 - Tribunal competente.
+- «A minha reforma (INSS)»: confirmar com o INSS as regras usadas na app (as perguntas estão em [docs/INSS.md](../INSS.md)).
 
 ## A confirmar pelo advogado
 
 - Referências à Lei n.º 22/11, de 17 de Junho (protecção de dados pessoais), e às obrigações perante a Agência de Protecção de Dados.
 - Regras de defesa do consumidor e de contratos à distância aplicáveis a uma app gratuita.
 - Enquadramento do crédito e da retenção junto do BNA (responsabilidade do banco e do prestador de pagamentos).
+- «A minha reforma (INSS)»: se ajudar a guardar dinheiro e registar contribuições (sem receber nem mover dinheiro) cria alguma obrigação, e que avisos são precisos para a estimativa da reforma não ser tomada como promessa.

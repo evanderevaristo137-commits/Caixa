@@ -48,6 +48,7 @@ describe('pilot summary', () => {
         'Clientes com dívida: 2 · em dívida: 2.500 Kz · em atraso: 1',
         'Produtos: 33 (30 com preço de custo)',
         'Também usou (30 dias): 12 fechos do dia · 1 saída · 3 compras',
+        'Reforma (INSS): não usa',
         'Última cópia de segurança: 05/11/2026',
         '',
         'Só números da loja: nenhum nome nem telefone de clientes.',
@@ -63,6 +64,11 @@ describe('pilot summary', () => {
     expect(pilotText({ ...base, digital: { shareBp: 4500, alarm: false } })).toContain(
       'Pagamentos digitais (7 dias completos): 45% · alarme: não',
     );
+  });
+
+  it('says whether the owner follows the INSS in the app, with a count only', () => {
+    expect(pilotText({ ...base, inssMonths: 3 })).toContain('Reforma (INSS): acompanha na app · 3 pagamentos registados\n');
+    expect(pilotText({ ...base, inssMonths: 1 })).toContain('Reforma (INSS): acompanha na app · 1 pagamento registado\n');
   });
 
   it('marks the demo so it is not counted, and copes with a new shop', () => {

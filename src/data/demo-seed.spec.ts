@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDemoData, DEMO_VERSION, ensureFreshDemo, seedDemo } from './demo-seed';
 import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
+import { inssStatus, savedCents } from '../domain/inss';
 import { payablesBook } from '../domain/payables';
 import { lowStockProducts, summariseDayView } from '../domain/today';
 import { CaixaDB } from './db';
@@ -102,6 +103,48 @@ describe('demo data', () => {
       method: 'cash',
     });
     expect(sale.number).toBe(d.sales.length + 1);
+    await db.delete();
+  });
+});
+
+describe('demo: the owner retirement (INSS)', () => {
+  const d = buildDemoData(now);
+
+  it('follows the INSS for over a year, sets a little aside every evening and shows the reminder before day 10', () => {
+    // 6 November: October is still to pay, on time.
+    expect(d.inssPlan).toEqual({ wages: 1, modality: 'normal', startMonth: '2025-09', birthYear: 1981 });
+    expect(inssStatus(d.inssPlan, d.inssContributions, now)).toMatchObject({
+      paidMonths: 13,
+      streak: 13,
+      overdue: [],
+      pending: { month: '2026-10', dueDate: '2026-11-10', daysLeft: 4 },
+    });
+    // 270 Kz on each of the 14 past evenings (today's is left for the visit).
+    expect(savedCents(d.expenses, d.inssContributions)).toBe(14 * 27_000);
+    // 11 November: October was paid on the 8th and nothing is due.
+    const later = new Date(2026, 10, 11, 16, 0);
+    const after = buildDemoData(later);
+    expect(inssStatus(after.inssPlan, after.inssContributions, later)).toMatchObject({
+      paidMonths: 14,
+      streak: 14,
+      overdue: [],
+      pending: undefined,
+    });
+    expect(after.inssContributions.at(-1)).toMatchObject({
+      month: '2026-10',
+      paidOn: '2026-11-08',
+      amountCents: 800_000,
+      receipt: 'TESTE-2026-10',
+    });
+  });
+
+  it('is written to the demo database with the rest', async () => {
+    const db = new CaixaDB('test-demo-inss');
+    await seedDemo(db, now);
+    const store = new Store(db, () => now);
+    expect((await store.settings.get()).inss).toEqual(d.inssPlan);
+    expect(await store.inss.list()).toHaveLength(13);
+    expect(await store.inss.saved()).toBe(14 * 27_000);
     await db.delete();
   });
 });

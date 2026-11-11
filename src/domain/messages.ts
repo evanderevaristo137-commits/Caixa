@@ -115,6 +115,7 @@ export function daySummaryText(storeName: string, dayTitle: string, view: DayVie
   lines.push(`${view.comparisonIsSameTime ? 'Ontem até esta hora' : 'Dia anterior'}: ${formatKz(view.comparison.totalCents)}`);
   if (outflows && outflows.expensesCents > 0) lines.push(`Despesas: ${formatKz(outflows.expensesCents)}`);
   if (outflows && outflows.withdrawalsCents > 0) lines.push(`Retiradas do dono: ${formatKz(outflows.withdrawalsCents)}`);
+  if (outflows && outflows.inssCents > 0) lines.push(`Guardado para o INSS: ${formatKz(outflows.inssCents)}`);
   lines.push(`Dinheiro que devia estar na caixa: ${formatKz(drawer?.expectedCents ?? view.cash.totalCents)}`);
   if (close) {
     const d = close.differenceCents;

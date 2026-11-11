@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { DomainError } from '../../data/store';
 import { t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
@@ -23,8 +24,8 @@ export function ExpenseDetailSheet({ expenseId, onClose }: { expenseId: string; 
         await store.expenses.void(expense.id, reason);
         showToast(t.expenses.voided);
         setVoiding(false);
-      } catch {
-        setError(t.errors.saveFailed);
+      } catch (e) {
+        setError(e instanceof DomainError && e.code === 'inss_used' ? t.inss.usedError : t.errors.saveFailed);
       }
     });
   };

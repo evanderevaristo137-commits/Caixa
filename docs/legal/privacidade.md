@@ -1,6 +1,6 @@
 # Política de privacidade
 
-Versão de 9 de Novembro de 2026. **Minuta para revisão por advogado.** Os campos entre [parênteses rectos] estão por preencher.
+Versão de 11 de Novembro de 2026. **Minuta para revisão por advogado.** Os campos entre [parênteses rectos] estão por preencher.
 
 ## 1. Em resumo
 
@@ -13,17 +13,18 @@ Versão de 9 de Novembro de 2026. **Minuta para revisão por advogado.** Os camp
 - **Da loja:** nome, telefone, NIF (opcional), morada e regime de IVA (opcionais), produtos, preços e custos, vendas, compras, despesas, fechos do dia e o registo de alterações.
 - **Dos clientes da loja** (só os que a loja quiser): nome, telefone e NIF, e as compras a crédito e pagamentos.
 - **Dos fornecedores:** nome e telefone.
+- **Do dono, se usar «A minha reforma (INSS)»:** o ano em que nasceu, o número de segurança social (opcional), o rendimento que declara ao INSS, o que guarda e os pagamentos que regista.
 - **Do telemóvel:** um código gerado ao acaso (para distinguir telemóveis), sem ligação à identidade de ninguém.
 
 ## 3. Para que servem
 
-Para a loja registar e acompanhar o negócio; para enviar, quando a loja quiser, talões, lembretes, extractos e encomendas por WhatsApp; e para preparar, com autorização da loja, a facturação certificada (fase 3) e o crédito para stock (fase 4).
+Para a loja registar e acompanhar o negócio; para enviar, quando a loja quiser, talões, lembretes, extractos e encomendas por WhatsApp; para o dono acompanhar as suas contribuições para o INSS, se quiser; e para preparar, com autorização da loja, a facturação certificada (fase 3) e o crédito para stock (fase 4). Não temos ligação aos sistemas do INSS: nada é enviado ao INSS pela app.
 
 ## 4. O que sai do telemóvel, e só quando a loja envia
 
 - Talões, lembretes e extractos para o cliente; listas de compras e encomendas para o fornecedor; o resumo do dia; cópias de segurança e ficheiros de Excel, para onde a loja escolher.
-- A **Ficha da loja**, só para quem a loja escolher (por exemplo, um banco).
-- O **resumo do piloto**: só números da loja, **nunca** nomes, telefones ou NIF de clientes.
+- A **Ficha da loja**, só para quem a loja escolher (por exemplo, um banco). Se a loja usar «A minha reforma (INSS)», a ficha diz quantos meses de contribuições a loja registou.
+- O **resumo do piloto**: só números da loja, **nunca** nomes, telefones ou NIF de clientes. Sobre o INSS diz apenas se a loja usa essa função e quantos pagamentos registou: **nunca** o número de segurança social, o ano de nascimento ou os valores.
 
 Estes envios usam o WhatsApp ou outras apps do telemóvel, que têm as suas próprias regras de privacidade.
 

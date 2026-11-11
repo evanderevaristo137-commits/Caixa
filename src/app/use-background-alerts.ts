@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
-import { ALERT_KEYS, digitalAlertInfo, dueItems } from '../data/background-alerts';
+import { ALERT_KEYS, digitalAlertInfo, dueItems, inssAlert } from '../data/background-alerts';
 import { toLocalDateString } from '../lib/dates';
 import { registerPeriodicCheck } from '../lib/notifications';
 import type { Store } from '../data/store';
 
 /**
  * Keeps, on the phone, the short lists the background checker reads (public/sw-alerts.js):
- * who owes and by when, what the shop owes its suppliers, and the digital payments alarm.
+ * who owes and by when, what the shop owes its suppliers, the digital payments alarm and the
+ * owner's INSS contribution of last month.
  * Always from the real shop, never from the demo.
  *
  * They only matter with the app closed, so they are prepared when the shop leaves the app
@@ -25,11 +26,16 @@ export function useBackgroundAlerts(realStore: Store) {
       running = true;
       try {
         const now = new Date();
-        const [due, digital] = await Promise.all([dueItems(realStore, now), digitalAlertInfo(realStore, now)]);
+        const [due, digital, inss] = await Promise.all([
+          dueItems(realStore, now),
+          digitalAlertInfo(realStore, now),
+          inssAlert(realStore, now),
+        ]);
         await realStore.db.meta.bulkPut([
           { key: ALERT_KEYS.credit, value: JSON.stringify(due.credit) },
           { key: ALERT_KEYS.suppliers, value: JSON.stringify(due.suppliers) },
           { key: ALERT_KEYS.digital, value: JSON.stringify(digital) },
+          { key: ALERT_KEYS.inss, value: JSON.stringify(inss) },
         ]);
       } catch {
         /* the lists of last time stay; tried again when the app is left again */

@@ -175,8 +175,20 @@ export interface SupplierPayment extends BaseRecord {
 /**
  * Money leaving the shop. Expenses lower the day's result; the owner's withdrawal does not
  * (it is the owner's money), but both lower the cash expected in the till when paid from it.
+ * 'inss' is money set aside for the owner's INSS contribution: like a withdrawal, not an expense.
  */
-export const EXPENSE_CATEGORIES = ['transport', 'rent', 'energy', 'water', 'salary', 'fees', 'phone', 'other', 'withdrawal'] as const;
+export const EXPENSE_CATEGORIES = [
+  'transport',
+  'rent',
+  'energy',
+  'water',
+  'salary',
+  'fees',
+  'phone',
+  'other',
+  'withdrawal',
+  'inss',
+] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export interface Expense extends BaseRecord {
@@ -185,6 +197,48 @@ export interface Expense extends BaseRecord {
   /** True when the money came out of the till. */
   fromCash: boolean;
   note?: string;
+  deviceId?: string;
+  /** Mistakes are voided with a reason, never deleted. */
+  voidedAt?: IsoDate;
+  voidReason?: string;
+}
+
+/** 'normal': old age, survivors, funeral (8%). 'extended': also maternity and death grant (11%). */
+export type InssModality = 'normal' | 'extended';
+
+/**
+ * The owner's own plan to contribute to the INSS as a self-employed worker (optional).
+ * Personal data: it stays on the phone and is never part of the pilot summary.
+ */
+export interface InssPlan {
+  /** Declared monthly income, as a whole number of national minimum wages (1 to 35). */
+  wages: number;
+  modality: InssModality;
+  /** First month followed in the app, "YYYY-MM". */
+  startMonth: string;
+  /** Year of birth, to estimate the years left until retirement. */
+  birthYear?: number;
+  /** Months already contributed before using the app. */
+  monthsBefore?: number;
+  /** Social security number (optional). */
+  number?: string;
+}
+
+/** A monthly contribution the owner says was paid to the INSS. The shop's own record, not an INSS document. */
+export interface InssContribution extends BaseRecord {
+  /** The month the contribution is for, "YYYY-MM". */
+  month: string;
+  amountCents: Cents;
+  /** Declared income that month (the pension is computed from it). */
+  baseCents: Cents;
+  /** The day it was paid, "YYYY-MM-DD". */
+  paidOn: string;
+  /** Number of the payment receipt (optional). */
+  receipt?: string;
+  /** How much of the money set aside ('inss' outflows) this payment used. */
+  savedUsedCents: Cents;
+  /** Outflow recorded with it, when the rest of the money came out of the till. */
+  expenseId?: string;
   deviceId?: string;
   /** Mistakes are voided with a reason, never deleted. */
   voidedAt?: IsoDate;
@@ -219,7 +273,8 @@ export interface AuditEntry extends BaseRecord {
     | 'cash_close'
     | 'supplier'
     | 'purchase'
-    | 'supplier_payment';
+    | 'supplier_payment'
+    | 'inss_contribution';
   entityId: string;
   action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted';
   before?: unknown;
@@ -257,6 +312,8 @@ export interface Settings extends BaseRecord {
    * points (4000 = 40%). None = no contract. In phase 4 it comes from the contract, not from the shop.
    */
   digitalMinShareBp?: number;
+  /** The owner's plan to contribute to the INSS (optional; none = not used). */
+  inss?: InssPlan;
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;

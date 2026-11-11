@@ -1,6 +1,7 @@
 import type { BackgroundAlertItem, DigitalAlertInfo, DueItem } from '../domain/alerts';
 import { creditBook } from '../domain/credit';
 import { digitalStatus } from '../domain/digital-watch';
+import { inssAlertItem, type InssAlertItem } from '../domain/inss';
 import { addDays, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import type { Store } from './store';
 
@@ -8,7 +9,12 @@ import type { Store } from './store';
  * The short lists the background checker (public/sw-alerts.js) reads with the app closed.
  * They stay on the phone, in the meta table of the real shop's database.
  */
-export const ALERT_KEYS = { credit: 'creditAlertItems', suppliers: 'supplierAlertItems', digital: 'digitalAlert' } as const;
+export const ALERT_KEYS = {
+  credit: 'creditAlertItems',
+  suppliers: 'supplierAlertItems',
+  digital: 'digitalAlert',
+  inss: 'inssAlert',
+} as const;
 
 /** Customers who owe and suppliers the shop owes, with the date of the next payment. */
 export async function dueItems(store: Store, now: Date): Promise<{ credit: BackgroundAlertItem[]; suppliers: DueItem[] }> {
@@ -43,4 +49,10 @@ export async function digitalAlertInfo(store: Store, now: Date): Promise<Digital
     shareBp: status.week.shareBp,
     ...(status.minShareBp !== undefined ? { minShareBp: status.minShareBp } : {}),
   };
+}
+
+/** Last month's INSS contribution, while the owner follows the INSS and has not recorded it as paid. */
+export async function inssAlert(store: Store, now: Date): Promise<InssAlertItem | null> {
+  const [settings, contributions] = await Promise.all([store.settings.get(), store.inss.list()]);
+  return inssAlertItem(settings.inss, contributions, now);
 }

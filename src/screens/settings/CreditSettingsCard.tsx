@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../app/context';
 import { dailyAlert } from '../../domain/alerts';
-import { digitalAlertInfo, dueItems } from '../../data/background-alerts';
+import { digitalAlertInfo, dueItems, inssAlert } from '../../data/background-alerts';
 import { DEFAULT_TERM_DAYS } from '../../domain/credit';
 import { toLocalDateString } from '../../lib/dates';
 import type { Settings } from '../../domain/types';
@@ -42,7 +42,13 @@ export function CreditSettingsCard({ settings }: { settings: Settings }) {
     // Exactly what the phone would show today with the app closed (or an example when there is nothing).
     const now = new Date();
     const due = await dueItems(store, now);
-    const text = dailyAlert(toLocalDateString(now), due.credit, due.suppliers, await digitalAlertInfo(store, now)) ?? {
+    const text = dailyAlert(
+      toLocalDateString(now),
+      due.credit,
+      due.suppliers,
+      await digitalAlertInfo(store, now),
+      await inssAlert(store, now),
+    ) ?? {
       title: 'Pagamentos de clientes',
       body: '1 vence hoje. Toque para ver e lembrar os clientes. (exemplo)',
     };

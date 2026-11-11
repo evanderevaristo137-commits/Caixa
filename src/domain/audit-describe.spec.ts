@@ -111,4 +111,36 @@ describe('describeAudit — credit limit', () => {
       )?.text,
     ).toBe('Bolacha: preço de custo 3,50 Kz → —');
   });
+
+  it('describes the INSS plan and payments without ever showing the social security number', () => {
+    const plan = { wages: 1, modality: 'normal', startMonth: '2026-11', number: '0012345' };
+    const settings = (inss?: object) =>
+      entry({ entity: 'settings', action: 'updated', before: { storeName: 'Loja' }, after: { storeName: 'Loja', inss } });
+    expect(describeAudit(settings(plan), names)).toEqual({
+      text: 'Reforma (INSS): começou a acompanhar — 1 salário mínimo, 8.000 Kz por mês',
+      important: true,
+    });
+    expect(
+      describeAudit(
+        entry({
+          entity: 'settings',
+          action: 'updated',
+          before: { inss: plan },
+          after: { inss: { ...plan, wages: 2, modality: 'extended' } },
+        }),
+        names,
+      )!.text,
+    ).toBe('Reforma (INSS): plano alterado — 2 salários mínimos, 22.000 Kz por mês');
+    expect(describeAudit(entry({ entity: 'settings', action: 'updated', before: { inss: plan }, after: {} }), names)!.text).toBe(
+      'Reforma (INSS): deixou de acompanhar',
+    );
+    const paid = { month: '2026-10', amountCents: 800_000, receipt: 'REF 123' };
+    expect(describeAudit(entry({ entity: 'inss_contribution', action: 'created', after: paid }), names)).toEqual({
+      text: 'Pagamento ao INSS registado: Outubro de 2026, 8.000 Kz (comprovativo REF 123)',
+      important: true,
+    });
+    expect(
+      describeAudit(entry({ entity: 'inss_contribution', action: 'voided', after: { ...paid, voidReason: 'Mês errado' } }), names)!.text,
+    ).toBe('Pagamento ao INSS anulado: Outubro de 2026, 8.000 Kz. Motivo: Mês errado');
+  });
 });

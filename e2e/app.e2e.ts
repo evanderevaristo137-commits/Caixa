@@ -340,6 +340,7 @@ test('with the app closed, Android wakes the background check and the shop gets 
 
   // The app also keeps what the shop owes its suppliers and the digital payments alarm.
   await expect.poll(() => readMeta('supplierAlertItems')).toBe('[]');
+  await expect.poll(() => readMeta('inssAlert')).toBe('null'); // this shop does not follow the INSS
   await expect.poll(() => readMeta('digitalAlert')).toContain(`"on":"${today}"`);
   // Another day with all three: still one notification, which says everything and opens Hoje.
   await page.evaluate(
@@ -758,6 +759,7 @@ test('week and month reports with a chart, and the store sheet for a bank', asyn
   await expect(ficha).toContainText('Não é um documento fiscal nem contabilístico.');
   const share = await ficha.getByRole('link', { name: 'Enviar por WhatsApp' }).getAttribute('href');
   expect(decodeURIComponent(share!)).toContain('*Ficha da loja — Mercearia da Dona Teresa*');
+  expect(decodeURIComponent(share!)).toMatch(/INSS \(registado pela loja\): 1[34] meses pagos, 1[34] seguidos/);
   await ficha.getByRole('button', { name: 'Imprimir ou guardar em PDF' }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
 });
@@ -799,6 +801,8 @@ test('the pilot summary carries only the shop numbers, never customer names or p
   expect(text).toContain('*Resumo do piloto — Caixa*');
   expect(text).toMatch(/Últimos 7 dias: \d+ dias? com vendas · \d+ vendas? · [\d.]+ Kz/);
   expect(text).toMatch(/Também usou \(30 dias\): \d+ fechos? do dia/);
+  // The owner's INSS: only whether it is used and how many payments were recorded.
+  expect(text).toMatch(/Reforma \(INSS\): acompanha na app · 1[34] pagamentos registados/);
   for (const name of ['Joana', 'António', 'Esperança', 'Manuel', 'Luísa', '955']) expect(text).not.toContain(name);
 });
 
@@ -843,13 +847,13 @@ test('the shop accepts the terms before using its own data, and can read them an
 
   await nav(page, 'Mais');
   await expect(
-    page.getByText(/A loja aceitou os Termos e a Política de privacidade em \d\d\/\d\d\/\d{4} \(versão 2026-11-09\)\./),
+    page.getByText(/A loja aceitou os Termos e a Política de privacidade em \d\d\/\d\d\/\d{4} \(versão \d{4}-\d\d-\d\d\)\./),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Condições do crédito para stock' }).click();
   await expect(page.getByRole('dialog', { name: 'Condições do crédito para stock' })).toContainText('Compromisso de pagamentos digitais');
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await page.getByRole('button', { name: 'Ver registo' }).click();
-  await expect(page.getByText('Termos de uso e privacidade aceites (versão 2026-11-09)')).toBeVisible();
+  await expect(page.getByText(/Termos de uso e privacidade aceites \(versão \d{4}-\d\d-\d\d\)/)).toBeVisible();
 });
 
 test('a product list comes from Excel: first what will change, then everything at once', async ({ page }) => {
@@ -948,4 +952,69 @@ test('stock count: count the shelves, stop and come back, see the differences in
   await expect(page.getByText('Stock acertado em 1 produto.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Cerveja 330 ml.*55 em stock/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Contar o stock' })).toBeVisible();
+});
+
+test('retirement (INSS): simulate, start, set money aside, record a payment and undo it', async ({ page }) => {
+  await openStore(page);
+  await nav(page, 'Hoje');
+  await page.getByRole('button', { name: /A minha reforma \(INSS\)/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'A minha reforma (INSS)' });
+  // A 45-year-old with one minimum wage: 8.000 Kz a month, about 42.900 Kz of pension at 60.
+  await sheet.getByLabel('Ano em que nasceu').fill(String(new Date().getFullYear() - 45));
+  await expect(sheet).toContainText('Paga 8.000 Kz por mês: cerca de 270 Kz por dia.');
+  await expect(sheet).toContainText('aos 60 anos recebe cerca de 42.900 Kz por mês');
+  await sheet.getByRole('button', { name: '2 salários mínimos' }).click();
+  await expect(sheet).toContainText('Paga 16.000 Kz por mês');
+  await sheet.getByRole('button', { name: '1 salário mínimo' }).click();
+  await sheet.getByRole('button', { name: 'Começar a guardar para o INSS' }).click();
+  await expect(page.getByText('Plano guardado. Boa decisão!')).toBeVisible();
+  await expect(sheet).toContainText('Faltam 8.000 Kz. Guardando 270 Kz por dia chega lá.');
+
+  // 5.000 Kz set aside from the till.
+  await sheet.getByRole('button', { name: 'Guardar para o INSS' }).click();
+  const save = page.getByRole('dialog', { name: 'Guardar para o INSS' });
+  await save.getByLabel('Quanto vai guardar? (Kz)').fill('5.000');
+  await save.getByRole('button', { name: 'Guardar para o INSS' }).click();
+  await expect(sheet).toContainText('Faltam 3.000 Kz.');
+
+  // The payment: what was set aside, and the rest straight from the till.
+  await sheet.getByRole('button', { name: 'Registar pagamento' }).click();
+  const pay = page.getByRole('dialog', { name: 'Pagamento ao INSS' });
+  await pay.getByLabel('N.º do comprovativo (opcional)').fill('REF 4471');
+  await expect(pay.getByLabel('Usei o que guardei (5.000 Kz)')).toBeChecked();
+  await pay.getByLabel('3.000 Kz saíram da caixa agora').check();
+  await pay.getByRole('button', { name: 'Guardar registo' }).click();
+  await expect(page.getByText('Pagamento registado.')).toBeVisible();
+  await expect(sheet).toContainText('1 mês pago');
+  await expect(sheet).toContainText('comprovativo REF 4471');
+  await expect(sheet).toContainText(/Contribuições em dia\. A seguir: /);
+  await expect(sheet).toContainText('Faltam 8.000 Kz.');
+
+  // Undoing the payment gives back what was set aside (and cancels the 3.000 Kz taken from the till).
+  await sheet.getByRole('button', { name: /^Anular: / }).click();
+  await sheet.getByRole('button', { name: 'Mês errado' }).click();
+  await sheet.getByRole('button', { name: 'Confirmar anulação' }).click();
+  await expect(page.getByText('Registo anulado.')).toBeVisible();
+  await expect(sheet).toContainText('Faltam 3.000 Kz.');
+  await sheet.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  // On Hoje: the card, and the money set aside left the till without being an expense.
+  await expect(page.getByRole('button', { name: /A minha reforma \(INSS\).*Guardado: 5\.000 Kz de 8\.000 Kz/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Registar saída' }).click();
+  await expect(page.getByRole('dialog', { name: 'Saída de dinheiro' }).getByRole('button', { name: 'Guardar para o INSS' })).toBeVisible();
+});
+
+test('the demo shop follows its INSS: months in a row on Hoje and money set aside', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const card = page.getByRole('button', { name: /A minha reforma \(INSS\)/ });
+  await expect(card).toContainText(/1[34] meses seguidos/);
+  await expect(card).toContainText(/Guardado: [\d.]+ Kz de 8\.000 Kz/);
+  await card.click();
+  const sheet = page.getByRole('dialog', { name: 'A minha reforma (INSS)' });
+  await expect(sheet).toContainText(/1[34] meses pagos/);
+  await expect(sheet).toContainText('aos 60 anos recebe cerca de');
+  await sheet.getByText('Como me inscrevo no INSS').click();
+  await expect(sheet).toContainText('Leve o bilhete de identidade e uma cópia.');
+  await expect(sheet).toContainText('A Caixa não é o INSS e não recebe contribuições');
 });

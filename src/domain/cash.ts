@@ -7,7 +7,9 @@ export interface OutflowSummary {
   expensesCents: Cents;
   /** Money the owner took out (not an expense). */
   withdrawalsCents: Cents;
-  /** Everything paid with money from the till (expenses and withdrawals). */
+  /** Money set aside for the owner's INSS contribution (not an expense either). */
+  inssCents: Cents;
+  /** Everything paid with money from the till (expenses, withdrawals and money set aside). */
   cashOutCents: Cents;
   byCategory: Partial<Record<ExpenseCategory, Cents>>;
   /** Valid records (voided ones are left out). */
@@ -15,11 +17,12 @@ export interface OutflowSummary {
 }
 
 export function summariseOutflows(expenses: ExpenseLike[]): OutflowSummary {
-  const out: OutflowSummary = { expensesCents: 0, withdrawalsCents: 0, cashOutCents: 0, byCategory: {}, count: 0 };
+  const out: OutflowSummary = { expensesCents: 0, withdrawalsCents: 0, inssCents: 0, cashOutCents: 0, byCategory: {}, count: 0 };
   for (const e of expenses) {
     if (e.voidedAt) continue;
     out.count += 1;
     if (e.category === 'withdrawal') out.withdrawalsCents += e.amountCents;
+    else if (e.category === 'inss') out.inssCents += e.amountCents;
     else out.expensesCents += e.amountCents;
     if (e.fromCash) out.cashOutCents += e.amountCents;
     out.byCategory[e.category] = (out.byCategory[e.category] ?? 0) + e.amountCents;

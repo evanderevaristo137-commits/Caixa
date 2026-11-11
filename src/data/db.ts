@@ -6,6 +6,7 @@ import type {
   CreditPayment,
   Customer,
   Expense,
+  InssContribution,
   Product,
   Purchase,
   Sale,
@@ -42,6 +43,7 @@ export class CaixaDB extends Dexie {
   suppliers!: Table<Supplier, string>;
   purchases!: Table<Purchase, string>;
   supplierPayments!: Table<SupplierPayment, string>;
+  inssContributions!: Table<InssContribution, string>;
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -81,6 +83,8 @@ export class CaixaDB extends Dexie {
     });
     // v5: products have an optional category, indexed to list the categories without reading every product.
     this.version(5).stores({ products: 'id, name, barcode, category, updatedAt' });
+    // v6: the owner's INSS contributions (the plan itself is kept in the settings).
+    this.version(6).stores({ inssContributions: 'id, month, createdAt' });
   }
 }
 
@@ -98,7 +102,15 @@ export const TABLES = [
   'suppliers',
   'purchases',
   'supplierPayments',
+  'inssContributions',
 ] as const;
 /** Tables added after the first version: older backups do not have them (read as empty). */
-export const LATER_TABLES: readonly TableName[] = ['expenses', 'cashCloses', 'suppliers', 'purchases', 'supplierPayments'];
+export const LATER_TABLES: readonly TableName[] = [
+  'expenses',
+  'cashCloses',
+  'suppliers',
+  'purchases',
+  'supplierPayments',
+  'inssContributions',
+];
 export type TableName = (typeof TABLES)[number];

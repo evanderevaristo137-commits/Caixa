@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../app/context';
+import { InssCard } from './inss/InssCard';
 import { makeBackup } from '../app/backup-action';
 import { creditCsv, expensesCsv, importBackup, lastBackupAt, productsCsv, purchasesCsv, salesCsv, suppliersCsv } from '../data/backup';
 import { normaliseNif } from '../domain/nif';
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
       <CreditSettingsCard settings={settings} />
       <CashFloatCard key={`float-${store.db.name}`} settings={settings} />
       <DigitalMinCard key={`digital-${store.db.name}`} settings={settings} />
+      <InssCard key={`inss-${store.db.name}`} />
       <InvoicingCard settings={settings} />
       <OwnerPinCard />
       <DataCard />
