@@ -9,7 +9,7 @@ import { isElectronic, PAYMENT_METHODS } from './types';
 
 export type PeriodKind = '7d' | '30d' | '12m';
 type SaleLike = Pick<Sale, 'createdAt' | 'totalCents' | 'method' | 'voidedAt' | 'items' | 'customerId'>;
-type PaymentLike = Pick<CreditPayment, 'createdAt' | 'amountCents'>;
+type PaymentLike = Pick<CreditPayment, 'createdAt' | 'amountCents'> & Partial<Pick<CreditPayment, 'method'>>;
 type ExpenseLike = Pick<Expense, 'createdAt' | 'category' | 'amountCents' | 'fromCash' | 'voidedAt'>;
 
 export const MONTHS = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
@@ -153,7 +153,8 @@ export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expens
     profit: summariseProfit(valid),
     outflows: summariseOutflows(expenses.filter((e) => between(e.createdAt))),
     creditSoldCents: byMethod.credit,
-    creditPaidCents: payments.filter((p) => between(p.createdAt)).reduce((a, p) => a + p.amountCents, 0),
+    // Goods returned from a credit sale lower the debt but are not money received.
+    creditPaidCents: payments.filter((p) => p.method !== 'return' && between(p.createdAt)).reduce((a, p) => a + p.amountCents, 0),
     daysWithSales: days.size,
   };
 }

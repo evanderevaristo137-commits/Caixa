@@ -26,12 +26,14 @@ export class SalesRepository {
   void = (id: string, reason: string): Promise<Sale> =>
     this.c.db.transaction(
       'rw',
-      [this.c.db.sales, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta],
+      [this.c.db.sales, this.c.db.returns, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta],
       async () => {
         await this.c.store.security.requireOwner();
         const before = await this.c.db.sales.get(id);
         if (!before) throw new DomainError('not_found');
         if (before.voidedAt) throw new DomainError('already_voided');
+        // Goods already returned would come back twice (and the debt go down twice): return the rest instead.
+        if ((await this.c.db.returns.where('saleId').equals(id).count()) > 0) throw new DomainError('has_returns');
         if (reason.trim().length < 3) throw new DomainError('reason_required');
         const at = this.c.stamp();
         const after: Sale = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
@@ -151,10 +153,13 @@ export class CreditRepository {
   addPayment = (
     customerId: string,
     amountCents: number,
-    method: CreditPayment['method'],
+    method: Exclude<CreditPayment['method'], 'return'>,
     transactionRef?: string,
   ): Promise<CreditPayment> =>
     this.c.db.transaction('rw', [this.c.db.creditPayments, this.c.db.sales, this.c.db.audit, this.c.db.meta], async () => {
+      // Money only: goods returned lower the debt through a return (returns.create).
+      if (!(PAYMENT_METHODS as readonly string[]).includes(method) || method === ('credit' as string))
+        throw new DomainError('invalid_method');
       if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
       const owed = await this.c.customerBalance(customerId);
       if (amountCents > owed) throw new DomainError('too_much');

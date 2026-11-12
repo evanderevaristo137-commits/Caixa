@@ -76,6 +76,10 @@ describe('pilot summary', () => {
     expect(pilotText({ ...base, appErrors: 0 })).toContain('Erros da app (7 dias): 0');
   });
 
+  it('counts the returns of the last 30 days (only how many)', () => {
+    expect(pilotText({ ...base, returns: 2 })).toContain('Vendas anuladas (30 dias): 1\nDevoluções (30 dias): 2\n');
+  });
+
   it('marks the demo so it is not counted, and copes with a new shop', () => {
     const text = pilotText({ ...base, demo: true, sales: [], firstUseAt: undefined, lastBackupAt: undefined });
     expect(text.startsWith('*DEMONSTRAÇÃO — dados fictícios, não contar no piloto*')).toBe(true);

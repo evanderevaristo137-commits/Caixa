@@ -1,4 +1,4 @@
-import type { ExpenseCategory, InssModality, PaymentMethod } from '../domain/types';
+import type { CreditPayment, ExpenseCategory, InssModality, PaymentMethod } from '../domain/types';
 
 /** All user-facing text, in Angolan Portuguese. */
 export const methodLabel: Record<PaymentMethod, string> = {
@@ -12,6 +12,9 @@ export const methodLabel: Record<PaymentMethod, string> = {
   tpa: 'TPA (cartão)',
   credit: 'Cliente (a crédito)',
 };
+
+/** How a customer's debt went down: the payment method, or «Devolução» when goods came back. */
+export const creditPaymentLabel = (m: CreditPayment['method']) => (m === 'return' ? 'Devolução' : methodLabel[m]);
 
 /** "1.234" (whole numbers with a thousands point, as people write them in Angola). */
 const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -269,6 +272,7 @@ export const t = {
     nextDay: 'Dia seguinte',
     comparedPrevDay: 'Dia anterior',
     voidedLine: (n: number, amount: string) => (n === 1 ? `1 venda anulada (${amount})` : `${n} vendas anuladas (${amount})`),
+    returnsLine: (n: number, amount: string) => (n === 1 ? `1 devolução: −${amount}` : `${n} devoluções: −${amount}`),
     creditPaid: 'Recebido de clientes (todos os meios)',
     salesList: 'Vendas do dia',
     voidedTag: 'Anulada',
@@ -293,6 +297,7 @@ export const t = {
     creditPaid: 'Clientes pagaram em numerário',
     out: 'Saídas da caixa',
     purchases: 'Compras e fornecedores pagos da caixa',
+    refunds: 'Devoluções pagas da caixa',
     addOut: 'Registar saída',
     closeDay: 'Fechar o dia',
     closedAt: (time: string, counted: string) => `Dia fechado às ${time}: contou ${counted}.`,
@@ -349,6 +354,45 @@ export const t = {
     voidedInfo: (date: string, reason: string) => `Anulada em ${date}. Motivo: ${reason}`,
     paidFromCash: 'Saiu da caixa',
     paidOtherwise: 'Paga de outra forma',
+  },
+  returns: {
+    open: 'Devolver artigos',
+    title: (n: number) => `Devolver — venda n.º ${n}`,
+    howMany: 'Quanto volta de cada artigo?',
+    left: (q: string) => `pode devolver ${q}`,
+    weightLabel: (name: string) => `${name}: quantos kg voltam?`,
+    restock: 'Os artigos voltam para a prateleira?',
+    restockYes: 'Sim, voltam ao stock',
+    restockNo: 'Não (estragados)',
+    refund: 'Como devolve o dinheiro?',
+    refunds: {
+      cash: 'Da caixa (numerário)',
+      other: 'De outra forma (transferência, TPA, telemóvel)',
+      debt: 'Abate na dívida do cliente',
+    } as Record<'cash' | 'other' | 'debt', string>,
+    refundLog: { cash: 'devolvido da caixa', other: 'devolvido de outra forma', debt: 'abatido na dívida' } as Record<
+      'cash' | 'other' | 'debt',
+      string
+    >,
+    debtNote: 'Venda a crédito: o valor abate na dívida do cliente (não sai dinheiro da caixa).',
+    reason: 'Motivo',
+    reasons: ['Produto com defeito', 'Cliente desistiu', 'Troca', 'Engano na venda'],
+    total: 'A devolver ao cliente',
+    totalDebt: 'Abate na dívida',
+    confirm: 'Confirmar devolução',
+    done: (amount: string) => `Devolução registada: ${amount}.`,
+    history: 'Devoluções desta venda',
+    item: (number: number, when: string, amount: string, how: string) => `Devolução n.º ${number} · ${when} · ${amount} · ${how}`,
+    allReturned: 'Esta venda já foi toda devolvida.',
+    noVoid: 'Esta venda tem devoluções, por isso não pode ser anulada. Se for preciso, devolva o que falta.',
+    errors: {
+      empty: 'Escolha o que volta.',
+      too_many: 'Não pode devolver mais do que foi vendido.',
+      invalid_quantity: 'Quantidade inválida.',
+      reason_required: 'Escreva o motivo (pelo menos 3 letras).',
+      sale_voided: 'Esta venda foi anulada.',
+      has_returns: 'Esta venda tem devoluções: não pode ser anulada.',
+    } as Record<string, string>,
   },
   sale: {
     title: (n: number) => `Venda n.º ${n}`,
@@ -420,6 +464,7 @@ export const t = {
     mvVoid: 'Anulação',
     mvPurchase: 'Compra',
     mvPurchaseVoid: 'Compra anulada',
+    mvReturn: 'Devolução',
     views: { products: 'Produtos', purchases: 'Compras', suppliers: 'Fornecedores' },
   },
   purchases: {
@@ -1028,6 +1073,7 @@ export const t = {
     exportExpenses: 'Saídas (CSV)',
     exportPurchases: 'Compras (CSV)',
     exportSuppliers: 'Fornecedores (CSV)',
+    exportReturns: 'Devoluções (CSV)',
     demo: 'Modo demonstração',
     demoOn: 'Entrar no modo demonstração',
     demoOff: 'Sair da demonstração (voltar à minha loja)',

@@ -4,6 +4,7 @@ import { drawer, summariseOutflows, type Drawer } from '../../domain/cash';
 import { internalBarcode } from '../../domain/barcode';
 import { canonicalCategory } from '../../domain/categories';
 import { savedCents } from '../../domain/inss';
+import { summariseReturns } from '../../domain/returns';
 import type { AuditEntry, SaleItem, StockMovement } from '../../domain/types';
 import { uuid } from '../../lib/ids';
 import { CaixaDB } from '../db';
@@ -137,16 +138,17 @@ export class StoreCore {
     }
   }
 
-  /** Call inside a transaction that reads sales, creditPayments, expenses, purchases and supplierPayments. */
+  /** Call inside a transaction that reads sales, creditPayments, expenses, purchases, supplierPayments and returns. */
   async drawerOn(day: Date, floatCents: number): Promise<Drawer> {
     const from = startOfLocalDay(day).toISOString();
     const to = addDays(startOfLocalDay(day), 1).toISOString();
-    const [sales, payments, expenses, purchases, supplierPayments] = await Promise.all([
+    const [sales, payments, expenses, purchases, supplierPayments, returns] = await Promise.all([
       this.db.sales.where('createdAt').between(from, to, true, false).toArray(),
       this.db.creditPayments.where('createdAt').between(from, to, true, false).toArray(),
       this.db.expenses.where('createdAt').between(from, to, true, false).toArray(),
       this.db.purchases.where('createdAt').between(from, to, true, false).toArray(),
       this.db.supplierPayments.where('createdAt').between(from, to, true, false).toArray(),
+      this.db.returns.where('createdAt').between(from, to, true, false).toArray(),
     ]);
     return drawer({
       floatCents,
@@ -154,6 +156,7 @@ export class StoreCore {
       cashCreditPaymentsCents: payments.filter((p) => p.method === 'cash').reduce((a, p) => a + p.amountCents, 0),
       cashOutCents: summariseOutflows(expenses).cashOutCents,
       cashPurchasesCents: tillPurchasesCents(purchases, supplierPayments),
+      cashRefundsCents: summariseReturns(returns).cashCents,
     });
   }
 

@@ -38,16 +38,26 @@ export interface Drawer {
   cashOutCents: Cents;
   /** Purchases and supplier payments paid from the till. */
   cashPurchasesCents: Cents;
+  /** Money given back from the till for returned goods. */
+  cashRefundsCents: Cents;
   /** Float + cash sales + customers' cash payments − everything paid from the till. */
   expectedCents: Cents;
 }
 
-export function drawer(parts: Omit<Drawer, 'expectedCents' | 'cashPurchasesCents'> & { cashPurchasesCents?: Cents }): Drawer {
+export function drawer(
+  parts: Omit<Drawer, 'expectedCents' | 'cashPurchasesCents' | 'cashRefundsCents'> & {
+    cashPurchasesCents?: Cents;
+    cashRefundsCents?: Cents;
+  },
+): Drawer {
   const cashPurchasesCents = parts.cashPurchasesCents ?? 0;
+  const cashRefundsCents = parts.cashRefundsCents ?? 0;
   return {
     ...parts,
     cashPurchasesCents,
-    expectedCents: parts.floatCents + parts.cashSalesCents + parts.cashCreditPaymentsCents - parts.cashOutCents - cashPurchasesCents,
+    cashRefundsCents,
+    expectedCents:
+      parts.floatCents + parts.cashSalesCents + parts.cashCreditPaymentsCents - parts.cashOutCents - cashPurchasesCents - cashRefundsCents,
   };
 }
 

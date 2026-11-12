@@ -10,6 +10,7 @@ import {
   openBackupFile,
   productsCsv,
   purchasesCsv,
+  returnsCsv,
   safetyCopyInfo,
   salesCsv,
   suppliersCsv,
@@ -120,6 +121,9 @@ export function DataCard() {
         </Button>
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('fornecedores', () => suppliersCsv(store.db))}>
           {t.settings.exportSuppliers}
+        </Button>
+        <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('devolucoes', () => returnsCsv(store.db))}>
+          {t.settings.exportReturns}
         </Button>
       </div>
       {restore && <RestoreSheet source={restore} onClose={() => setRestore(null)} />}

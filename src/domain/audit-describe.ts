@@ -1,4 +1,4 @@
-import { methodLabel } from '../i18n/pt-AO';
+import { creditPaymentLabel, methodLabel } from '../i18n/pt-AO';
 import { formatKz } from '../lib/money';
 import type {
   AuditEntry,
@@ -10,6 +10,7 @@ import type {
   Product,
   Purchase,
   Sale,
+  SaleReturn,
   Settings,
   StockMovement,
   Supplier,
@@ -83,11 +84,19 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
       }
       return null; // sale/void movements are already described by the sale itself
     }
+    case 'return': {
+      const r = obj<SaleReturn>(e.after);
+      const how = r.refund ? t.returns.refundLog[r.refund] : '';
+      return {
+        text: `Devolução n.º ${r.number} (venda n.º ${r.saleNumber}): ${formatKz(r.totalCents ?? 0)} — ${how}${r.restock ? ', artigos de volta ao stock' : ''}. Motivo: ${r.reason ?? '—'}`,
+        important: true,
+      };
+    }
     case 'credit_payment': {
       const p = obj<CreditPayment>(e.after);
       const who = (p.customerId && names.customer(p.customerId)) ?? 'cliente';
       return {
-        text: `Pagamento recebido de ${who}: ${formatKz(p.amountCents ?? 0)} — ${p.method ? methodLabel[p.method] : ''}`,
+        text: `Pagamento recebido de ${who}: ${formatKz(p.amountCents ?? 0)} — ${p.method ? creditPaymentLabel(p.method) : ''}`,
         important: true,
       };
     }

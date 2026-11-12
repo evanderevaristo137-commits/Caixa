@@ -88,6 +88,7 @@ export function CloseDaySheet({ defaultFloatCents, onClose }: { defaultFloatCent
               {drawer.cashCreditPaymentsCents > 0 && <Row label={t.cash.creditPaid} cents={drawer.cashCreditPaymentsCents} />}
               {drawer.cashOutCents > 0 && <Row label={t.cash.out} cents={-drawer.cashOutCents} />}
               {drawer.cashPurchasesCents > 0 && <Row label={t.cash.purchases} cents={-drawer.cashPurchasesCents} />}
+              {drawer.cashRefundsCents > 0 && <Row label={t.cash.refunds} cents={-drawer.cashRefundsCents} />}
             </dl>
           )}
         </div>

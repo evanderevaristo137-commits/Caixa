@@ -56,7 +56,8 @@ export function receipts(sales: SaleLike[], payments: PaymentLike[], fromMs: num
     days.add(startOfLocalDay(new Date(iso)).getTime());
   };
   for (const s of sales) if (!s.voidedAt && s.method !== 'credit') add(s.createdAt, s.totalCents, s.method);
-  for (const p of payments) add(p.createdAt, p.amountCents, p.method);
+  // Goods returned from a credit sale lower the debt but bring no money in.
+  for (const p of payments) if (p.method !== 'return') add(p.createdAt, p.amountCents, p.method);
   return {
     digitalCents,
     totalCents,

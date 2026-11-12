@@ -156,6 +156,7 @@ describe('daySummaryText', () => {
         cashCreditPaymentsCents: 0,
         cashOutCents: 0,
         cashPurchasesCents: 0,
+        cashRefundsCents: 0,
         expectedCents: 500_000,
       },
       close: {

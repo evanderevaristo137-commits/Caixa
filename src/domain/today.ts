@@ -74,7 +74,8 @@ export function summariseDayView(sales: SaleLike[], payments: PaymentLike[], day
 
   const dayPayments = payments.filter((p) => inRange(p.createdAt, start.getTime(), end.getTime()));
   const creditPaymentsCash = dayPayments.filter((p) => p.method === 'cash').reduce((a, p) => a + p.amountCents, 0);
-  const creditPaidCents = dayPayments.reduce((a, p) => a + p.amountCents, 0);
+  // Goods returned from a credit sale lower the debt but are not money received.
+  const creditPaidCents = dayPayments.filter((p) => p.method !== 'return').reduce((a, p) => a + p.amountCents, 0);
 
   return {
     day: summary,

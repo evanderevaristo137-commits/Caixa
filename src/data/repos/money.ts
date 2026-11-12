@@ -58,7 +58,7 @@ export class CashRepository {
   drawer = (day: Date, floatCents: number): Promise<Drawer> =>
     this.c.db.transaction(
       'r',
-      [this.c.db.sales, this.c.db.creditPayments, this.c.db.expenses, this.c.db.purchases, this.c.db.supplierPayments],
+      [this.c.db.sales, this.c.db.creditPayments, this.c.db.expenses, this.c.db.purchases, this.c.db.supplierPayments, this.c.db.returns],
       () => this.c.drawerOn(day, floatCents),
     );
   /** Records the count. Expected cash is computed here, from the facts, never typed. Audited. */
@@ -72,6 +72,7 @@ export class CashRepository {
         this.c.db.expenses,
         this.c.db.purchases,
         this.c.db.supplierPayments,
+        this.c.db.returns,
         this.c.db.audit,
         this.c.db.meta,
       ],

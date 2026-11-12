@@ -11,7 +11,7 @@ import { digitalLineText, type DigitalLine } from './pilot';
  */
 
 type SaleLike = Pick<Sale, 'createdAt' | 'totalCents' | 'method' | 'voidedAt' | 'items' | 'customerId'>;
-type PaymentLike = Pick<CreditPayment, 'createdAt' | 'amountCents'>;
+type PaymentLike = Pick<CreditPayment, 'createdAt' | 'amountCents'> & Partial<Pick<CreditPayment, 'method'>>;
 
 export interface StoreSheetMonth {
   label: string;

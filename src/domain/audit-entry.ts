@@ -1,4 +1,4 @@
-import type { Purchase, Sale } from './types';
+import type { Purchase, Sale, SaleReturn } from './types';
 
 /**
  * What goes into a line of the activity log. The records themselves (sales, purchases, movements)
@@ -30,6 +30,19 @@ export function purchaseLog(p: Purchase) {
     ...(p.supplierId ? { supplierId: p.supplierId } : {}),
     ...(p.dueDate ? { dueDate: p.dueDate } : {}),
     ...(p.voidedAt ? { voidedAt: p.voidedAt, voidReason: p.voidReason } : {}),
+  };
+}
+
+/** A return as the log describes it. The full return (lines, refunds, costs) is in the returns table. */
+export function returnLog(r: SaleReturn) {
+  return {
+    number: r.number,
+    saleNumber: r.saleNumber,
+    totalCents: r.totalCents,
+    refund: r.refund,
+    restock: r.restock,
+    reason: r.reason,
+    lines: r.items.length,
   };
 }
 

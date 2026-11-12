@@ -85,6 +85,26 @@ describe('describeAudit', () => {
   });
 });
 
+describe('describeAudit — returns', () => {
+  it('says what came back, how the money went back and why', () => {
+    const after = {
+      number: 3,
+      saleNumber: 12,
+      totalCents: 120_000,
+      refund: 'cash',
+      restock: true,
+      reason: 'Produto com defeito',
+      lines: 1,
+    };
+    expect(describeAudit(entry({ entity: 'return', action: 'created', after }), names)).toEqual({
+      text: 'Devolução n.º 3 (venda n.º 12): 1.200 Kz — devolvido da caixa, artigos de volta ao stock. Motivo: Produto com defeito',
+      important: true,
+    });
+    const debt = describeAudit(entry({ entity: 'return', action: 'created', after: { ...after, refund: 'debt', restock: false } }), names);
+    expect(debt!.text).toBe('Devolução n.º 3 (venda n.º 12): 1.200 Kz — abatido na dívida. Motivo: Produto com defeito');
+  });
+});
+
 describe('describeAudit — credit limit', () => {
   it('flags a credit sale accepted above the limit', () => {
     const after = { number: 9, totalCents: 550_000, creditLimitOverride: { limitCents: 3_000_000, balanceBeforeCents: 2_955_000 } };

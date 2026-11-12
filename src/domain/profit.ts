@@ -1,4 +1,4 @@
-import type { Cents, Sale, SaleItem } from './types';
+import type { Cents, Sale, SaleItem, SaleReturn } from './types';
 import { comparePt } from './ranking';
 
 /**
@@ -28,8 +28,12 @@ export interface ProfitSummary {
   unknownLines: number;
 }
 
-/** Profit of the valid (not voided) sales given. */
-export function summariseProfit(sales: SaleLike[]): ProfitSummary {
+/**
+ * Profit of the valid (not voided) sales given, less what the returns given took back: the money
+ * given back is no longer revenue, and goods put back on the shelf are no longer a cost (goods not
+ * restocked stay a cost: they are lost).
+ */
+export function summariseProfit(sales: SaleLike[], returns: Pick<SaleReturn, 'items' | 'restock'>[] = []): ProfitSummary {
   const out: ProfitSummary = { revenueCents: 0, costCents: 0, profitCents: 0, unknownRevenueCents: 0, unknownLines: 0 };
   for (const s of sales) {
     if (s.voidedAt) continue;
@@ -42,6 +46,16 @@ export function summariseProfit(sales: SaleLike[]): ProfitSummary {
       }
       out.revenueCents += item.lineTotalCents;
       out.costCents += cost;
+    }
+  }
+  for (const r of returns) {
+    for (const item of r.items) {
+      if (item.costCents === undefined) {
+        out.unknownRevenueCents -= item.refundCents;
+        continue;
+      }
+      out.revenueCents -= item.refundCents;
+      if (r.restock) out.costCents -= item.costCents;
     }
   }
   out.profitCents = out.revenueCents - out.costCents;

@@ -10,25 +10,30 @@ import { formatKz } from '../../lib/money';
 import { formatQuantity } from '../../domain/quantity';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { returnable } from '../../domain/returns';
+import { ReturnSheet } from './ReturnSheet';
 
-/** One sale: details, resend the non-fiscal receipt, or void it (with a reason). */
+/** One sale: details, resend the non-fiscal receipt, give goods back (returns), or void it (with a reason). */
 export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => void }) {
   const { store, showToast } = useApp();
   const guard = usePinGuard();
   const data = useLiveQuery(async () => {
     const sale = await store.sales.get(saleId);
-    const [customer, settings] = await Promise.all([
+    const [customer, settings, returns] = await Promise.all([
       sale?.customerId ? store.customers.get(sale.customerId) : Promise.resolve(undefined),
       store.settings.get(),
+      store.returns.bySale(saleId),
     ]);
-    return { sale, customer, settings };
+    return { sale, customer, settings, returns };
   }, [store, saleId]);
   const [voiding, setVoiding] = useState(false);
+  const [returning, setReturning] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   if (!data?.sale) return null;
-  const { sale, customer, settings } = data;
+  const { sale, customer, settings, returns } = data;
+  const canReturn = !sale.voidedAt && [...returnable(sale, returns).values()].some((q) => q > 0);
 
   const confirmVoid = async () => {
     if (reason.trim().length < 3) return setError(t.products.reasonRequired);
@@ -38,7 +43,13 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
         showToast(t.sale.voidDone);
         setVoiding(false);
       } catch (e) {
-        setError(e instanceof DomainError && e.code === 'reason_required' ? t.products.reasonRequired : t.errors.saveFailed);
+        setError(
+          e instanceof DomainError && e.code === 'reason_required'
+            ? t.products.reasonRequired
+            : e instanceof DomainError && e.code === 'has_returns'
+              ? t.returns.noVoid
+              : t.errors.saveFailed,
+        );
       }
     });
   };
@@ -96,6 +107,23 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
         )}
       </dl>
 
+      {returns.length > 0 && (
+        <div className="mt-4 rounded-xl bg-white p-3">
+          <p className="mb-1 font-semibold">{t.returns.history}</p>
+          <ul className="space-y-1 text-sm text-slate-700">
+            {returns.map((r) => (
+              <li key={r.id}>
+                {t.returns.item(r.number, formatDateTime(r.createdAt), formatKz(r.totalCents), t.returns.refundLog[r.refund])}
+                <span className="block text-slate-600">
+                  {r.items.map((i) => `${formatQuantity(i.quantity, i.soldBy)} × ${i.name}`).join(', ')} · {r.reason}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!canReturn && !sale.voidedAt && <p className="mt-1 text-sm font-semibold text-slate-700">{t.returns.allReturned}</p>}
+        </div>
+      )}
+
       {sale.voidedAt ? (
         <p className="mt-4 rounded-xl bg-red-50 p-3 font-semibold text-red-800">
           {t.sale.voidedInfo(formatDateTime(sale.voidedAt), sale.voidReason ?? '')}
@@ -134,11 +162,21 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
           >
             {t.sale.resend}
           </LinkButton>
-          <Button variant="danger" className="w-full" onClick={() => setVoiding(true)}>
-            {t.sale.void}
-          </Button>
+          {canReturn && (
+            <Button variant="secondary" className="w-full" onClick={() => setReturning(true)}>
+              {t.returns.open}
+            </Button>
+          )}
+          {returns.length > 0 ? (
+            <p className="text-sm text-slate-600">{t.returns.noVoid}</p>
+          ) : (
+            <Button variant="danger" className="w-full" onClick={() => setVoiding(true)}>
+              {t.sale.void}
+            </Button>
+          )}
         </div>
       )}
+      {returning && <ReturnSheet sale={sale} earlier={returns} onClose={() => setReturning(false)} />}
     </Sheet>
   );
 }

@@ -685,6 +685,7 @@ describe('Store: money out and the end-of-day count', () => {
       cashCreditPaymentsCents: 200_000,
       cashOutCents: 650_000,
       cashPurchasesCents: 0,
+      cashRefundsCents: 0,
       expectedCents: 1_250_000,
     });
     const close = await st.cash.close({ floatCents: 500_000, countedCents: 1_230_000, note: 'Notas velhas' });

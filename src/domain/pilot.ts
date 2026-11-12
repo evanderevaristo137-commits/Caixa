@@ -35,6 +35,8 @@ export interface PilotInput {
   inssMonths?: number;
   /** Errors of the app on this phone in the last 7 days (only how many). */
   appErrors?: number;
+  /** Returns of the last 30 days (only how many). */
+  returns?: number;
 }
 
 export interface DigitalLine {
@@ -88,6 +90,7 @@ export function pilotText(p: PilotInput): string {
   if (w30.count > 0) out.push(`Pagamentos electrónicos (30 dias): ${Math.round((w30.electronicCents * 100) / w30.salesCents)}%`);
   if (p.digital) out.push(digitalLineText(p.digital));
   out.push(`Vendas anuladas (30 dias): ${w30.voided}`);
+  if (p.returns !== undefined) out.push(`Devoluções (30 dias): ${p.returns}`);
   out.push(`Clientes com dívida: ${p.customersOwing} · em dívida: ${formatKz(p.owedCents)} · em atraso: ${p.customersOverdue}`);
   out.push(`Produtos: ${p.products} (${p.productsWithCost} com preço de custo)`);
   out.push(

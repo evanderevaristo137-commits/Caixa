@@ -23,6 +23,7 @@ const MV_LABEL: Record<StockMovementType, string> = {
   entry: t.products.mvEntry,
   adjustment: t.products.mvAdjust,
   void: t.products.mvVoid,
+  return: t.products.mvReturn,
   purchase: t.products.mvPurchase,
   purchase_void: t.products.mvPurchaseVoid,
 };

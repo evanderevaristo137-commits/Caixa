@@ -126,16 +126,57 @@ export interface Sale extends BaseRecord {
 }
 
 /** A payment towards a customer's fiado balance. */
+/**
+ * What lowers what a customer owes: a payment (money in), or 'return' when goods bought on credit
+ * came back (no money moves: see SaleReturn). Sums of money received leave returns out (`isMoneyIn`).
+ */
 export interface CreditPayment extends BaseRecord {
   customerId: string;
   amountCents: Cents;
-  method: Exclude<PaymentMethod, 'credit'>;
+  method: Exclude<PaymentMethod, 'credit'> | 'return';
   /** Electronic payments: reference shown on the customer's phone (optional). */
   transactionRef?: string;
+  /** method 'return': the return that lowered the debt. */
+  returnId?: string;
   deviceId?: string;
 }
 
-export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void' | 'purchase' | 'purchase_void';
+/** A customer payment that brought money in (not goods returned from a credit sale). */
+export const isMoneyIn = (p: Pick<CreditPayment, 'method'>) => p.method !== 'return';
+
+/** One line of a return: how much of a sale line came back and the money it gave back. */
+export interface ReturnItem {
+  productId: string;
+  name: string;
+  /** Units, or grams for weighed products. */
+  quantity: number;
+  soldBy?: 'weight';
+  /** Money back for this line (proportional to what the line cost in the sale). */
+  refundCents: Cents;
+  /** What these goods cost the shop (from the sale line), when the cost was known. */
+  costCents?: Cents;
+}
+
+/**
+ * Goods given back by a customer, all or part of a sale. The sale itself never changes.
+ * The money goes back from the till ('cash'), another way ('other': transfer, TPA, phone), or,
+ * for a credit sale, lowers what the customer owes ('debt'). Restocked goods go back on the shelf.
+ */
+export interface SaleReturn extends BaseRecord {
+  /** Sequential per device, for humans ("Devolução n.º 3"). */
+  number: number;
+  saleId: string;
+  saleNumber: number;
+  items: ReturnItem[];
+  totalCents: Cents;
+  refund: 'cash' | 'other' | 'debt';
+  restock: boolean;
+  reason: string;
+  customerId?: string;
+  deviceId?: string;
+}
+
+export type StockMovementType = 'sale' | 'entry' | 'adjustment' | 'void' | 'purchase' | 'purchase_void' | 'return';
 
 export interface StockMovement extends BaseRecord {
   productId: string;
@@ -146,6 +187,7 @@ export interface StockMovement extends BaseRecord {
   reason?: string;
   saleId?: string;
   purchaseId?: string;
+  returnId?: string;
 }
 
 export interface Supplier extends BaseRecord {
@@ -297,7 +339,8 @@ export interface AuditEntry extends BaseRecord {
     | 'supplier'
     | 'purchase'
     | 'supplier_payment'
-    | 'inss_contribution';
+    | 'inss_contribution'
+    | 'return';
   entityId: string;
   action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted';
   before?: unknown;

@@ -568,6 +568,30 @@ export async function productsCsv(db: CaixaDB): Promise<string> {
 /** Empty template for the import: just the column names. */
 export const productsTemplateCsv = (): string => toCsv([TEMPLATE_HEADER]);
 
+export async function returnsCsv(db: CaixaDB): Promise<string> {
+  const returns = await db.returns.orderBy('createdAt').toArray();
+  const rows: (string | number)[][] = [
+    ['Data', 'Devolução n.º', 'Venda n.º', 'Produto', 'Quantidade', 'Unidade', 'Valor devolvido (Kz)', 'Como', 'Voltou ao stock', 'Motivo'],
+  ];
+  for (const r of returns) {
+    for (const it of r.items) {
+      rows.push([
+        formatDateTime(r.createdAt),
+        r.number,
+        r.saleNumber,
+        it.name,
+        it.soldBy === 'weight' ? formatKg(it.quantity) : it.quantity,
+        it.soldBy === 'weight' ? 'kg' : 'un',
+        kzNumber(it.refundCents),
+        t.returns.refunds[r.refund],
+        r.restock ? 'Sim' : 'Não',
+        r.reason,
+      ]);
+    }
+  }
+  return toCsv(rows);
+}
+
 export async function expensesCsv(db: CaixaDB): Promise<string> {
   const expenses = await db.expenses.orderBy('createdAt').toArray();
   return toCsv([

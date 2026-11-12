@@ -6,7 +6,7 @@ import { creditStatus, validateCreditPayment } from '../../domain/credit';
 import { normaliseNif } from '../../domain/nif';
 import { formatQuantity } from '../../domain/quantity';
 import type { CreditPayment } from '../../domain/types';
-import { methodLabel, t } from '../../i18n/pt-AO';
+import { creditPaymentLabel, methodLabel, t } from '../../i18n/pt-AO';
 import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
@@ -15,7 +15,7 @@ import { useBusy } from '../../ui/use-busy';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
 
-const PAY_METHODS: CreditPayment['method'][] = [
+const PAY_METHODS: Exclude<CreditPayment['method'], 'return'>[] = [
   'cash',
   'multicaixa_express',
   'kwik',
@@ -39,7 +39,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   }, [store, customerId]);
   const [paying, setPaying] = useState(false);
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<CreditPayment['method']>('cash');
+  const [method, setMethod] = useState<Exclude<CreditPayment['method'], 'return'>>('cash');
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [transactionRef, setTransactionRef] = useState('');
@@ -103,7 +103,13 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
         (s.dueDate ? `${t.sell.payBy(formatDateString(s.dueDate))} · ` : '') +
         s.items.map((i) => `${formatQuantity(i.quantity, i.soldBy)} × ${i.name}`).join(', '),
     })),
-    ...payments.map((p) => ({ at: p.createdAt, kind: 'pay' as const, voided: false, cents: p.amountCents, label: methodLabel[p.method] })),
+    ...payments.map((p) => ({
+      at: p.createdAt,
+      kind: 'pay' as const,
+      voided: false,
+      cents: p.amountCents,
+      label: creditPaymentLabel(p.method),
+    })),
   ].sort((a, b) => compareText(b.at, a.at));
 
   return (

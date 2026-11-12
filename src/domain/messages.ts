@@ -100,11 +100,13 @@ export interface DaySummaryExtras {
   drawer?: Drawer;
   outflows?: OutflowSummary;
   close?: CashClose;
+  /** Goods given back that day. */
+  returns?: { count: number; totalCents: Cents };
 }
 
 export function daySummaryText(storeName: string, dayTitle: string, view: DayView, extras: DaySummaryExtras = {}): string {
   const { day } = view;
-  const { profit, drawer, outflows, close } = extras;
+  const { profit, drawer, outflows, close, returns } = extras;
   const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
   lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
   const margin = profit ? marginBp(profit) : undefined;
@@ -129,5 +131,6 @@ export function daySummaryText(storeName: string, dayTitle: string, view: DayVie
   }
   if (view.creditPaidCents > 0) lines.push(`Recebido de clientes: ${formatKz(view.creditPaidCents)}`);
   if (day.voidedCount > 0) lines.push(`Vendas anuladas: ${day.voidedCount} (${formatKz(day.voidedCents)})`);
+  if (returns && returns.count > 0) lines.push(`Devoluções: ${returns.count} (−${formatKz(returns.totalCents)})`);
   return lines.join('\n');
 }

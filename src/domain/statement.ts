@@ -44,7 +44,10 @@ export function statementLines(customerId: string, sales: SaleLike[], payments: 
         at: p.createdAt,
         kind: 'payment' as const,
         delta: -p.amountCents,
-        text: `${shortDate(p.createdAt)} — Pagamento: ${formatKz(p.amountCents)} (${methodLabel[p.method]})`,
+        text:
+          p.method === 'return'
+            ? `${shortDate(p.createdAt)} — Devolução de artigos: ${formatKz(p.amountCents)}`
+            : `${shortDate(p.createdAt)} — Pagamento: ${formatKz(p.amountCents)} (${methodLabel[p.method]})`,
       })),
   ].sort((a, b) => compareText(a.at, b.at) || (a.kind === 'purchase' ? -1 : 1));
 

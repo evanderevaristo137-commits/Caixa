@@ -7,6 +7,7 @@ import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
 import { profitByProduct, summariseProfit } from '../../domain/profit';
+import { summariseReturns } from '../../domain/returns';
 import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
 import { totalPayable } from '../../domain/payables';
 import { tillPurchasesCents } from '../../data/store';
@@ -38,7 +39,7 @@ export default function TodayScreen() {
     const from = addDays(day, -1).toISOString();
     const to = addDays(day, 1).toISOString();
     const isToday = offset === 0;
-    const [sales, payments, products, book, settings, dayExpenses, lastClose, dayPurchases, daySupplierPayments, payables] =
+    const [sales, payments, products, book, settings, dayExpenses, lastClose, dayPurchases, daySupplierPayments, payables, dayReturns] =
       await Promise.all([
         store.sales.between(from, to),
         store.credit.paymentsBetween(from, to),
@@ -50,6 +51,7 @@ export default function TodayScreen() {
         store.purchases.between(day.toISOString(), to),
         store.supplierPayments.between(day.toISOString(), to),
         isToday ? store.payables.book(now) : Promise.resolve([]),
+        store.returns.between(day.toISOString(), to),
       ]);
     // Credit for stock: digital receipts of the last 7 complete days against the 4 weeks before.
     const watchFrom = addDays(day, -36).toISOString();
@@ -61,7 +63,8 @@ export default function TodayScreen() {
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => compareText(b.createdAt, a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
     const view = summariseDayView(sales, payments, day, now);
-    const profit = summariseProfit(daySales);
+    const returns = summariseReturns(dayReturns);
+    const profit = summariseProfit(daySales, dayReturns);
     const outflows = summariseOutflows(dayExpenses);
     const drawer = drawerOf({
       floatCents: lastClose?.floatCents ?? settings.cashFloatCents ?? 0,
@@ -69,9 +72,12 @@ export default function TodayScreen() {
       cashCreditPaymentsCents: view.cash.creditPaymentsCents,
       cashOutCents: outflows.cashOutCents,
       cashPurchasesCents: tillPurchasesCents(dayPurchases, daySupplierPayments),
+      cashRefundsCents: returns.cashCents,
     });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
-    const summaryLink = whatsAppLink(daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose }));
+    const summaryLink = whatsAppLink(
+      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns }),
+    );
     return {
       offset,
       isToday,
@@ -80,6 +86,7 @@ export default function TodayScreen() {
       profit,
       outflows,
       drawer,
+      returns,
       lastClose,
       dayExpenses: dayExpenses.sort((a, b) => compareText(b.createdAt, a.createdAt)),
       defaultFloatCents: settings.cashFloatCents ?? 0,
@@ -169,6 +176,11 @@ export default function TodayScreen() {
         {day.voidedCount > 0 && (
           <p className="mt-2 text-sm font-semibold text-amber-200">{t.today.voidedLine(day.voidedCount, formatKz(day.voidedCents))}</p>
         )}
+        {data.returns.count > 0 && (
+          <p className="mt-1 text-sm font-semibold text-amber-200">
+            {t.today.returnsLine(data.returns.count, formatKz(data.returns.totalCents))}
+          </p>
+        )}
       </Card>
 
       <button
@@ -247,7 +259,9 @@ export default function TodayScreen() {
         )}
       </Card>
 
-      {(day.count > 0 || day.voidedCount > 0) && <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>}
+      {(day.count > 0 || day.voidedCount > 0 || data.returns.count > 0) && (
+        <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>
+      )}
 
       {isToday && (
         <>
