@@ -41,6 +41,8 @@ export interface ProductInput {
   soldBy?: 'weight';
   /** Optional group ("Bebidas", "Mercearia"…). */
   category?: string;
+  /** Follows its expiry dates (stock coming in asks for one). Unchanged when missing on an update. */
+  tracksExpiry?: boolean;
 }
 
 /** IVA in basis points: whole number from 0 to 10000 (0% to 100%). */
@@ -49,7 +51,8 @@ export const cleanShort = (s: string | undefined, max: number) => clean(s)?.slic
 
 export interface NewPurchase {
   supplierId?: string;
-  lines: { productId: string; quantity: number; unitCostCents: number }[];
+  /** `expiresOn` ("YYYY-MM-DD"): for products that follow their dates. */
+  lines: { productId: string; quantity: number; unitCostCents: number; expiresOn?: string }[];
   payment: PurchasePayment;
   /** On credit: "YYYY-MM-DD"; when missing, the usual term (15 days). */
   dueDate?: string;

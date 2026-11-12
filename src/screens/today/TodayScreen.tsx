@@ -29,6 +29,7 @@ import { ReportsSheet } from './ReportsSheet';
 import { SalesHistorySheet } from './SalesHistorySheet';
 import { InssCard } from '../inss/InssCard';
 import { PendingPaymentsCard } from './PendingPaymentsCard';
+import { ExpiryCard } from './ExpiryCard';
 import { DayCard } from './DayCard';
 import { FinanceSheet } from './FinanceSheet';
 import { soldAndReceived } from '../../domain/finance';
@@ -168,6 +169,7 @@ export default function TodayScreen() {
 
       {isToday && <PaymentAlerts alerts={data.alerts} storeName={data.storeName} />}
       {isToday && <PendingPaymentsCard />}
+      {isToday && <ExpiryCard />}
       {data.digital?.alarm && <DigitalCard status={data.digital} />}
 
       <DayCard view={view} money={data.money} returns={data.returns} />

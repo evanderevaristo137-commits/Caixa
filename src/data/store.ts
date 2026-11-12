@@ -10,6 +10,7 @@ import { DeviceRepository, LegalRepository, SettingsRepository } from './repos/s
 import { SecurityRepository } from './repos/security';
 import { AuditLogRepository, IntegrityRepository } from './repos/checks';
 import { ReturnsRepository } from './repos/returns';
+import { BatchesRepository } from './repos/batches';
 
 // The Store's types, constants and helpers (the same names as before the split).
 export {
@@ -41,6 +42,7 @@ export class Store {
   readonly sales: SalesRepository;
   readonly credit: CreditRepository;
   readonly returns: ReturnsRepository;
+  readonly batches: BatchesRepository;
   readonly expenses: ExpensesRepository;
   readonly cash: CashRepository;
   readonly suppliers: SuppliersRepository;
@@ -63,6 +65,7 @@ export class Store {
     this.sales = new SalesRepository(core);
     this.credit = new CreditRepository(core);
     this.returns = new ReturnsRepository(core);
+    this.batches = new BatchesRepository(core);
     this.expenses = new ExpensesRepository(core);
     this.cash = new CashRepository(core);
     this.suppliers = new SuppliersRepository(core);

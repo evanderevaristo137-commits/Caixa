@@ -30,6 +30,7 @@ export class SettingsRepository {
         | 'cashFloatCents'
         | 'pilotPhone'
         | 'digitalMinShareBp'
+        | 'costMethod'
       >
     >,
   ): Promise<Settings> =>
@@ -57,6 +58,11 @@ export class SettingsRepository {
         const nif = normaliseNif(input.nif);
         if (!nif.ok) throw new DomainError('invalid_nif');
         after.nif = nif.value;
+      }
+      if ('costMethod' in input) {
+        if (input.costMethod !== undefined && input.costMethod !== 'average') throw new DomainError('invalid_method');
+        if (input.costMethod) after.costMethod = input.costMethod;
+        else delete after.costMethod; // the cost of the last purchase
       }
       if ('address' in input) after.address = cleanShort(input.address, 200);
       if ('vatRegime' in input) after.vatRegime = input.vatRegime;

@@ -11,12 +11,14 @@ import { adjustmentDelta } from '../../domain/stock';
 import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
 import { daysLeft, paceOf, speedFromMovements } from '../../domain/stock-insights';
 import { useBusy } from '../../ui/use-busy';
+import { ExpiryPanel } from './ExpiryPanel';
 
 const ERRORS: Record<string, string> = {
   not_whole: t.products.invalidNumber,
   not_positive: t.products.invalidNumber,
   reason_required: t.products.reasonRequired,
   no_change: t.products.noChange,
+  invalid_date: t.expiry.invalidDate,
 };
 
 const MV_LABEL: Record<StockMovementType, string> = {
@@ -37,6 +39,7 @@ export function StockPanel({ product }: { product: Product }) {
   const movements = useLiveQuery(() => store.products.movements(product.id), [store, product.id]);
   const [mode, setMode] = useState<'none' | 'entry' | 'adjust'>('none');
   const [qty, setQty] = useState('');
+  const [expiry, setExpiry] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, runOnce] = useBusy();
@@ -52,10 +55,11 @@ export function StockPanel({ product }: { product: Product }) {
     const n = parsed;
     const run = async () => {
       try {
-        if (mode === 'entry') await store.products.addEntry(product.id, n);
+        if (mode === 'entry') await store.products.addEntry(product.id, n, product.tracksExpiry && expiry ? expiry : undefined);
         else await store.products.adjust(product.id, n, reason);
         setMode('none');
         setQty('');
+        setExpiry('');
         setReason('');
         setError(null);
         showToast(t.settings.saved);
@@ -117,6 +121,9 @@ export function StockPanel({ product }: { product: Product }) {
             error={error}
             autoFocus
           />
+          {mode === 'entry' && product.tracksExpiry && (
+            <Field label={t.expiry.date} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+          )}
           {mode === 'adjust' && (
             <>
               <div className="flex flex-wrap gap-2">
@@ -151,6 +158,8 @@ export function StockPanel({ product }: { product: Product }) {
           </div>
         </div>
       )}
+
+      {product.tracksExpiry && <ExpiryPanel product={product} />}
 
       <h3 className="mt-5 mb-2 font-bold">{t.products.movements}</h3>
       <ul tabIndex={0} aria-label={t.products.movements} className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl bg-white">

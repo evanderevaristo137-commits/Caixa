@@ -1,15 +1,16 @@
 import { DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
+import { isExpiryDate } from '../../domain/expiry';
 import { isValidDateString, toLocalDateString } from '../../lib/dates';
 import { byName } from '../../domain/ranking';
 import { MAX_GRAMS } from '../../domain/quantity';
 import type { Product, Purchase, PurchaseItem, Supplier, SupplierPayment } from '../../domain/types';
 import { PURCHASE_PAYMENTS } from '../../domain/types';
-import { purchaseLineTotal } from '../../domain/purchases';
+import { costAfterPurchase, purchaseLineTotal } from '../../domain/purchases';
 import { changedFields, purchaseLog } from '../../domain/audit-entry';
 import { payablesBook, payableStatus, totalPayable } from '../../domain/payables';
 import { uuid } from '../../lib/ids';
 import { StoreCore } from './core';
-import { DomainError, clean, cleanShort, type NewPurchase } from './shared';
+import { DomainError, SETTINGS_ID, clean, cleanShort, type NewPurchase } from './shared';
 
 /** Suppliers, purchases and what the shop owes them. */
 export class SuppliersRepository {
@@ -56,7 +57,16 @@ export class PurchasesRepository {
   create = (input: NewPurchase): Promise<Purchase> =>
     this.c.db.transaction(
       'rw',
-      [this.c.db.purchases, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta, this.c.db.suppliers],
+      [
+        this.c.db.purchases,
+        this.c.db.products,
+        this.c.db.stockMovements,
+        this.c.db.audit,
+        this.c.db.meta,
+        this.c.db.suppliers,
+        this.c.db.batches,
+        this.c.db.settings,
+      ],
       async () => {
         if (input.lines.length === 0) throw new DomainError('empty_purchase');
         if (!(PURCHASE_PAYMENTS as readonly string[]).includes(input.payment)) throw new DomainError('invalid_payment');
@@ -78,6 +88,7 @@ export class PurchasesRepository {
             throw new DomainError('invalid_quantity');
           if (!Number.isInteger(line.unitCostCents) || line.unitCostCents < 0) throw new DomainError('invalid_cost');
           if (items.some((i) => i.productId === line.productId)) throw new DomainError('duplicate_line');
+          if (line.expiresOn !== undefined && !isExpiryDate(line.expiresOn)) throw new DomainError('invalid_date');
           const item: PurchaseItem = {
             productId: product.id,
             name: product.name,
@@ -85,6 +96,7 @@ export class PurchasesRepository {
             ...(product.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
             unitCostCents: line.unitCostCents,
             lineTotalCents: 0,
+            ...(product.tracksExpiry && line.expiresOn ? { expiresOn: line.expiresOn } : {}),
           };
           item.lineTotalCents = purchaseLineTotal(item);
           items.push(item);
@@ -108,10 +120,24 @@ export class PurchasesRepository {
         };
         await this.c.db.purchases.add(purchase);
         await this.c.audit({ entity: 'purchase', entityId: purchase.id, action: 'created', after: purchaseLog(purchase) });
+        const method = (await this.c.db.settings.get(SETTINGS_ID))?.costMethod;
         for (const item of items) {
+          // The stock and cost before these goods came in (for the average cost, when chosen).
+          const prior = (await this.c.db.products.get(item.productId))!;
           await this.c.addMovement({ productId: item.productId, type: 'purchase', delta: item.quantity, purchaseId: purchase.id });
           const before = (await this.c.db.products.get(item.productId))!;
-          const after: Product = { ...before, costCents: item.unitCostCents, updatedAt: this.c.stamp() };
+          // With or without a date: the batches must cover all the stock that came in (see expiry.ts).
+          if (before.tracksExpiry) {
+            await this.c.addBatch({
+              productId: item.productId,
+              quantity: item.quantity,
+              expiresOn: item.expiresOn,
+              source: 'purchase',
+              purchaseId: purchase.id,
+            });
+          }
+          const costCents = costAfterPurchase(prior, item.quantity, item.unitCostCents, method);
+          const after: Product = { ...before, costCents, updatedAt: this.c.stamp() };
           if (input.supplierId) after.supplierId = input.supplierId;
           if (after.costCents !== before.costCents || after.supplierId !== before.supplierId) {
             await this.c.db.products.put(after);
@@ -130,7 +156,7 @@ export class PurchasesRepository {
   void = (id: string, reason: string): Promise<Purchase> =>
     this.c.db.transaction(
       'rw',
-      [this.c.db.purchases, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta],
+      [this.c.db.purchases, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta, this.c.db.batches],
       async () => {
         await this.c.store.security.requireOwner();
         const before = await this.c.db.purchases.get(id);
@@ -150,6 +176,12 @@ export class PurchasesRepository {
             purchaseId: id,
           });
         }
+        // Its batches no longer count: the goods went back.
+        await this.c.db.batches
+          .where('productId')
+          .anyOf(before.items.map((i) => i.productId))
+          .filter((b) => b.purchaseId === id && !b.voidedAt)
+          .modify({ voidedAt: at, updatedAt: at });
         return after;
       },
     );

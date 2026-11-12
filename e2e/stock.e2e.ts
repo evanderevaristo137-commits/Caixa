@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, nav, openDemo, openStore } from './helpers';
+import { luandaTime, luandaToday, nav, openDemo, openStore } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -58,4 +58,66 @@ test('the demo shows products standing still and what to buy', async ({ page }) 
   const sheet = page.getByRole('dialog', { name: 'Análise do stock' });
   await expect(sheet.getByRole('link', { name: 'Enviar lista de compras' })).toBeVisible();
   await expect(sheet.getByText(/^Comprar /).first()).toBeVisible();
+});
+
+/** "YYYY-MM-DD" n days from today in Luanda (for date fields). */
+const isoInDays = (n: number) => {
+  const [y, m, d] = luandaToday().split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + n)).toISOString().slice(0, 10);
+};
+
+test('expiry dates: the demo milk warns on Hoje, and a product follows its dates from the start', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: /lotes? vencidos? ou a vencer/ }) });
+  await expect(card.getByRole('heading')).toHaveText('2 lotes vencidos ou a vencer');
+  await expect(card.getByRole('listitem').first()).toContainText(/Leite em pó 400 g\s*venceu a/);
+  await expect(card.getByRole('listitem').nth(1)).toContainText(/Leite UHT 1 L\s*vence a \d\d\/\d\d\/\d{4} \(daqui a 5 dias\)\s*4/);
+
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: 'Análise do stock' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Análise do stock' });
+  await sheet.getByRole('tab', { name: 'Validades' }).click();
+  // The two above and the rest of the UHT milk (45 days); the milk powder in 120 days is too far off.
+  await expect(sheet.getByRole('listitem')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  await page.getByRole('button', { name: /Leite UHT 1 L/ }).click();
+  const detail = page.getByRole('dialog', { name: 'Editar produto' });
+  await expect(detail.getByRole('checkbox', { name: /Controlar validades/ })).toBeChecked();
+  await expect(detail).toContainText('Validades em stock');
+  await expect(detail).toContainText(/4\s*vence a \d\d\/\d\d\/\d{4} \(daqui a 5 dias\)/);
+});
+
+test('a product that follows its dates asks for them when stock comes in', async ({ page }) => {
+  await openStore(page);
+  await page.getByRole('button', { name: '+ Criar o primeiro produto' }).click();
+  await page.getByLabel('Nome').fill('Paracetamol 500 mg');
+  await page.getByLabel('Preço (Kz)').fill('500');
+  await page.getByLabel('Stock inicial').fill('10');
+  await page.getByRole('checkbox', { name: /Controlar validades/ }).check();
+  await page.getByLabel('Validade do stock inicial (opcional)').fill(isoInDays(10));
+  await page.getByRole('button', { name: 'Guardar' }).click();
+
+  await nav(page, 'Hoje');
+  await expect(page.getByRole('heading', { name: '1 lote vencido ou a vencer' })).toBeVisible();
+
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: /Paracetamol/ }).click();
+  const detail = page.getByRole('dialog', { name: 'Editar produto' });
+  await detail.getByRole('button', { name: '+ Entrada de stock' }).click();
+  await detail.getByLabel('Quantidade que entrou').fill('5');
+  await detail.getByLabel('Validade (opcional)').fill(isoInDays(90));
+  await detail.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(detail).toContainText(/10\s*vence a \d\d\/\d\d\/\d{4} \(daqui a 10 dias\)/);
+  await expect(detail).toContainText(/5\s*vence a \d\d\/\d\d\/\d{4} \(daqui a 90 dias\)/);
+});
+
+test('the cost price can follow the average cost instead of the last purchase', async ({ page }) => {
+  await openStore(page);
+  await nav(page, 'Mais');
+  const choice = page.getByRole('group', { name: 'Preço de custo depois de uma compra' });
+  await expect(choice.getByRole('button', { name: 'O da última compra' })).toHaveAttribute('aria-pressed', 'true');
+  await choice.getByRole('button', { name: 'Custo médio' }).click();
+  await expect(choice.getByRole('button', { name: 'Custo médio' })).toHaveAttribute('aria-pressed', 'true');
 });

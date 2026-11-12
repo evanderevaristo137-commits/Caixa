@@ -32,6 +32,8 @@ export interface Product extends BaseRecord {
   supplierId?: string;
   /** Optional group ("Bebidas", "Mercearia"…) to find products faster and see sales by group. */
   category?: string;
+  /** Follows its expiry dates (pharmacies, food): stock coming in asks for a date. Off by default. */
+  tracksExpiry?: boolean;
   // ---- Optional data for certified invoicing (phase 3, through an AGT-certified partner) ----
   /** Unit as written on invoices ("un", "kg", "L", "cx"…). Quantities stay whole numbers in phase 1. */
   unit?: string;
@@ -150,6 +152,25 @@ export interface CreditPayment extends BaseRecord {
   deviceId?: string;
 }
 
+/**
+ * Stock of a product that follows its dates, as it came in: with its expiry date, or without one.
+ * What is left of each batch is worked out from the stock (src/domain/expiry.ts), so a sale never
+ * says which batch it took.
+ */
+export interface Batch extends BaseRecord {
+  productId: string;
+  /** Units, or grams, that came in. */
+  quantity: number;
+  /** "YYYY-MM-DD"; undefined when it came in without a date. */
+  expiresOn?: string;
+  /** A stock entry, a purchase, or stock already on the shelf when its date was given (the oldest). */
+  source: 'entry' | 'purchase' | 'shelf';
+  purchaseId?: string;
+  /** Voided with its purchase, or removed as a mistake: it no longer counts. */
+  voidedAt?: IsoDate;
+  deviceId?: string;
+}
+
 /** An electronic payment still waiting for the shop to confirm the money arrived (voided sales never wait). */
 export const isPaymentPending = (s: Pick<Sale, 'pendingSince' | 'confirmedAt' | 'voidedAt'>) =>
   !!s.pendingSince && !s.confirmedAt && !s.voidedAt;
@@ -219,6 +240,8 @@ export interface PurchaseItem {
   /** Cost paid per unit (or per kg). */
   unitCostCents: Cents;
   lineTotalCents: Cents;
+  /** Products that follow their dates: the expiry date of these goods ("YYYY-MM-DD"). */
+  expiresOn?: string;
 }
 
 /** How a purchase was paid: from the till, otherwise (bank, phone), or on credit with the supplier. */
@@ -353,7 +376,8 @@ export interface AuditEntry extends BaseRecord {
     | 'purchase'
     | 'supplier_payment'
     | 'inss_contribution'
-    | 'return';
+    | 'return'
+    | 'batch';
   entityId: string;
   action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted' | 'confirmed';
   before?: unknown;
@@ -393,6 +417,11 @@ export interface Settings extends BaseRecord {
   digitalMinShareBp?: number;
   /** The owner's plan to contribute to the INSS (optional; none = not used). */
   inss?: InssPlan;
+  /**
+   * The cost price after a purchase: none = the cost of the last purchase (the usual, simplest rule);
+   * 'average' = the average of what is on the shelf and what came in (optional, off by default).
+   */
+  costMethod?: 'average';
   // ---- Optional data for certified invoicing (phase 3) ----
   address?: string;
   vatRegime?: VatRegime;

@@ -680,6 +680,50 @@ export const t = {
     profit: (kz: string) => `lucro ${kz}`,
     hintReports: 'O lucro conta só os produtos com preço de custo.',
   },
+  costMethod: {
+    title: 'Preço de custo depois de uma compra',
+    hint: 'Usado no lucro estimado. A maior parte das lojas fica com o da última compra; o custo médio mistura o que estava na prateleira com o que chegou.',
+    options: { last: 'O da última compra', average: 'Custo médio' } as Record<'last' | 'average', string>,
+    example: 'Exemplo: 10 a 300 Kz na prateleira e chegam 10 a 400 Kz. Última compra: 400 Kz. Custo médio: 350 Kz.',
+  },
+  expiry: {
+    track: 'Controlar validades',
+    trackHint: 'Para medicamentos e alimentos: ao dar entrada de stock, a app pede a validade e avisa quando estiver a acabar.',
+    date: 'Validade (opcional)',
+    initialDate: 'Validade do stock inicial (opcional)',
+    invalidDate: 'Data inválida.',
+    title: 'Validades em stock',
+    none: 'Sem stock.',
+    noDate: 'sem validade indicada',
+    expired: (days: number) => (days === 0 ? 'vence hoje' : days === -1 ? 'venceu ontem' : `vencido há ${-days} dias`),
+    expires: (date: string, days: number) =>
+      days < 0
+        ? `venceu a ${date}`
+        : days === 0
+          ? `vence hoje (${date})`
+          : days === 1
+            ? `vence amanhã (${date})`
+            : `vence a ${date} (daqui a ${days} dias)`,
+    addShelf: 'Indicar a validade do stock sem data',
+    shelfQty: 'Quantidade',
+    shelfQtyKg: 'Quantidade (kg)',
+    shelfDate: 'Validade',
+    shelfSave: 'Guardar validade',
+    shelfHint: 'Para o stock que já estava na prateleira: conta como o mais antigo (é o primeiro a sair).',
+    shelfSaved: 'Validade guardada.',
+    errors: {
+      invalid_quantity: 'Quantidade inválida (no máximo, o stock que tem).',
+      invalid_date: 'Escolha a data de validade.',
+      not_tracked: 'Este produto não controla validades.',
+    } as Record<string, string>,
+    card: (n: number) => (n === 1 ? '1 lote vencido ou a vencer' : `${count(n)} lotes vencidos ou a vencer`),
+    cardHint:
+      'Nos próximos 30 dias. Venda primeiro, faça uma promoção ou retire da prateleira (acerto de stock com o motivo «Fora de prazo»).',
+    more: (n: number) => `E mais ${n} em Produtos → Análise do stock → Validades.`,
+    tab: 'Validades',
+    tabHint: 'Lotes vencidos e a vencer nos próximos 60 dias, dos produtos que controlam validades.',
+    tabNone: 'Nada vencido nem a vencer nos próximos 60 dias.',
+  },
   stockInsights: {
     open: 'Análise do stock',
     title: 'Análise do stock',

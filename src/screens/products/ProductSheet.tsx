@@ -25,6 +25,7 @@ const ERRORS: Record<string, string> = {
   invalid_stock: t.products.invalidNumber,
   duplicate_barcode: t.products.duplicateBarcode,
   invalid_tax: t.invoicing.rateInvalid,
+  invalid_date: t.expiry.invalidDate,
 };
 
 const toInt = (s: string) => (/^\d+$/.test(s.trim()) ? Number(s.trim()) : null);
@@ -85,6 +86,8 @@ function ProductForm({
     product ? (product.soldBy === 'weight' ? formatKg(product.minStock) : String(product.minStock)) : '3',
   );
   const [category, setCategory] = useState(product?.category ?? '');
+  const [tracks, setTracks] = useState(product?.tracksExpiry ?? false);
+  const [initialExpiry, setInitialExpiry] = useState('');
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [rate, setRate] = useState(product?.taxRateBp === undefined ? '' : formatBpAsPercent(product.taxRateBp));
   const [exemption, setExemption] = useState(product?.taxExemption ?? '');
@@ -118,6 +121,7 @@ function ProductForm({
       taxRateBp,
       taxExemption: taxRateBp === 0 ? exemption : undefined,
       ...(byWeight ? { soldBy: 'weight' as const } : {}),
+      tracksExpiry: tracks,
     };
     const persist = async () => {
       try {
@@ -125,7 +129,7 @@ function ProductForm({
           await store.products.update(product.id, input);
         } else {
           // Note: `onCreated?.(await create())` would skip the create when there is no callback.
-          const created = await store.products.create(input, initial ?? 0);
+          const created = await store.products.create(input, initial ?? 0, tracks && initialExpiry ? initialExpiry : undefined);
           onCreated?.(created);
         }
         showToast(t.settings.saved);
@@ -141,9 +145,11 @@ function ProductForm({
                 ? 'cost'
                 : code === 'name_required'
                   ? 'name'
-                  : code === 'invalid_tax'
-                    ? 'tax'
-                    : 'min';
+                  : code === 'invalid_date'
+                    ? 'expiry'
+                    : code === 'invalid_tax'
+                      ? 'tax'
+                      : 'min';
         setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
       }
     };
@@ -249,6 +255,27 @@ function ProductForm({
           error={err('min')}
         />
         <CategoryField value={category} onChange={setCategory} />
+        <label className="flex min-h-12 items-start gap-3 rounded-xl bg-white px-3 py-2">
+          <input
+            type="checkbox"
+            className="mt-1 h-6 w-6 shrink-0 accent-brand-700"
+            checked={tracks}
+            onChange={(e) => setTracks(e.target.checked)}
+          />
+          <span>
+            <span className="block font-semibold">{t.expiry.track}</span>
+            <span className="text-sm text-slate-600">{t.expiry.trackHint}</span>
+          </span>
+        </label>
+        {!product && tracks && (
+          <Field
+            label={t.expiry.initialDate}
+            type="date"
+            value={initialExpiry}
+            onChange={(e) => setInitialExpiry(e.target.value)}
+            error={err('expiry')}
+          />
+        )}
         <details className="rounded-xl bg-white p-3" open={err('tax') !== null}>
           <summary className="min-h-11 cursor-pointer py-2 font-semibold">{t.invoicing.title}</summary>
           <div className="mt-2 space-y-3">

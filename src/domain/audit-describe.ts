@@ -19,6 +19,7 @@ import type {
 import { t } from '../i18n/pt-AO';
 import { formatDateString, formatDateTime } from '../lib/dates';
 import { monthLong, monthlyCents } from './inss';
+import { formatQuantity } from './quantity';
 
 export interface AuditLine {
   text: string;
@@ -78,6 +79,8 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         if (before.name !== after.name) changes.push(`nome «${before.name}» → «${after.name}»`);
         if (before.barcode !== after.barcode) changes.push('código de barras');
         if (before.minStock !== after.minStock) changes.push(`stock mínimo ${before.minStock} → ${after.minStock}`);
+        if (!!before.tracksExpiry !== !!after.tracksExpiry)
+          changes.push(after.tracksExpiry ? 'passou a controlar validades' : 'deixou de controlar validades');
         if (changes.length === 0) return null;
         return { text: `${after.name}: ${changes.join(', ')}`, important: before.priceCents !== after.priceCents };
       }
@@ -92,6 +95,13 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         return { text: `Acerto de stock: ${name} ${sign}${m.delta}. Motivo: ${m.reason ?? '—'}`, important: true };
       }
       return null; // sale/void movements are already described by the sale itself
+    }
+    case 'batch': {
+      const b = obj<{ name: string; quantity: number; soldBy: 'weight'; expiresOn: string }>(e.after);
+      const qty = formatQuantity(b.quantity ?? 0, b.soldBy);
+      const what = `${b.name ?? 'produto'}: ${qty}${b.expiresOn ? `, validade ${formatDateString(b.expiresOn)}` : ''}`;
+      if (e.action === 'voided') return { text: `Validade retirada — ${what}`, important: false };
+      return { text: `Validade indicada — ${what}`, important: false };
     }
     case 'return': {
       const r = obj<SaleReturn>(e.after);
@@ -139,6 +149,14 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
           text: after.digitalMinShareBp
             ? `Mínimo de pagamentos digitais (crédito para stock): ${Math.round(after.digitalMinShareBp / 100)}%`
             : 'Mínimo de pagamentos digitais retirado',
+          important: true,
+        };
+      }
+      if (before.costMethod !== after.costMethod) {
+        return {
+          text: after.costMethod
+            ? 'Preço de custo: passa a ser o custo médio das compras'
+            : 'Preço de custo: passa a ser o da última compra',
           important: true,
         };
       }

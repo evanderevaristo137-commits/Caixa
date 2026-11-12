@@ -25,3 +25,19 @@ export function supplierOrderText(
   out.push('', 'Obrigado!');
   return out.join('\n');
 }
+
+/**
+ * The cost price of a product after a purchase. Usually the cost of this purchase ("comprei a 350,
+ * o custo é 350"). With the average cost (optional): what was on the shelf at its cost, plus what came
+ * in at its cost, divided by the total, to the cêntimo; the purchase cost alone when there was no
+ * stock (or it was negative) or no cost known. Weighed goods: grams weigh, costs are per kg.
+ */
+export function costAfterPurchase(
+  before: { stock: number; costCents?: Cents },
+  quantity: number,
+  unitCostCents: Cents,
+  method?: 'average',
+): Cents {
+  if (method !== 'average' || before.costCents === undefined || before.stock <= 0) return unitCostCents;
+  return Math.round((before.stock * before.costCents + quantity * unitCostCents) / (before.stock + quantity));
+}

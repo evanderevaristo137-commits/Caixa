@@ -1,4 +1,5 @@
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../../domain/stock';
+import { isExpiryDate } from '../../domain/expiry';
 import { byName } from '../../domain/ranking';
 import { MAX_GRAMS } from '../../domain/quantity';
 import type { PlanRow } from '../../domain/import-products';
@@ -20,35 +21,45 @@ export class ProductsRepository {
     const matches = await this.c.db.products.where('barcode').equals(code.trim()).toArray();
     return matches.find((p) => !p.archivedAt);
   };
-  create = (input: ProductInput, initialStock = 0): Promise<Product> =>
-    this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit], async () => {
-      await this.c.assertProduct(input);
-      if (!Number.isInteger(initialStock) || initialStock < 0) throw new DomainError('invalid_stock');
-      const at = this.c.stamp();
-      const product: Product = {
-        id: uuid(),
-        name: input.name.trim(),
-        priceCents: input.priceCents,
-        ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
-        ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
-        barcode: clean(input.barcode),
-        category: await this.c.categoryFor(input.category),
-        minStock: input.minStock,
-        unit: cleanShort(input.unit, 10),
-        taxRateBp: input.taxRateBp,
-        taxExemption: cleanShort(input.taxExemption, 120),
-        stock: 0, // raised by the initial-stock movement below
-        createdAt: at,
-        updatedAt: at,
-      };
-      await this.c.db.products.add(product);
-      await this.c.audit({ entity: 'product', entityId: product.id, action: 'created', after: product });
-      if (initialStock > 0) {
-        await this.c.addMovement({ productId: product.id, type: 'entry', delta: initialStock, reason: 'Stock inicial' });
-      }
-      // Return the saved product (with the initial stock already applied).
-      return (await this.c.db.products.get(product.id))!;
-    });
+  /** `initialExpiresOn`: the date of the initial stock, for a product that follows its dates. */
+  create = (input: ProductInput, initialStock = 0, initialExpiresOn?: string): Promise<Product> =>
+    this.c.db.transaction(
+      'rw',
+      [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.batches, this.c.db.meta],
+      async () => {
+        await this.c.assertProduct(input);
+        if (!Number.isInteger(initialStock) || initialStock < 0) throw new DomainError('invalid_stock');
+        if (initialExpiresOn !== undefined && !isExpiryDate(initialExpiresOn)) throw new DomainError('invalid_date');
+        const at = this.c.stamp();
+        const product: Product = {
+          id: uuid(),
+          name: input.name.trim(),
+          priceCents: input.priceCents,
+          ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
+          ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
+          barcode: clean(input.barcode),
+          category: await this.c.categoryFor(input.category),
+          minStock: input.minStock,
+          unit: cleanShort(input.unit, 10),
+          taxRateBp: input.taxRateBp,
+          taxExemption: cleanShort(input.taxExemption, 120),
+          ...(input.tracksExpiry ? { tracksExpiry: true } : {}),
+          stock: 0, // raised by the initial-stock movement below
+          createdAt: at,
+          updatedAt: at,
+        };
+        await this.c.db.products.add(product);
+        await this.c.audit({ entity: 'product', entityId: product.id, action: 'created', after: product });
+        if (initialStock > 0) {
+          await this.c.addMovement({ productId: product.id, type: 'entry', delta: initialStock, reason: 'Stock inicial' });
+          if (product.tracksExpiry) {
+            await this.c.addBatch({ productId: product.id, quantity: initialStock, expiresOn: initialExpiresOn, source: 'entry' });
+          }
+        }
+        // Return the saved product (with the initial stock already applied).
+        return (await this.c.db.products.get(product.id))!;
+      },
+    );
   update = (id: string, input: ProductInput): Promise<Product> =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.audit, this.c.db.meta], async () => {
       const before = await this.c.db.products.get(id);
@@ -77,6 +88,10 @@ export class ProductsRepository {
         if (input.costCents === undefined) delete after.costCents;
         else after.costCents = input.costCents;
       }
+      if (input.tracksExpiry !== undefined) {
+        if (input.tracksExpiry) after.tracksExpiry = true;
+        else delete after.tracksExpiry;
+      }
       await this.c.db.products.put(after);
       await this.c.audit({ entity: 'product', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
       return after;
@@ -91,12 +106,22 @@ export class ProductsRepository {
       await this.c.db.products.put(after);
       await this.c.audit({ entity: 'product', entityId: id, action: 'archived', ...changedFields(before, after, ['name']) });
     });
-  addEntry = (id: string, quantity: number) =>
-    this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit], async () => {
-      const err = validateEntry(quantity);
-      if (err) throw new DomainError(err);
-      await this.c.addMovement({ productId: id, type: 'entry', delta: quantity });
-    });
+  /** `expiresOn`: the date of these goods, for a product that follows its dates. */
+  addEntry = (id: string, quantity: number, expiresOn?: string) =>
+    this.c.db.transaction(
+      'rw',
+      [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.batches, this.c.db.meta],
+      async () => {
+        const err = validateEntry(quantity);
+        if (err) throw new DomainError(err);
+        if (expiresOn !== undefined && !isExpiryDate(expiresOn)) throw new DomainError('invalid_date');
+        await this.c.addMovement({ productId: id, type: 'entry', delta: quantity });
+        // With or without a date: the batches must cover all the stock that came in (see expiry.ts).
+        if ((await this.c.db.products.get(id))?.tracksExpiry) {
+          await this.c.addBatch({ productId: id, quantity, expiresOn, source: 'entry' });
+        }
+      },
+    );
   adjust = (id: string, countedQuantity: number, reason: string) =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta], async () => {
       await this.c.store.security.requireOwner();
@@ -162,41 +187,45 @@ export class ProductsRepository {
    * of existing ones (price, cost, minimum, barcode, category; never the stock). Audited.
    */
   importMany = (rows: PlanRow[]): Promise<{ created: number; updated: number }> =>
-    this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta], async () => {
-      let created = 0;
-      let updated = 0;
-      for (const row of rows) {
-        const p = row.product;
-        if (row.action === 'create') {
-          const input: ProductInput = {
-            name: p.name,
-            priceCents: p.priceCents,
-            costCents: p.costCents,
-            barcode: p.barcode,
-            minStock: p.minStock ?? 0,
-            category: p.category,
-            ...(p.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
-          };
-          await this.create(input, p.stock ?? 0);
-          created += 1;
-        } else if (row.action === 'update' && row.productId) {
-          const current = await this.c.db.products.get(row.productId);
-          if (!current || current.archivedAt) throw new DomainError('not_found');
-          await this.update(row.productId, {
-            name: current.name,
-            priceCents: p.priceCents,
-            ...(p.costCents !== undefined ? { costCents: p.costCents } : {}),
-            barcode: p.barcode ?? current.barcode,
-            minStock: p.minStock ?? current.minStock,
-            ...(p.category ? { category: p.category } : {}),
-            unit: current.unit,
-            taxRateBp: current.taxRateBp,
-            taxExemption: current.taxExemption,
-          });
-          updated += 1;
+    this.c.db.transaction(
+      'rw',
+      [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta, this.c.db.batches],
+      async () => {
+        let created = 0;
+        let updated = 0;
+        for (const row of rows) {
+          const p = row.product;
+          if (row.action === 'create') {
+            const input: ProductInput = {
+              name: p.name,
+              priceCents: p.priceCents,
+              costCents: p.costCents,
+              barcode: p.barcode,
+              minStock: p.minStock ?? 0,
+              category: p.category,
+              ...(p.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
+            };
+            await this.create(input, p.stock ?? 0);
+            created += 1;
+          } else if (row.action === 'update' && row.productId) {
+            const current = await this.c.db.products.get(row.productId);
+            if (!current || current.archivedAt) throw new DomainError('not_found');
+            await this.update(row.productId, {
+              name: current.name,
+              priceCents: p.priceCents,
+              ...(p.costCents !== undefined ? { costCents: p.costCents } : {}),
+              barcode: p.barcode ?? current.barcode,
+              minStock: p.minStock ?? current.minStock,
+              ...(p.category ? { category: p.category } : {}),
+              unit: current.unit,
+              taxRateBp: current.taxRateBp,
+              taxExemption: current.taxExemption,
+            });
+            updated += 1;
+          }
         }
-      }
-      await this.c.audit({ entity: 'data', entityId: 'products_import', action: 'imported', after: { created, updated } });
-      return { created, updated };
-    });
+        await this.c.audit({ entity: 'data', entityId: 'products_import', action: 'imported', after: { created, updated } });
+        return { created, updated };
+      },
+    );
 }

@@ -16,6 +16,8 @@ interface Line {
   product: Product;
   qty: string;
   cost: string;
+  /** Products that follow their dates: "YYYY-MM-DD" (optional). */
+  expiry?: string;
 }
 
 const kzText = (cents: number | undefined) => (cents === undefined ? '' : formatKz(cents).replace(' Kz', ''));
@@ -88,7 +90,12 @@ export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
       if (newSupplier?.name.trim()) sid = (await store.suppliers.create(newSupplier.name, newSupplier.phone)).id;
       await store.purchases.create({
         supplierId: sid,
-        lines: lines.map((l, i) => ({ productId: l.product.id, quantity: parsed[i]!.quantity!, unitCostCents: parsed[i]!.unitCostCents! })),
+        lines: lines.map((l, i) => ({
+          productId: l.product.id,
+          quantity: parsed[i]!.quantity!,
+          unitCostCents: parsed[i]!.unitCostCents!,
+          ...(l.product.tracksExpiry && l.expiry ? { expiresOn: l.expiry } : {}),
+        })),
         payment,
         dueDate: payment === 'credit' ? dueDate : undefined,
         note,
@@ -195,6 +202,16 @@ export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
                     onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, cost: e.target.value } : x)))}
                   />
                 </div>
+                {l.product.tracksExpiry && (
+                  <div className="mt-2">
+                    <Field
+                      label={t.expiry.date}
+                      type="date"
+                      value={l.expiry ?? ''}
+                      onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, expiry: e.target.value } : x)))}
+                    />
+                  </div>
+                )}
                 {parsed[i]!.ok && <Money cents={parsed[i]!.total} className="mt-1 block text-right font-semibold" />}
               </li>
             ))}

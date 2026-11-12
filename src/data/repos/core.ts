@@ -5,7 +5,7 @@ import { internalBarcode } from '../../domain/barcode';
 import { canonicalCategory } from '../../domain/categories';
 import { savedCents } from '../../domain/inss';
 import { summariseReturns } from '../../domain/returns';
-import type { AuditEntry, SaleItem, StockMovement } from '../../domain/types';
+import type { AuditEntry, Batch, SaleItem, StockMovement } from '../../domain/types';
 import { uuid } from '../../lib/ids';
 import { CaixaDB } from '../db';
 import type { Store } from '../store';
@@ -126,6 +126,24 @@ export class StoreCore {
    * Entries and adjustments are actions by themselves and get their own line in the activity log;
    * the movements of a sale, a purchase or a void are covered by that line (they keep its id).
    */
+  /** Writes a batch of stock with its date (call inside a transaction with batches and meta). */
+  async addBatch(b: Pick<Batch, 'productId' | 'quantity' | 'expiresOn' | 'source' | 'purchaseId'>): Promise<Batch> {
+    const at = this.stamp();
+    const batch: Batch = {
+      id: uuid(),
+      productId: b.productId,
+      quantity: b.quantity,
+      ...(b.expiresOn ? { expiresOn: b.expiresOn } : {}),
+      source: b.source,
+      ...(b.purchaseId ? { purchaseId: b.purchaseId } : {}),
+      deviceId: await this.deviceId(),
+      createdAt: at,
+      updatedAt: at,
+    };
+    await this.db.batches.add(batch);
+    return batch;
+  }
+
   async addMovement(m: Omit<StockMovement, 'id' | 'createdAt' | 'updatedAt'>) {
     const product = await this.db.products.get(m.productId);
     if (!product) throw new DomainError('not_found');

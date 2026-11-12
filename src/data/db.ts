@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import { dueDateOf } from '../domain/credit';
 import type {
   AuditEntry,
+  Batch,
   CashClose,
   CreditPayment,
   Customer,
@@ -60,6 +61,7 @@ export class CaixaDB extends Dexie {
   inssContributions!: Table<InssContribution, string>;
   safety!: Table<SafetyRow, string>;
   returns!: Table<SaleReturn, string>;
+  batches!: Table<Batch, string>;
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -107,6 +109,8 @@ export class CaixaDB extends Dexie {
     this.version(8).stores({ returns: 'id, saleId, createdAt' });
     // v9: electronic payments to confirm later, indexed to find them without reading every sale.
     this.version(9).stores({ sales: 'id, createdAt, customerId, method, updatedAt, pendingSince' });
+    // v10: expiry dates of the stock of products that follow them (optional).
+    this.version(10).stores({ batches: 'id, productId, createdAt' });
   }
 }
 
@@ -126,6 +130,7 @@ export const TABLES = [
   'supplierPayments',
   'inssContributions',
   'returns',
+  'batches',
 ] as const;
 /** Tables added after the first version: older backups do not have them (read as empty). */
 export const LATER_TABLES: readonly TableName[] = [
@@ -136,5 +141,6 @@ export const LATER_TABLES: readonly TableName[] = [
   'supplierPayments',
   'inssContributions',
   'returns',
+  'batches',
 ];
 export type TableName = (typeof TABLES)[number];

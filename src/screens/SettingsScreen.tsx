@@ -8,6 +8,7 @@ import { t } from '../i18n/pt-AO';
 import { promptInstall, useCanInstall } from '../lib/install';
 import { CreditSettingsCard } from './settings/CreditSettingsCard';
 import { CashFloatCard } from './settings/CashFloatCard';
+import { CostMethodCard } from './settings/CostMethodCard';
 import { PilotCard } from './settings/PilotCard';
 import { DigitalMinCard } from './settings/DigitalMinCard';
 import { LegalCard } from './settings/LegalCard';
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
       <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
       <CreditSettingsCard settings={settings} />
       <CashFloatCard key={`float-${store.db.name}`} settings={settings} />
+      <CostMethodCard settings={settings} />
       <DigitalMinCard key={`digital-${store.db.name}`} settings={settings} />
       <InssCard key={`inss-${store.db.name}`} />
       <InvoicingCard settings={settings} />

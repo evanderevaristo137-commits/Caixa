@@ -1,4 +1,5 @@
 import type {
+  Batch,
   CashClose,
   CreditPayment,
   Customer,
@@ -131,7 +132,7 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 4;
+export const DEMO_VERSION = 5;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -150,6 +151,8 @@ export interface DemoData {
   /** Dona Teresa follows her INSS in the app: 45 years old, one minimum wage, paying for over a year. */
   inssPlan: InssPlan;
   inssContributions: InssContribution[];
+  /** The milk follows its expiry dates: one lot about to expire, one expired. */
+  batches: Batch[];
 }
 
 // Fictitious suppliers (same WhatsApp test number as the customers). Drinks and bread have their own.
@@ -475,6 +478,46 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
 
+  // Expiry dates (optional, product by product): the milk follows them. Its stock on the shelf gets
+  // dates, as a shop does when it starts: one lot about to expire, one expired, the rest fine.
+  const batches: Batch[] = [];
+  const DATED: [string, [number, number][]][] = [
+    [
+      'Leite UHT 1 L',
+      [
+        [4, 5],
+        [99, 45],
+      ],
+    ], // [quantity, days until it expires]
+    [
+      'Leite em pó 400 g',
+      [
+        [2, -3],
+        [99, 120],
+      ],
+    ],
+  ];
+  for (const [name, lots] of DATED) {
+    const p = products.find((x) => x.name === name);
+    if (!p) continue;
+    p.tracksExpiry = true;
+    let left = p.stock;
+    for (const [quantity, days] of lots) {
+      const q = Math.min(quantity, left);
+      if (q <= 0) break;
+      left -= q;
+      batches.push({
+        id: uuid(),
+        productId: p.id,
+        quantity: q,
+        expiresOn: addDaysToDateString(today, days),
+        source: 'shelf',
+        createdAt,
+        updatedAt: createdAt,
+      });
+    }
+  }
+
   return {
     products,
     customers,
@@ -488,6 +531,7 @@ export function buildDemoData(now: Date): DemoData {
     supplierPayments,
     inssPlan,
     inssContributions,
+    batches,
   };
 }
 
@@ -511,6 +555,7 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.purchases.bulkAdd(data.purchases);
     await db.supplierPayments.bulkAdd(data.supplierPayments);
     await db.inssContributions.bulkAdd(data.inssContributions);
+    await db.batches.bulkAdd(data.batches);
     await db.meta.put({ key: 'purchaseNumber', value: data.purchases.length });
     await db.settings.put({
       id: SETTINGS_ID,

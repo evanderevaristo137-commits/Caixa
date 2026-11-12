@@ -9,9 +9,11 @@ import { formatKz } from '../../lib/money';
 import { LinkButton, Sheet, Skeleton } from '../../ui/kit';
 import { useLoaded } from '../../ui/use-loaded';
 import { StockLossesView } from './StockLossesView';
+import { ExpiryList } from './ExpiryList';
+import { expiringStock } from '../../domain/expiry';
+import { toLocalDateString } from '../../lib/dates';
 
-type View = 'buy' | 'still' | 'losses';
-const VIEWS: View[] = ['buy', 'still', 'losses'];
+type View = 'buy' | 'still' | 'losses' | 'expiry';
 
 /**
  * «Análise do stock»: what to buy by the speed of sale, products standing still (money on the
@@ -22,10 +24,18 @@ export function StockInsightsSheet({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<View>('buy');
   const data = useLoaded(async () => {
     const now = new Date();
-    const [products, speeds, settings] = await Promise.all([store.products.list(), store.sales.speeds(now), store.settings.get()]);
+    const [products, speeds, settings, batches] = await Promise.all([
+      store.products.list(),
+      store.sales.speeds(now),
+      store.settings.get(),
+      store.batches.all(),
+    ]);
     const buy = restockList(products, speeds);
     return {
       buy,
+      // Only shops that follow expiry dates see that tab.
+      tracked: products.some((p) => p.tracksExpiry),
+      expiring: expiringStock(products, batches, toLocalDateString(now), 60),
       still: stillProducts(products, speeds, now),
       minOf: new Map(products.map((p) => [p.id, p.minStock])),
       list: whatsAppLink(shoppingListText(settings.storeName, buy, now)),
@@ -34,8 +44,12 @@ export function StockInsightsSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title={t.stockInsights.title} onClose={onClose}>
-      <div role="tablist" aria-label={t.stockInsights.title} className="mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1">
-        {VIEWS.map((v) => (
+      <div
+        role="tablist"
+        aria-label={t.stockInsights.title}
+        className={`mb-3 grid gap-1 rounded-xl bg-slate-200 p-1 ${data?.tracked ? 'grid-cols-4' : 'grid-cols-3'}`}
+      >
+        {(data?.tracked ? (['buy', 'still', 'losses', 'expiry'] as const) : (['buy', 'still', 'losses'] as const)).map((v) => (
           <button
             key={v}
             type="button"
@@ -44,7 +58,7 @@ export function StockInsightsSheet({ onClose }: { onClose: () => void }) {
             onClick={() => setView(v)}
             className={`min-h-11 rounded-lg text-sm font-semibold ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700'}`}
           >
-            {t.stockInsights.views[v]}
+            {v === 'expiry' ? t.expiry.tab : t.stockInsights.views[v]}
           </button>
         ))}
       </div>
@@ -54,6 +68,11 @@ export function StockInsightsSheet({ onClose }: { onClose: () => void }) {
         <Skeleton rows={4} />
       ) : view === 'buy' ? (
         <BuyView lines={data.buy} minOf={data.minOf} listLink={data.list} />
+      ) : view === 'expiry' ? (
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">{t.expiry.tabHint}</p>
+          <ExpiryList lines={data.expiring} empty={t.expiry.tabNone} />
+        </div>
       ) : (
         <StillView rows={data.still} />
       )}
