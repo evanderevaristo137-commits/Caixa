@@ -187,6 +187,42 @@ describe('Store: a sale is priced from the products, never from the screen', () 
   });
 });
 
+describe('Store: a light activity log', () => {
+  it('a sale writes one short line, not a copy of itself and of each movement; the movements stay, linked to it', async () => {
+    const a = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const b = await store.products.create({ name: 'Óleo vegetal 1 L', priceCents: 185_000, minStock: 0 }, 10);
+    const c = await store.products.create({ name: 'Sabão em barra', priceCents: 25_000, minStock: 0 }, 10);
+    const lines = await db.audit.count();
+    const sale = await store.sales.create({ cart: addToCart(addToCart(addToCart([], a, 2), b), c, 3), method: 'cash' });
+    const log = await store.auditLog.list();
+    expect(log).toHaveLength(lines + 1);
+    const entry = log.find((x) => x.entityId === sale.id)!;
+    expect(entry).toMatchObject({ entity: 'sale', action: 'created', after: { number: 1, totalCents: 500_000, method: 'cash', lines: 3 } });
+    expect(JSON.stringify(entry).length).toBeLessThan(300);
+    const moves = (await db.stockMovements.toArray()).filter((m) => m.saleId === sale.id);
+    expect(moves.map((m) => m.delta).sort()).toEqual([-1, -2, -3]);
+
+    // Voiding: one line too, with the reason.
+    await store.sales.void(sale.id, 'Engano no registo');
+    const after = await store.auditLog.list();
+    expect(after).toHaveLength(lines + 2);
+    expect(after.find((x) => x.action === 'voided')).toMatchObject({ after: { number: 1, voidReason: 'Engano no registo' } });
+    expect((await db.stockMovements.toArray()).filter((m) => m.saleId === sale.id && m.type === 'void')).toHaveLength(3);
+  });
+
+  it('a change keeps only what changed (and the name), and entries and adjustments keep their own line', async () => {
+    const p = await store.products.create({ name: 'Sal 1 kg', priceCents: 30_000, minStock: 2, barcode: '123' }, 5);
+    await store.products.update(p.id, { name: 'Sal 1 kg', priceCents: 35_000, minStock: 2, barcode: '123' });
+    const change = (await store.auditLog.list()).find((x) => x.entity === 'product' && x.action === 'updated')!;
+    expect(change.before).toEqual({ name: 'Sal 1 kg', priceCents: 30_000 });
+    expect(change.after).toEqual({ name: 'Sal 1 kg', priceCents: 35_000 });
+    await store.products.addEntry(p.id, 4);
+    await store.products.adjust(p.id, 7, 'Partido');
+    const moves = (await store.auditLog.list()).filter((x) => x.entity === 'stock_movement').map((x) => (x.after as { type: string }).type);
+    expect(moves.sort()).toEqual(['adjustment', 'entry', 'entry']);
+  });
+});
+
 describe('Store: a sale is never saved twice', () => {
   const id = '3f0c8a52-6c1e-4b7a-9d55-0a1b2c3d4e5f';
 

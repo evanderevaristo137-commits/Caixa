@@ -35,6 +35,7 @@ import type {
 } from '../domain/types';
 import { CURRENCY, EXPENSE_CATEGORIES, PAYMENT_METHODS, PURCHASE_PAYMENTS } from '../domain/types';
 import { purchaseLineTotal } from '../domain/purchases';
+import { changedFields, purchaseLog, saleLog } from '../domain/audit-entry';
 import { payablesBook, payableStatus, totalPayable } from '../domain/payables';
 import { isUuid, uuid } from '../lib/ids';
 import { deriveKey, exportRawKey, KDF_ITERATIONS, normalisePassword, randomBytes, toBase64 } from '../lib/pack';
@@ -300,7 +301,7 @@ export class Store {
           else after.costCents = input.costCents;
         }
         await this.db.products.put(after);
-        await this.audit({ entity: 'product', entityId: id, action: 'updated', before, after });
+        await this.audit({ entity: 'product', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
         return after;
       }),
     archive: (id: string) =>
@@ -310,7 +311,7 @@ export class Store {
         const at = this.stamp();
         const after = { ...before, archivedAt: at, updatedAt: at };
         await this.db.products.put(after);
-        await this.audit({ entity: 'product', entityId: id, action: 'archived', before, after });
+        await this.audit({ entity: 'product', entityId: id, action: 'archived', ...changedFields(before, after, ['name']) });
       }),
     addEntry: (id: string, quantity: number) =>
       this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
@@ -367,7 +368,7 @@ export class Store {
           if (!before || before.archivedAt || clean(before.barcode)) continue;
           const after: Product = { ...before, barcode: await this.reserveInternalBarcode(), updatedAt: this.stamp() };
           await this.db.products.put(after);
-          await this.audit({ entity: 'product', entityId: id, action: 'updated', before, after });
+          await this.audit({ entity: 'product', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
           count += 1;
         }
         return count;
@@ -449,7 +450,11 @@ export class Store {
     }
   }
 
-  /** Records a movement and updates the product's stock projection. Call inside a transaction. */
+  /**
+   * Records a movement and updates the product's stock projection. Call inside a transaction.
+   * Entries and adjustments are actions by themselves and get their own line in the activity log;
+   * the movements of a sale, a purchase or a void are covered by that line (they keep its id).
+   */
   private async addMovement(m: Omit<StockMovement, 'id' | 'createdAt' | 'updatedAt'>) {
     const product = await this.db.products.get(m.productId);
     if (!product) throw new DomainError('not_found');
@@ -457,7 +462,9 @@ export class Store {
     const movement: StockMovement = { ...m, id: uuid(), createdAt: at, updatedAt: at };
     await this.db.stockMovements.add(movement);
     await this.db.products.update(m.productId, { stock: product.stock + m.delta, updatedAt: at });
-    await this.audit({ entity: 'stock_movement', entityId: movement.id, action: 'created', after: movement });
+    if (m.type === 'entry' || m.type === 'adjustment') {
+      await this.audit({ entity: 'stock_movement', entityId: movement.id, action: 'created', after: movement });
+    }
   }
 
   // ---------- Customers ----------
@@ -480,7 +487,7 @@ export class Store {
         const at = this.stamp();
         const after: Customer = { ...before, lastRemindedAt: at, updatedAt: at };
         await this.db.customers.put(after);
-        await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
+        await this.audit({ entity: 'customer', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
       }),
     /** Updates only the fields given. */
     update: (id: string, changes: { name?: string; phone?: string; nif?: string; creditLimitCents?: number | null }): Promise<Customer> =>
@@ -505,7 +512,7 @@ export class Store {
           else after.creditLimitCents = limit;
         }
         await this.db.customers.put(after);
-        await this.audit({ entity: 'customer', entityId: id, action: 'updated', before, after });
+        await this.audit({ entity: 'customer', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
         return after;
       }),
   };
@@ -532,7 +539,7 @@ export class Store {
         const at = this.stamp();
         const after: Sale = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
         await this.db.sales.put(after);
-        await this.audit({ entity: 'sale', entityId: id, action: 'voided', before, after });
+        await this.audit({ entity: 'sale', entityId: id, action: 'voided', after: saleLog(after) });
         for (const item of before.items) {
           await this.addMovement({ productId: item.productId, type: 'void', delta: item.quantity, reason: reason.trim(), saleId: id });
         }
@@ -617,7 +624,7 @@ export class Store {
             updatedAt: at,
           };
           await this.db.sales.add(sale);
-          await this.audit({ entity: 'sale', entityId: sale.id, action: 'created', after: sale });
+          await this.audit({ entity: 'sale', entityId: sale.id, action: 'created', after: saleLog(sale) });
           for (const item of sale.items) {
             await this.addMovement({ productId: item.productId, type: 'sale', delta: -item.quantity, saleId: sale.id });
           }
@@ -801,7 +808,7 @@ export class Store {
         }
         if ('phone' in changes) after.phone = clean(changes.phone);
         await this.db.suppliers.put(after);
-        await this.audit({ entity: 'supplier', entityId: id, action: 'updated', before, after });
+        await this.audit({ entity: 'supplier', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
         return after;
       }),
   };
@@ -869,7 +876,7 @@ export class Store {
             updatedAt: at,
           };
           await this.db.purchases.add(purchase);
-          await this.audit({ entity: 'purchase', entityId: purchase.id, action: 'created', after: purchase });
+          await this.audit({ entity: 'purchase', entityId: purchase.id, action: 'created', after: purchaseLog(purchase) });
           for (const item of items) {
             await this.addMovement({ productId: item.productId, type: 'purchase', delta: item.quantity, purchaseId: purchase.id });
             const before = (await this.db.products.get(item.productId))!;
@@ -877,7 +884,12 @@ export class Store {
             if (input.supplierId) after.supplierId = input.supplierId;
             if (after.costCents !== before.costCents || after.supplierId !== before.supplierId) {
               await this.db.products.put(after);
-              await this.audit({ entity: 'product', entityId: item.productId, action: 'updated', before, after });
+              await this.audit({
+                entity: 'product',
+                entityId: item.productId,
+                action: 'updated',
+                ...changedFields(before, after, ['name']),
+              });
             }
           }
           return purchase;
@@ -893,7 +905,7 @@ export class Store {
         const at = this.stamp();
         const after: Purchase = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
         await this.db.purchases.put(after);
-        await this.audit({ entity: 'purchase', entityId: id, action: 'voided', before, after });
+        await this.audit({ entity: 'purchase', entityId: id, action: 'voided', after: purchaseLog(after) });
         for (const item of before.items) {
           await this.addMovement({
             productId: item.productId,
@@ -983,7 +995,7 @@ export class Store {
           after.inss = plan;
         }
         await this.db.settings.put(after);
-        await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', before, after });
+        await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', ...changedFields(before ?? {}, after) });
         return after;
       }),
     /**
@@ -1154,7 +1166,7 @@ export class Store {
           after.creditTermDays = days;
         }
         await this.db.settings.put(after);
-        await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', before, after });
+        await this.audit({ entity: 'settings', entityId: SETTINGS_ID, action: 'updated', ...changedFields(before ?? {}, after) });
         return after;
       }),
   };
@@ -1261,7 +1273,7 @@ export class Store {
         if (computed === before.stock) return;
         const after: Product = { ...before, stock: computed, updatedAt: this.stamp() };
         await this.db.products.put(after);
-        await this.audit({ entity: 'product', entityId: productId, action: 'updated', before, after });
+        await this.audit({ entity: 'product', entityId: productId, action: 'updated', ...changedFields(before, after, ['name']) });
       }),
   };
 
