@@ -5,6 +5,7 @@ import { creditAlerts, totalOutstanding } from '../domain/credit';
 import { pilotText } from '../domain/pilot';
 import { addDays, startOfLocalDay } from '../lib/dates';
 import { digitalStatus } from '../domain/digital-watch';
+import { errorsSince, readErrors } from '../lib/error-log';
 
 /**
  * Gathers the shop's numbers for the pilot summary (no names, no phones) and writes the message.
@@ -53,5 +54,6 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
     lastBackupAt: backupAt,
     digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
     inssMonths: settings.inss ? inss.filter((c) => !c.voidedAt).length : undefined,
+    appErrors: errorsSince(readErrors(), addDays(now, -7)),
   });
 }

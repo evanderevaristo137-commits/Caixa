@@ -13,6 +13,7 @@ import { Button, Field, Money, Sheet } from '../../ui/kit';
 import { CustomerPicker } from './CustomerPicker';
 import { TermPicker } from './TermPicker';
 import { usePinGuard } from '../../ui/pin';
+import { recordError } from '../../lib/error-log';
 
 /** Choosing how the customer pays and recording the sale. The receipt is shown by ReceiptSheet. */
 export function CheckoutSheet({
@@ -113,7 +114,11 @@ export function CheckoutSheet({
       if (code === 'credit_limit') showToast(t.credit.limitExceeded);
       else if (code === 'price_changed' || code === 'product_unavailable') onOutdated();
       else if (code === 'duplicate_sale') onDuplicate();
-      else showToast(t.errors.saveFailed);
+      else {
+        // Not a rule of the shop: the phone failed to save (full, or a bug). Kept for the pilot.
+        if (!code) recordError('sale', e);
+        showToast(t.errors.saveFailed);
+      }
     } finally {
       submitting.current = false;
       setBusy(false);

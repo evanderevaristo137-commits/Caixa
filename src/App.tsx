@@ -12,6 +12,7 @@ import TodayScreen from './screens/today/TodayScreen';
 import ProductsScreen from './screens/products/ProductsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import { UpdateBanner } from './app/UpdateBanner';
+import { ClockWarning } from './app/ClockWarning';
 import { TermsGate } from './app/TermsGate';
 
 const TABS = ['sell', 'credit', 'today', 'products', 'settings'] as const;
@@ -53,6 +54,7 @@ export function App() {
         <div className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>
       )}
       <UpdateBanner />
+      <ClockWarning />
       <main className="flex-1 pb-24">
         <Fragment key={mode}>
           {tab === 'sell' && <SellScreen />}

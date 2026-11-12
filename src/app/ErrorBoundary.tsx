@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { t } from '../i18n/pt-AO';
+import { recordError } from '../lib/error-log';
 
 /** Last line of defence: an unexpected error shows a recovery screen instead of a blank page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -11,6 +12,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     // Stays on the phone (no external error service in phase 1).
+    recordError('screen', error);
     console.error(error, info.componentStack);
   }
 

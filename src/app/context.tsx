@@ -6,6 +6,7 @@ import { requestPersistentStorage } from '../lib/storage';
 import { t } from '../i18n/pt-AO';
 import { ensureFreshDemo, seedDemo } from '../data/demo-seed';
 import { useBackgroundAlerts } from './use-background-alerts';
+import { recordError } from '../lib/error-log';
 
 const MODE_KEY = 'caixa.mode';
 
@@ -26,6 +27,9 @@ function storeFor(mode: DataMode): Store {
   }
   return s;
 }
+
+/** The real shop's data, whatever mode the screens are in (for checks that concern the shop, like the clock). */
+export const realShopStore = () => storeFor('store');
 
 interface AppState {
   mode: DataMode;
@@ -59,11 +63,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setModeState(next);
   }, []);
 
-  // Safety net: any action that fails unexpectedly tells the user instead of failing silently.
+  // Safety net: any action that fails unexpectedly tells the user instead of failing silently,
+  // and is kept in the error log on the phone.
   useEffect(() => {
-    const onRejection = () => showToast(t.errors.generic);
+    const onRejection = (e: PromiseRejectionEvent) => {
+      recordError('promise', e.reason);
+      showToast(t.errors.generic);
+    };
+    const onError = (e: ErrorEvent) => recordError('page', e.error ?? e.message);
     window.addEventListener('unhandledrejection', onRejection);
-    return () => window.removeEventListener('unhandledrejection', onRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection);
+      window.removeEventListener('error', onError);
+    };
   }, [showToast]);
 
   useBackgroundAlerts(storeFor('store'));

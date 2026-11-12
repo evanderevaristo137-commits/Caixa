@@ -921,6 +921,18 @@ export const t = {
     forgot:
       'Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.',
   },
+  clock: {
+    wrong: (phone: string, last: string) =>
+      `A data do telemóvel parece errada: diz ${phone}, mas a última coisa registada na loja é de ${last}. Acerte a data e a hora nas definições do Android (de preferência «automática»), para as vendas ficarem no dia certo.`,
+  },
+  appErrors: {
+    none: 'Nenhum erro da app nos últimos 7 dias.',
+    some: (n: number) => (n === 1 ? 'A app registou 1 erro nos últimos 7 dias.' : `A app registou ${n} erros nos últimos 7 dias.`),
+    hint: 'Os erros ficam só neste telemóvel. No resumo do piloto vai apenas quantos foram.',
+    show: 'Ver os erros',
+    hide: 'Esconder os erros',
+    where: { page: 'Página', promise: 'Acção', screen: 'Ecrã', sale: 'Venda' } as Record<'page' | 'promise' | 'screen' | 'sale', string>,
+  },
   integrity: {
     title: 'Verificar os dados',
     hint: 'Confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos.',

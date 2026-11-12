@@ -33,6 +33,8 @@ export interface PilotInput {
   digital?: DigitalLine;
   /** The owner's INSS plan: payments recorded in the app (none = the shop does not use it). Never the number or the amounts. */
   inssMonths?: number;
+  /** Errors of the app on this phone in the last 7 days (only how many). */
+  appErrors?: number;
 }
 
 export interface DigitalLine {
@@ -95,6 +97,7 @@ export function pilotText(p: PilotInput): string {
     `Reforma (INSS): ${p.inssMonths === undefined ? 'não usa' : `acompanha na app · ${plural(p.inssMonths, 'pagamento registado', 'pagamentos registados')}`}`,
   );
   out.push(`Última cópia de segurança: ${p.lastBackupAt ? formatDate(p.lastBackupAt) : 'nenhuma'}`);
+  if (p.appErrors !== undefined) out.push(`Erros da app (7 dias): ${p.appErrors}`);
   out.push('', 'Só números da loja: nenhum nome nem telefone de clientes.');
   return out.join('\n');
 }

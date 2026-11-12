@@ -4,6 +4,7 @@ import type { IntegrityIssue } from '../../domain/integrity';
 import { t } from '../../i18n/pt-AO';
 import { Button, Card } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { AppErrors } from './AppErrors';
 
 function describe(issue: IntegrityIssue): string {
   switch (issue.kind) {
@@ -76,6 +77,7 @@ export function IntegrityCard() {
           </ul>
         </div>
       )}
+      <AppErrors />
     </Card>
   );
 }

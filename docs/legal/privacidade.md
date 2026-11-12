@@ -24,7 +24,7 @@ Para a loja registar e acompanhar o negócio; para enviar, quando a loja quiser,
 
 - Talões, lembretes e extractos para o cliente; listas de compras e encomendas para o fornecedor; o resumo do dia; cópias de segurança e ficheiros de Excel, para onde a loja escolher.
 - A **Ficha da loja**, só para quem a loja escolher (por exemplo, um banco). Se a loja usar «A minha reforma (INSS)», a ficha diz quantos meses de contribuições a loja registou.
-- O **resumo do piloto**: só números da loja, **nunca** nomes, telefones ou NIF de clientes. Sobre o INSS diz apenas se a loja usa essa função e quantos pagamentos registou: **nunca** o número de segurança social, o ano de nascimento ou os valores.
+- O **resumo do piloto**: só números da loja, **nunca** nomes, telefones ou NIF de clientes. Sobre o INSS diz apenas se a loja usa essa função e quantos pagamentos registou: **nunca** o número de segurança social, o ano de nascimento ou os valores. Sobre o funcionamento da app diz apenas quantos erros houve nos últimos 7 dias (o detalhe dos erros fica no telemóvel).
 
 Estes envios usam o WhatsApp ou outras apps do telemóvel, que têm as suas próprias regras de privacidade.
 
@@ -39,6 +39,7 @@ Os clientes da loja podem pedir à loja para ver, corrigir ou apagar os seus dad
 
 ## 7. Segurança
 
+- A app está configurada para não conseguir enviar dados para outros sítios: o próprio navegador recusa. Só sai do telemóvel o que a loja decide enviar (por WhatsApp, e-mail ou ficheiro).
 - O código do dono guarda-se apenas como resumo cifrado e nunca vai nas cópias de segurança.
 - As cópias de segurança contêm os dados da loja: guarde-as em lugar seguro. Pode protegê-las com uma palavra-passe (em «Mais»); sem ela, a cópia não se abre.
 - A demonstração usa uma base de dados separada e dados fictícios.

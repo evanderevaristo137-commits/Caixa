@@ -71,6 +71,11 @@ describe('pilot summary', () => {
     expect(pilotText({ ...base, inssMonths: 1 })).toContain('Reforma (INSS): acompanha na app · 1 pagamento registado\n');
   });
 
+  it("counts the app's errors of the last 7 days (only how many)", () => {
+    expect(pilotText({ ...base, appErrors: 2 })).toContain('Última cópia de segurança: 05/11/2026\nErros da app (7 dias): 2\n');
+    expect(pilotText({ ...base, appErrors: 0 })).toContain('Erros da app (7 dias): 0');
+  });
+
   it('marks the demo so it is not counted, and copes with a new shop', () => {
     const text = pilotText({ ...base, demo: true, sales: [], firstUseAt: undefined, lastBackupAt: undefined });
     expect(text.startsWith('*DEMONSTRAÇÃO — dados fictícios, não contar no piloto*')).toBe(true);
