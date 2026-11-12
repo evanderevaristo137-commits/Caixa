@@ -32,6 +32,17 @@ Actualizado à medida que cada passo é publicado.
 | I6     | Ferramentas: avisos de segurança, sem verificador de código, `store.ts` com 1.178 linhas | **Resolvido (12/11/2026).** Verificador de código (ESLint, regras dos hooks do React) na publicação automática; avisos de 6 (4 moderados) para 4 baixos, só na construção; o `Store` dividido por áreas em `src/data/repos/` (o `store.ts` tem agora 76 linhas), sem mudar o funcionamento: os mesmos 331 testes e 51 testes da app passam.      |
 | (novo) | Um toque duplo gravava dois pagamentos de um cliente                                     | **Resolvido (12/11/2026).** Encontrado ao testar o C5. Os botões que gravam ignoram toques enquanto estão a gravar: pagamentos de clientes e a fornecedores, entradas e acertos de stock, novos produtos, clientes e fornecedores, e a janela do código do dono.                                                                                 |
 
+**Fase 2 concluída a 12/11/2026.** Ficam por fazer o C7 (endereço próprio da app: decisão do fundador, com custo anual), o I3 e o I4 (Fase 3, como previsto) e o I7 (revisão por advogado e pelo INSS). Números depois da Fase 2:
+
+| Medida                              | Antes                      | Depois                                            |
+| ----------------------------------- | -------------------------- | ------------------------------------------------- |
+| Testes                              | 271 de cálculos, 40 da app | 331 de cálculos, 51 da app; todos passam          |
+| Espaço por venda de 3 artigos       | 3.846 bytes                | 1.750 bytes                                       |
+| Cópia de segurança da demonstração  | 378 KB                     | 77 KB (comprimida)                                |
+| Ficheiro principal da app           | 655 KB (195 KB comprimido) | 688 KB (203 KB comprimido)                        |
+| Avisos de segurança nas ferramentas | 6 (4 moderados)            | 4 baixos, só na construção (sem versão corrigida) |
+| `store.ts`                          | 1.178 linhas               | 76 linhas + uma área por ficheiro em `repos/`     |
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |
