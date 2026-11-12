@@ -407,6 +407,19 @@ describe('Store: recording operations', () => {
     expect(p.transactionRef).toBe('MCX-998877');
     expect(p.deviceId).toBe(e.deviceId);
   });
+
+  it('records bank transfers and TPA payments with the reference the shop typed, without a payment provider', async () => {
+    const a = await store.products.create({ name: 'A', priceCents: 10_000, minStock: 0 }, 10);
+    const tpa = await store.sales.create({ cart: addToCart([], a), method: 'tpa', transactionRef: ' 004512 ' });
+    expect(tpa).toMatchObject({ method: 'tpa', transactionRef: '004512' });
+    expect(tpa.paymentRef).toBeUndefined();
+    const transfer = await store.sales.create({ cart: addToCart([], a), method: 'transfer', transactionRef: 'TRF 7788' });
+    expect(transfer.transactionRef).toBe('TRF 7788');
+    // A customer can also pay a debt by transfer or TPA.
+    const c = await store.customers.create('Cliente Exemplo');
+    await store.sales.create({ cart: addToCart([], a), method: 'credit', customerId: c.id });
+    expect((await store.credit.addPayment(c.id, 5_000, 'transfer', 'TRF 1')).method).toBe('transfer');
+  });
 });
 
 describe('Store: owner code', () => {

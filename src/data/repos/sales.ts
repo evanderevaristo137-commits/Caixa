@@ -2,7 +2,7 @@ import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, total
 import { isValidDateString, toLocalDateString } from '../../lib/dates';
 import { MAX_GRAMS } from '../../domain/quantity';
 import type { CreditPayment, Sale } from '../../domain/types';
-import { CURRENCY, PAYMENT_METHODS } from '../../domain/types';
+import { CURRENCY, isElectronic, PAYMENT_METHODS } from '../../domain/types';
 import { saleLog } from '../../domain/audit-entry';
 import { isUuid, uuid } from '../../lib/ids';
 import { StoreCore } from './core';
@@ -117,7 +117,7 @@ export class SalesRepository {
           dueDate,
           creditLimitOverride,
           paymentRef: input.paymentRef,
-          transactionRef: input.method !== 'cash' && input.method !== 'credit' ? cleanReference(input.transactionRef) : undefined,
+          transactionRef: isElectronic(input.method) ? cleanReference(input.transactionRef) : undefined,
           deviceId: await this.c.deviceId(),
           cashReceivedCents: input.method === 'cash' ? input.cashReceivedCents : undefined,
           createdAt: at,

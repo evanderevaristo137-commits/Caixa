@@ -3,7 +3,7 @@ import { comparePt } from './ranking';
 import { summariseOutflows, type OutflowSummary } from './cash';
 import { summariseProfit, type ProfitSummary } from './profit';
 import type { Cents, CreditPayment, Expense, PaymentMethod, Sale } from './types';
-import { PAYMENT_METHODS } from './types';
+import { isElectronic, PAYMENT_METHODS } from './types';
 
 /** Reports over a period: totals, buckets for the chart, payment methods and best sellers. */
 
@@ -149,7 +149,7 @@ export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expens
     // Whole kwanzas: there are no cêntimos coins.
     avgTicketCents: valid.length ? Math.round(salesCents / valid.length / 100) * 100 : 0,
     byMethod,
-    electronicCents: PAYMENT_METHODS.filter((m) => m !== 'cash' && m !== 'credit').reduce((a, m) => a + byMethod[m], 0),
+    electronicCents: PAYMENT_METHODS.filter(isElectronic).reduce((a, m) => a + byMethod[m], 0),
     profit: summariseProfit(valid),
     outflows: summariseOutflows(expenses.filter((e) => between(e.createdAt))),
     creditSoldCents: byMethod.credit,

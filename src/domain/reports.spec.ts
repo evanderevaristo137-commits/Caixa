@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buckets, changeBp, compactKz, fillBuckets, formatChange, periodRange, periodSummary, shareBp, topProducts } from './reports';
+import type { PaymentMethod } from './types';
 
 const now = new Date(2026, 10, 8, 15, 0); // Sunday 8 November 2026
 const line = (productId: string, quantity: number, lineTotalCents: number, unitCostCents?: number) => ({
@@ -10,7 +11,7 @@ const line = (productId: string, quantity: number, lineTotalCents: number, unitC
   lineTotalCents,
   unitCostCents,
 });
-const sale = (day: number, totalCents: number, method: 'cash' | 'kwik' | 'credit' = 'cash', extra = {}) => ({
+const sale = (day: number, totalCents: number, method: PaymentMethod = 'cash', extra = {}) => ({
   createdAt: new Date(2026, 10, day, 10).toISOString(),
   totalCents,
   method,
@@ -70,6 +71,18 @@ describe('reports', () => {
     expect(s.profit.profitCents).toBe(40_000);
     expect(s.outflows.expensesCents).toBe(15_000);
     expect(shareBp(s.electronicCents, s.salesCents)).toBe(3000);
+  });
+
+  it('counts bank transfers and the TPA as electronic payments', () => {
+    const s = periodSummary(
+      [sale(3, 100_000), sale(4, 60_000, 'tpa'), sale(4, 40_000, 'transfer')],
+      [],
+      [],
+      new Date(2026, 10, 2),
+      new Date(2026, 10, 9),
+    );
+    expect(s.electronicCents).toBe(100_000);
+    expect(s.byMethod).toMatchObject({ tpa: 60_000, transfer: 40_000, cash: 100_000 });
   });
 
   it('compares with the previous period and names the best sellers', () => {

@@ -1,5 +1,5 @@
 import { addDays, startOfLocalDay } from '../lib/dates';
-import type { Cents, CreditPayment, PaymentMethod, Sale } from './types';
+import { PROVIDER_METHODS, type Cents, type CreditPayment, type PaymentMethod, type Sale } from './types';
 
 /**
  * Watch over digital receipts (credit for stock, phase 4). The loan is repaid by retaining a share
@@ -11,7 +11,7 @@ import type { Cents, CreditPayment, PaymentMethod, Sale } from './types';
  * Credit sales are not receipts until they are paid.
  */
 
-export const DIGITAL_METHODS: readonly PaymentMethod[] = ['kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay'];
+export const DIGITAL_METHODS: readonly PaymentMethod[] = PROVIDER_METHODS;
 export const isDigital = (m: PaymentMethod) => DIGITAL_METHODS.includes(m);
 
 /** Alarm rules (also written in docs/legal/condicoes-credito-stock.md; to agree with the partner bank). */

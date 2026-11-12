@@ -32,6 +32,11 @@ describe('digital receipts', () => {
     expect(r).toEqual({ digitalCents: 100_000, totalCents: 200_000, activeDays: 1, shareBp: 5000 });
   });
 
+  it('bank transfers and the TPA are money in, but not digital for credit for stock (no retention there)', () => {
+    const r = receipts([sale(1, 100_000, 'tpa'), sale(1, 50_000, 'transfer'), sale(1, 50_000, 'kwik')], [], 0, Date.now() * 2);
+    expect(r).toEqual({ digitalCents: 50_000, totalCents: 200_000, activeDays: 1, shareBp: 2500 });
+  });
+
   it('is calm when the shop keeps its usual mix', () => {
     const s = digitalStatus([...history(8, 35, 6_000, 4_000), ...history(1, 7, 6_200, 3_900)], [], now, 3000);
     expect(s.week.shareBp).toBe(3861);

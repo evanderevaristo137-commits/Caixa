@@ -8,6 +8,8 @@ export const methodLabel: Record<PaymentMethod, string> = {
   unitel_money: 'Unitel Money',
   afrimoney: 'Afrimoney',
   paypay: 'PayPay',
+  transfer: 'Transferência bancária',
+  tpa: 'TPA (cartão)',
   credit: 'Cliente (a crédito)',
 };
 
@@ -66,6 +68,10 @@ export const t = {
     payBy: (date: string) => `Pagar até ${date}`,
     transactionRef: 'Referência do pagamento (opcional)',
     transactionRefHint: 'O código que aparece no telemóvel do cliente. Ajuda a confirmar com o banco.',
+    transferRef: 'Referência da transferência (opcional)',
+    transferHint: 'Confirme no banco (ou na app do banco) que o dinheiro entrou antes de entregar a mercadoria.',
+    tpaRef: 'N.º do talão do TPA (opcional)',
+    tpaHint: 'O número impresso no talão do TPA. Confirme que o TPA disse «aprovado».',
     change: 'Troco',
     notEnough: 'Valor recebido é menor que o total.',
     chooseCustomer: 'Qual é o cliente?',

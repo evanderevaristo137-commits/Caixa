@@ -16,7 +16,7 @@ import type {
 } from '../domain/types';
 import { tillPurchasesCents } from './store';
 import { closeResult, drawer, summariseOutflows } from '../domain/cash';
-import { CURRENCY } from '../domain/types';
+import { CURRENCY, isProviderMethod } from '../domain/types';
 import { openItems } from '../domain/credit';
 import { addMonths, baseCents, dailyCents, INSS_RULES, monthlyCents, monthOf } from '../domain/inss';
 import { lineTotalFor } from '../domain/quantity';
@@ -261,7 +261,7 @@ export function buildDemoData(now: Date): DemoData {
         currency: CURRENCY,
         method,
         customerId: method === 'credit' ? pick(customers).id : undefined,
-        paymentRef: method !== 'cash' && method !== 'credit' ? `TESTE-${method}-${number}` : undefined,
+        paymentRef: isProviderMethod(method) ? `TESTE-${method}-${number}` : undefined,
         createdAt: iso(at),
         updatedAt: iso(at),
       });

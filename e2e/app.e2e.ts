@@ -440,6 +440,34 @@ test("an electronic payment keeps the reference shown on the customer's phone", 
   await expect(page.getByText('PP-778899')).toBeVisible();
 });
 
+test('a sale paid on the TPA or by bank transfer is only recorded, with the slip number, and shows on Hoje', async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole('button', { name: /Arroz 1 kg/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  const checkout = page.getByRole('dialog');
+  await checkout.getByRole('button', { name: 'TPA (cartão)' }).click();
+  // No payment provider here: the shop checks the terminal said "aprovado".
+  await expect(checkout.getByText('Pagamento simulado (teste)', { exact: false })).toHaveCount(0);
+  await expect(checkout.getByText('Confirme que o TPA disse «aprovado».', { exact: false })).toBeVisible();
+  await checkout.getByLabel('N.º do talão do TPA (opcional)').fill('004512');
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  const receipt = page.getByRole('link', { name: 'Enviar talão por WhatsApp' });
+  await expect.poll(async () => decodeURIComponent((await receipt.getAttribute('href'))!)).toContain('Pagamento: TPA (cartão)');
+  expect(decodeURIComponent((await receipt.getAttribute('href'))!)).toContain('Ref. do pagamento: 004512');
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+
+  await page.getByRole('button', { name: /Óleo vegetal/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Transferência bancária' }).click();
+  await expect(page.getByText('Confirme no banco (ou na app do banco) que o dinheiro entrou', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+
+  await nav(page, 'Hoje');
+  await expect(page.getByText(/TPA \(cartão\)/).first()).toBeVisible();
+  await expect(page.getByText(/Transferência bancária/).first()).toBeVisible();
+});
+
 test('"Verificar os dados" confirms that every number adds up', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Mais');

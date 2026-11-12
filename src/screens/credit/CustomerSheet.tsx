@@ -15,7 +15,16 @@ import { useBusy } from '../../ui/use-busy';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
 
-const PAY_METHODS: CreditPayment['method'][] = ['cash', 'multicaixa_express', 'kwik', 'unitel_money', 'afrimoney', 'paypay'];
+const PAY_METHODS: CreditPayment['method'][] = [
+  'cash',
+  'multicaixa_express',
+  'kwik',
+  'unitel_money',
+  'afrimoney',
+  'paypay',
+  'transfer',
+  'tpa',
+];
 
 export function CustomerSheet({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { store, showToast } = useApp();

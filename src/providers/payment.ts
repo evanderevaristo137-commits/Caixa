@@ -1,6 +1,7 @@
-import type { Cents, PaymentMethod } from '../domain/types';
+import type { Cents, ProviderMethod } from '../domain/types';
 
-export type ElectronicMethod = Exclude<PaymentMethod, 'cash' | 'credit'>;
+/** The methods a payment provider handles (bank transfers and the TPA are only recorded by the shop). */
+export type ElectronicMethod = ProviderMethod;
 
 export interface PaymentRequest {
   /** Same key = same payment: after a network failure the app can retry without charging twice. */

@@ -53,8 +53,31 @@ export interface Customer extends BaseRecord {
   creditLimitCents?: Cents;
 }
 
-export const PAYMENT_METHODS = ['cash', 'kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay', 'credit'] as const;
+export const PAYMENT_METHODS = [
+  'cash',
+  'kwik',
+  'multicaixa_express',
+  'unitel_money',
+  'afrimoney',
+  'paypay',
+  'transfer',
+  'tpa',
+  'credit',
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/**
+ * Paid through a payment provider licensed by the BNA (simulated in phase 1): the app asks for the
+ * payment. Bank transfers and the card terminal (TPA) are only recorded: the shop checks that the
+ * money arrived, in the bank or on the terminal. Only these count as "digital" for credit for stock
+ * (the retention happens at the provider), as the conditions of that credit say.
+ */
+export const PROVIDER_METHODS = ['kwik', 'multicaixa_express', 'unitel_money', 'afrimoney', 'paypay'] as const;
+export type ProviderMethod = (typeof PROVIDER_METHODS)[number];
+export const isProviderMethod = (m: PaymentMethod): m is ProviderMethod => (PROVIDER_METHODS as readonly string[]).includes(m);
+
+/** Paid by an electronic means (provider, bank transfer or TPA): neither cash nor credit. */
+export const isElectronic = (m: PaymentMethod) => m !== 'cash' && m !== 'credit';
 
 export interface SaleItem {
   productId: string;

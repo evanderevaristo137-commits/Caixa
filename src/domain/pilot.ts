@@ -1,6 +1,6 @@
 import { addDays, calendarDaysBetween, formatDate, startOfLocalDay } from '../lib/dates';
 import { formatKz } from '../lib/money';
-import type { Cents, Sale } from './types';
+import { isElectronic, type Cents, type Sale } from './types';
 
 /**
  * Pilot summary: how the shop uses the app, in numbers only. The shop sends it by WhatsApp to
@@ -63,7 +63,7 @@ function window(sales: SaleLike[], now: Date, days: number): Window & { electron
     activeDays: new Set(valid.map((s) => startOfLocalDay(new Date(s.createdAt)).getTime())).size,
     count: valid.length,
     salesCents: valid.reduce((a, s) => a + s.totalCents, 0),
-    electronicCents: valid.filter((s) => s.method !== 'cash' && s.method !== 'credit').reduce((a, s) => a + s.totalCents, 0),
+    electronicCents: valid.filter((s) => isElectronic(s.method)).reduce((a, s) => a + s.totalCents, 0),
     voided: inside.length - valid.length,
   };
 }

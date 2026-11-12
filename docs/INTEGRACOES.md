@@ -67,7 +67,7 @@ Todos os exemplos usam **dados fictícios**.
 - `taxRateBp`: taxa de IVA em pontos base (`1400` = 14%). Se faltar, a loja ainda não a indicou; o parceiro ou o contabilista confirma.
 - `taxExemption`: motivo de isenção, quando a taxa é 0.
 - `buyer`: «Consumidor final», ou nome e NIF do cliente quando a loja os tem. **Nunca enviamos telefones de clientes.**
-- `payment.method`: `cash` (numerário), `kwik`, `multicaixa_express`, `unitel_money`, `afrimoney`, `paypay`, `credit` (a crédito, com `dueDate`).
+- `payment.method`: `cash` (numerário), `kwik`, `multicaixa_express`, `unitel_money`, `afrimoney`, `paypay`, `transfer` (transferência bancária), `tpa` (cartão no TPA), `credit` (a crédito, com `dueDate`). Na transferência e no TPA, `reference` é a referência da transferência ou o número do talão do TPA, escritos pela loja (não passam pelo prestador de pagamentos).
 
 ### Exemplo de pedido de nota de crédito (venda anulada)
 

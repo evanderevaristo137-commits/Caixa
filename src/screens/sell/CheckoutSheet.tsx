@@ -6,7 +6,7 @@ import { uuid } from '../../lib/ids';
 import { DomainError } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
 import { checkCreditLimit, creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
-import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
+import { isElectronic, isProviderMethod, PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
@@ -79,7 +79,8 @@ export function CheckoutSheet({
     setBusy(true);
     try {
       let paymentRef: string | undefined;
-      if (method !== 'cash' && method !== 'credit') {
+      // Methods of the payment provider: the app asks for the payment. Transfers and the TPA are only recorded.
+      if (isProviderMethod(method)) {
         // Same attempt, method and amount = same key: a retry after a network error never charges twice.
         // After a definite failure the next attempt gets a new key.
         const res = await payAndWait(payments, {
@@ -210,12 +211,14 @@ export function CheckoutSheet({
         </div>
       )}
 
-      {method && method !== 'cash' && method !== 'credit' && (
+      {method && isElectronic(method) && (
         <div className="mt-4 space-y-2">
-          {payments.isTest && <p className="rounded-lg bg-slate-200 p-2 text-center text-sm text-slate-700">{t.sell.simulated}</p>}
+          {payments.isTest && isProviderMethod(method) && (
+            <p className="rounded-lg bg-slate-200 p-2 text-center text-sm text-slate-700">{t.sell.simulated}</p>
+          )}
           <Field
-            label={t.sell.transactionRef}
-            hint={t.sell.transactionRefHint}
+            label={method === 'transfer' ? t.sell.transferRef : method === 'tpa' ? t.sell.tpaRef : t.sell.transactionRef}
+            hint={method === 'transfer' ? t.sell.transferHint : method === 'tpa' ? t.sell.tpaHint : t.sell.transactionRefHint}
             value={transactionRef}
             onChange={(e) => setTransactionRef(e.target.value)}
             autoComplete="off"
