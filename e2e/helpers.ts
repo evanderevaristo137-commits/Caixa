@@ -1,5 +1,23 @@
 import { expect, type Page } from '@playwright/test';
 
+/** Today's date in Luanda ("YYYY-MM-DD"): the phone in the tests is there (see playwright.config.ts). */
+export const luandaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Luanda' }).format(new Date());
+
+/**
+ * The instant the phone's clock starts at in the tests: today, at this time in Luanda.
+ * The suite runs in the afternoon, when the demo shop has sold all day: without this, tests that
+ * look at "today's" sales failed whenever they ran between midnight and the first sale of the demo.
+ */
+export const luandaTime = (hhmm: string) => new Date(`${luandaToday()}T${hhmm}:00+01:00`);
+
+/** A date n days from today, as the app shows it ("21/11/2026"). */
+export const inDays = (n: number) => {
+  const [y, m, d] = luandaToday().split('-').map(Number);
+  const t = new Date(Date.UTC(y!, m! - 1, d! + n));
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${pad(t.getUTCDate())}/${pad(t.getUTCMonth() + 1)}/${t.getUTCFullYear()}`;
+};
+
 /** Switches tab and waits until that screen is the one shown. */
 export async function nav(page: Page, tab: 'Vender' | 'Clientes' | 'Hoje' | 'Produtos' | 'Mais') {
   const button = page.getByRole('navigation').getByRole('button', { name: tab });

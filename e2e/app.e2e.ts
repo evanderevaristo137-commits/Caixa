@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { kzToCents, nav, openDemo, openStore, sellInCash } from './helpers';
+import { inDays, kzToCents, luandaTime, luandaToday, nav, openDemo, openStore, sellInCash } from './helpers';
 import { simpleXlsx } from '../src/lib/test-xlsx';
+
+// Mid-afternoon in Luanda: the demo shop has sold all day (e2e/midnight.e2e.ts covers the empty start of the day).
+test.beforeEach(async ({ context }) => {
+  await context.clock.install({ time: luandaTime('15:00') });
+});
 
 test('a 3-product sale gives a non-fiscal WhatsApp receipt', async ({ page }) => {
   await openDemo(page);
@@ -58,12 +63,6 @@ test('customers show who is late, due today or soon, and reminders follow the du
   const href = await page.getByRole('link', { name: 'Lembrar por WhatsApp' }).getAttribute('href');
   expect(decodeURIComponent(href!)).toMatch(/com todo o respeito, que o pagamento de [\d.]+ Kz venceu a \d\d\/\d\d\/\d{4}/);
 });
-
-const inDays = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-};
 
 test('a credit sale has a payment term: the usual one is pre-selected, another can be chosen', async ({ page }) => {
   await openDemo(page);
@@ -268,7 +267,7 @@ test('a double tap on "Confirmar venda" records one sale', async ({ page }) => {
   await expect(page.getByText('Venda registada')).toBeVisible();
   await page.getByRole('button', { name: 'Nova venda' }).click();
   await nav(page, 'Hoje');
-  await expect(count).toHaveText(`${before + 1} vendas`);
+  await expect(count).toHaveText(before + 1 === 1 ? '1 venda' : `${before + 1} vendas`);
 });
 
 test('with the app closed, Android wakes the background check and the shop gets one notification a day', async ({ page, context }) => {
@@ -960,7 +959,7 @@ test('retirement (INSS): simulate, start, set money aside, record a payment and 
   await page.getByRole('button', { name: /A minha reforma \(INSS\)/ }).click();
   const sheet = page.getByRole('dialog', { name: 'A minha reforma (INSS)' });
   // A 45-year-old with one minimum wage: 8.000 Kz a month, about 42.900 Kz of pension at 60.
-  await sheet.getByLabel('Ano em que nasceu').fill(String(new Date().getFullYear() - 45));
+  await sheet.getByLabel('Ano em que nasceu').fill(String(Number(luandaToday().slice(0, 4)) - 45));
   await expect(sheet).toContainText('Paga 8.000 Kz por mês: cerca de 270 Kz por dia.');
   await expect(sheet).toContainText('aos 60 anos recebe cerca de 42.900 Kz por mês');
   await sheet.getByRole('button', { name: '2 salários mínimos' }).click();

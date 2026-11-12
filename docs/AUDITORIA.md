@@ -4,11 +4,15 @@ Fase 1 do plano de evolução. Feita a 12 de Novembro de 2026 sobre a versão pu
 
 ## Resumo
 
-- **A base é boa e não é preciso reconstruir nada.** As regras estão separadas dos ecrãs, todas as escritas passam por um só sítio (`Store`), há 271 testes de cálculos e 39 testes da app inteira, e a publicação só acontece se todos passarem.
+- **A base é boa e não é preciso reconstruir nada.** As regras estão separadas dos ecrãs, todas as escritas passam por um só sítio (`Store`), há 271 testes de cálculos e 40 testes da app inteira, e a publicação só acontece se todos passarem.
 - **O maior risco é perder os dados.** Tudo vive só no telemóvel, a cópia de segurança é manual, vai em texto simples e cresce cerca de 9 MB por mês numa loja movimentada.
 - **Há 7 correcções a fazer antes de lojas reais** (integridade e segurança). Nenhuma estraga o que existe.
 - **Cerca de metade do que o plano pede já existe**, sobretudo em clientes, fornecedores, lucro e avisos. Faltam: histórico de vendas com filtros, devoluções, funcionários, validades, demonstração de resultados, conferência de pagamentos e sincronização.
 - **Três decisões são do fundador:** servidor, endereço próprio da app e funcionários no mesmo telemóvel (ver «Decisões»).
+
+## Corrigido já nesta fase
+
+A própria auditoria apanhou um problema na verificação automática: **4 testes dependiam da hora do dia.** Entre a meia-noite e a primeira venda da demonstração, o dia ainda não tem vendas e esses testes falhavam, o que bloqueava qualquer publicação feita de madrugada. A app estava certa; os testes é que não. Agora os testes correm sempre com o relógio do telemóvel simulado nas 15:00 de Luanda, e há um teste próprio para «dez minutos depois da meia-noite». Só mudaram ficheiros de teste.
 
 ## O que foi analisado, e como
 
@@ -30,7 +34,7 @@ Não foi possível correr o Lighthouse (o ambiente não deixa descarregar ferram
 - **Arquitectura:** `src/domain` (regras puras, com testes), `src/data` (base de dados e `Store`), `src/screens`, `src/i18n` (todos os textos). Só 4 dependências na app: React, React DOM, Dexie e dexie-react-hooks.
 - **Integridade:** dinheiro em inteiros (cêntimos); todas as escritas de negócio passam pelo `Store`, dentro de uma transacção e com registo; os movimentos de stock nunca se editam; «Verificar os dados» recalcula tudo a partir dos factos.
 - **Offline:** funciona sem internet; a demonstração vive numa base de dados separada; as actualizações nunca recarregam a app a meio de uma venda.
-- **Testes:** 271 testes de cálculos e dados, 39 testes num Android simulado; passam todos nesta versão. A publicação pára se algum falhar.
+- **Testes:** 271 testes de cálculos e dados, 40 testes num Android simulado; passam todos nesta versão. A publicação pára se algum falhar.
 - **Acessibilidade:** nenhum botão sem nome, nenhum campo sem etiqueta, nenhum alvo de toque abaixo de 44 px, e **zero falhas de contraste em 904 textos** de 7 ecrãs.
 - **Desempenho:** com 14.480 vendas e o processador 6 vezes mais lento, a app abre em cerca de 0,4 s e confirma uma venda em cerca de 0,16 s.
 - **Sem segredos no código, sem HTML perigoso, zero vulnerabilidades nas dependências da app.**
@@ -128,7 +132,7 @@ Decididas por defeito, salvo indicação em contrário: o custo continua a ser o
 | Medida                                                   | Valor                                                                            |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Código                                                   | 168 ficheiros em `src`: cerca de 15.300 linhas de app e 5.100 de testes          |
-| Testes                                                   | 271 de cálculos e dados, 39 da app inteira; todos passam                         |
+| Testes                                                   | 271 de cálculos e dados, 40 da app inteira; todos passam                         |
 | Ficheiro principal da app                                | 655 KB (195 KB comprimido)                                                       |
 | Espaço por venda de 3 linhas                             | cerca de 4,0 KB: venda 0,8, movimentos 0,7, registo de alterações 2,5            |
 | Cópia com 14.480 vendas, sem o registo de alterações     | 17,6 MB; comprimida 4,0 MB; 1,2 s e 78 MB de memória no telemóvel lento simulado |

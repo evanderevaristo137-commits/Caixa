@@ -15,6 +15,8 @@ export default defineConfig({
     channel: 'chromium',
     baseURL: `http://localhost:4174${BASE}`,
     trace: 'off',
+    // The shops are in Angola: the same time zone on every machine that runs the tests.
+    timezoneId: 'Africa/Luanda',
   },
   webServer: {
     command: 'npm run build && npx vite preview --port 4174 --strictPort',

@@ -125,6 +125,7 @@ Construir uma app web progressiva (PWA) que funcione offline no telemóvel e ten
 
 - Comandos: `npm install`, `npm run dev`, `npm test` (cálculos e base de dados), `npm run e2e` (a app inteira num Android simulado: venda, fiado, Hoje, anulação, offline, botão voltar, loja/demonstração separadas), `npm run typecheck`, `npm run build`.
 - O GitHub Actions corre formatação, `npm test` e `npm run e2e` antes de cada publicação; se algo falhar, a versão publicada não muda.
+- Os testes e2e correm com o telemóvel simulado em Luanda e o relógio nas 15:00 (`e2e/helpers.ts`: `luandaTime`), para não dependerem da hora a que correm; `e2e/midnight.e2e.ts` verifica o início do dia, ainda sem vendas. Datas nos testes vêm de `luandaToday`/`inDays`, nunca de `new Date()` solto.
 - Estrutura: `src/domain` (regras e cálculos puros, com testes), `src/data` (base de dados Dexie e repositórios em `store.ts`), `src/providers` (pagamentos e facturação, só versões de teste), `src/screens` (um ficheiro ou pasta por ecrã) e `src/ui` (componentes base e botão «voltar»), `src/i18n/pt-AO.ts` (todos os textos da app).
 - Formatação: `npm run format` (Prettier).
 - Dinheiro: inteiros em cêntimos (`priceCents`, `totalCents`); formatar só com `formatKz`.
