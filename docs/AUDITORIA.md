@@ -14,6 +14,16 @@ Fase 1 do plano de evolução. Feita a 12 de Novembro de 2026 sobre a versão pu
 
 A própria auditoria apanhou um problema na verificação automática: **4 testes dependiam da hora do dia.** Entre a meia-noite e a primeira venda da demonstração, o dia ainda não tem vendas e esses testes falhavam, o que bloqueava qualquer publicação feita de madrugada. A app estava certa; os testes é que não. Agora os testes correm sempre com o relógio do telemóvel simulado nas 15:00 de Luanda, e há um teste próprio para «dez minutos depois da meia-noite». Só mudaram ficheiros de teste.
 
+## Estado das correcções (Fase 2)
+
+Actualizado à medida que cada passo é publicado.
+
+| N.º    | Problema                                             | Estado                                                                                                                                                                                                                                                                                                 |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C4     | O `Store` aceitava o preço que vinha do ecrã         | **Resolvido (12/11/2026).** O preço, o nome e a forma de venda vêm sempre do produto. Um carrinho com preço diferente, um produto arquivado ou um «valor pedido» que não bate com o peso param a venda e o ecrã mostra o carrinho actualizado.                                                         |
+| C5     | A mesma venda podia ser gravada duas vezes           | **Resolvido (12/11/2026).** Cada carrinho nasce com o identificador da venda; o `Store` recusa repetir. O telemóvel esquece o carrinho no instante em que a venda fica gravada, e se a app for fechada nesse instante, ao voltar avisa «a venda n.º N já estava registada» em vez de cobrar outra vez. |
+| (novo) | Um toque duplo gravava dois pagamentos de um cliente | **Resolvido (12/11/2026).** Encontrado ao testar o C5. Os botões que gravam ignoram toques enquanto estão a gravar: pagamentos de clientes e a fornecedores, entradas e acertos de stock, novos produtos, clientes e fornecedores, e a janela do código do dono.                                       |
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |
