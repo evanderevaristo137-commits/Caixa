@@ -37,6 +37,7 @@ import { CURRENCY, EXPENSE_CATEGORIES, PAYMENT_METHODS, PURCHASE_PAYMENTS } from
 import { purchaseLineTotal } from '../domain/purchases';
 import { payablesBook, payableStatus, totalPayable } from '../domain/payables';
 import { isUuid, uuid } from '../lib/ids';
+import { deriveKey, exportRawKey, KDF_ITERATIONS, normalisePassword, randomBytes, toBase64 } from '../lib/pack';
 import { CaixaDB } from './db';
 
 /** Purchases paid in cash and supplier payments made with money from the till. */
@@ -121,6 +122,40 @@ const LINE_ERRORS: Record<LineProblem, string> = {
 
 /** Owner code (PIN) is kept in `meta`, only as a salted hash. */
 export const PIN_KEYS = ['ownerPinHash', 'ownerPinSalt'] as const;
+
+/**
+ * The password of the backups is never kept: only the key made from it (PBKDF2), so the phone can
+ * protect each new copy without asking. Whoever has the phone already sees the data; the key only
+ * opens this shop's copies, and does not reveal the password (which may be used elsewhere).
+ */
+export const BACKUP_LOCK_KEY = 'backupLock';
+export interface BackupLock {
+  v: 1;
+  /** base64 */
+  salt: string;
+  iterations: number;
+  /** AES-256 key, base64 */
+  key: string;
+}
+
+/** Rows of `meta` that belong to this phone: never in a backup, kept when a backup is restored. */
+export const PHONE_ONLY_KEYS = [...PIN_KEYS, BACKUP_LOCK_KEY] as const;
+
+/** Shortest password accepted for the backups (after spaces around it are dropped). */
+export const BACKUP_PASSWORD_MIN = 8;
+
+/** Reads the backup lock kept in `meta`; anything malformed counts as none. */
+export function parseBackupLock(value: unknown): BackupLock | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const l = JSON.parse(value) as Partial<BackupLock>;
+    return l.v === 1 && typeof l.salt === 'string' && typeof l.key === 'string' && Number.isInteger(l.iterations)
+      ? { v: 1, salt: l.salt, key: l.key, iterations: l.iterations! }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** References typed by people: trimmed, at most 60 characters, empty = none. */
 export function cleanReference(ref: string | undefined): string | undefined {
@@ -1174,6 +1209,33 @@ export class Store {
       await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
         await this.db.meta.bulkDelete([...PIN_KEYS]);
         await this.audit({ entity: 'settings', entityId: 'owner_pin', action: 'updated', after: { pin: 'removed' } });
+      });
+    },
+    /** The key that protects new backups, when the owner chose a password. */
+    backupLock: async (): Promise<BackupLock | null> => parseBackupLock((await this.db.meta.get(BACKUP_LOCK_KEY))?.value),
+    /**
+     * Protects the next backups with a password (or stops protecting them, with null). Copies already
+     * made keep opening with the password they were made with. Audited, without the password.
+     */
+    setBackupPassword: async (password: string | null): Promise<void> => {
+      let lock: BackupLock | null = null;
+      if (password !== null) {
+        if (normalisePassword(password).length < BACKUP_PASSWORD_MIN) throw new DomainError('weak_password');
+        const salt = randomBytes(16);
+        // Slow on purpose (about a second on a cheap phone), so done before the transaction.
+        const key = await deriveKey(password, salt, KDF_ITERATIONS, true);
+        lock = { v: 1, salt: toBase64(salt), iterations: KDF_ITERATIONS, key: toBase64(await exportRawKey(key)) };
+      }
+      await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
+        const had = parseBackupLock((await this.db.meta.get(BACKUP_LOCK_KEY))?.value) !== null;
+        if (lock) await this.db.meta.put({ key: BACKUP_LOCK_KEY, value: JSON.stringify(lock) });
+        else await this.db.meta.delete(BACKUP_LOCK_KEY);
+        await this.audit({
+          entity: 'settings',
+          entityId: 'backup_password',
+          action: 'updated',
+          after: { password: lock ? (had ? 'changed' : 'set') : 'removed' },
+        });
       });
     },
   };

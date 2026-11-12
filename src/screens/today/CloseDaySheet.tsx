@@ -1,16 +1,26 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { backupMessage, makeBackup } from '../../app/backup-action';
+import { lastBackupAt } from '../../data/backup';
 import { closeResult } from '../../domain/cash';
 import { t } from '../../i18n/pt-AO';
+import { toLocalDateString } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
+import { useBusy } from '../../ui/use-busy';
 
 const kzText = (cents: number) => formatKz(cents).replace(' Kz', '');
 
-/** End of the day: count the cash, compare with what the till should have, and record it. */
+/**
+ * End of the day: count the cash, compare with what the till should have, and record it.
+ * In the real shop, when no backup was made today, it then offers to make one.
+ */
 export function CloseDaySheet({ defaultFloatCents, onClose }: { defaultFloatCents: number; onClose: () => void }) {
-  const { store, showToast } = useApp();
+  const { store, mode, showToast } = useApp();
+  const lastBackup = useLiveQuery(() => lastBackupAt(store.db), [store]);
+  const [closed, setClosed] = useState(false);
+  const [backingUp, runBackup] = useBusy();
   const [float, setFloat] = useState(defaultFloatCents ? kzText(defaultFloatCents) : '');
   const [counted, setCounted] = useState('');
   const [note, setNote] = useState('');
@@ -27,14 +37,43 @@ export function CloseDaySheet({ defaultFloatCents, onClose }: { defaultFloatCent
     setBusy(true);
     try {
       await store.cash.close({ floatCents, countedCents, note });
-      showToast(t.cash.closed);
-      onClose();
+      const today = toLocalDateString(new Date());
+      if (mode === 'store' && (!lastBackup || toLocalDateString(new Date(lastBackup)) !== today)) {
+        setClosed(true);
+      } else {
+        showToast(t.cash.closed);
+        onClose();
+      }
     } catch {
       setError({ field: 'counted', msg: t.errors.saveFailed });
     } finally {
       setBusy(false);
     }
   };
+
+  const backup = () =>
+    runBackup(async () => {
+      const message = backupMessage(await makeBackup(store, mode));
+      if (message) showToast(message);
+      onClose();
+    });
+
+  if (closed) {
+    return (
+      <Sheet title={t.cash.closeDay} onClose={onClose}>
+        <p role="status" className="rounded-xl bg-brand-50 p-3 text-lg font-bold text-brand-800">
+          {t.backups.closeDayDone}
+        </p>
+        <p className="mt-3 text-slate-700">{t.backups.closeDayBackup}</p>
+        <Button big className="mt-4 w-full" disabled={backingUp} onClick={() => void backup()}>
+          {backingUp ? t.backups.making : t.settings.exportJson}
+        </Button>
+        <Button variant="secondary" className="mt-2 w-full" disabled={backingUp} onClick={onClose}>
+          {t.backups.notNow}
+        </Button>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet title={t.cash.closeDay} onClose={onClose}>

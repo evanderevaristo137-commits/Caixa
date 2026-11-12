@@ -16,7 +16,7 @@ import type {
   SupplierPayment,
 } from './types';
 import { t } from '../i18n/pt-AO';
-import { formatDateString } from '../lib/dates';
+import { formatDateString, formatDateTime } from '../lib/dates';
 import { monthLong, monthlyCents } from './inss';
 
 export interface AuditLine {
@@ -110,6 +110,10 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         const removed = obj<{ pin: string }>(e.after).pin === 'removed';
         return { text: removed ? 'Código do dono removido' : 'Código do dono definido', important: true };
       }
+      if (e.entityId === 'backup_password') {
+        const what = obj<{ password: 'set' | 'changed' | 'removed' | 'adopted' }>(e.after).password ?? 'set';
+        return { text: t.backups.passwordLog[what], important: true };
+      }
       const before = obj<Settings>(e.before);
       const after = obj<Settings>(e.after);
       if (before.digitalMinShareBp !== after.digitalMinShareBp) {
@@ -197,7 +201,11 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         const r = obj<{ created: number; updated: number }>(e.after);
         return { text: `Produtos importados do Excel: ${r.created ?? 0} novos, ${r.updated ?? 0} actualizados`, important: true };
       }
-      if (e.action === 'imported') return { text: 'Cópia de segurança recuperada (todos os dados substituídos)', important: true };
+      if (e.action === 'imported') {
+        const r = obj<{ exportedAt: string; source: 'file' | 'safety' }>(e.after);
+        if (r.source === 'safety') return { text: t.backups.undoneLog, important: true };
+        return { text: t.backups.restoredLog(r.exportedAt ? formatDateTime(r.exportedAt) : null), important: true };
+      }
       if (e.action === 'reset') return { text: 'Dados de demonstração repostos', important: false };
       return null;
     default:

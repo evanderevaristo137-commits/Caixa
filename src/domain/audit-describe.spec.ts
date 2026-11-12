@@ -63,6 +63,26 @@ describe('describeAudit', () => {
       'Código do dono removido',
     );
   });
+  it('says when a copy was restored, when a restore was undone and when the backup password changed', () => {
+    const restored = describeAudit(
+      entry({ entity: 'data', entityId: 'backup', action: 'imported', after: { exportedAt: '2026-11-10T17:32:00Z', source: 'file' } }),
+      names,
+    )!;
+    expect(restored.text).toMatch(/^Cópia de segurança de 10\/11\/2026 .+ recuperada \(todos os dados substituídos\)$/);
+    expect(describeAudit(entry({ entity: 'data', action: 'imported' }), names)!.text).toBe(
+      'Cópia de segurança recuperada (todos os dados substituídos)',
+    );
+    expect(describeAudit(entry({ entity: 'data', action: 'imported', after: { source: 'safety' } }), names)).toEqual({
+      text: 'Recuperação desfeita: voltaram os dados que estavam no telemóvel antes dela',
+      important: true,
+    });
+    const password = (p: string) =>
+      describeAudit(entry({ entity: 'settings', entityId: 'backup_password', after: { password: p } }), names)!.text;
+    expect(password('set')).toBe('Cópias de segurança protegidas com palavra-passe');
+    expect(password('changed')).toBe('Palavra-passe das cópias de segurança mudada');
+    expect(password('removed')).toBe('Palavra-passe das cópias de segurança retirada');
+    expect(password('adopted')).toBe('Cópias de segurança protegidas com a palavra-passe da cópia recuperada');
+  });
 });
 
 describe('describeAudit — credit limit', () => {

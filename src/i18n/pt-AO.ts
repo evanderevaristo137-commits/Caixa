@@ -11,6 +11,9 @@ export const methodLabel: Record<PaymentMethod, string> = {
   credit: 'Cliente (a crédito)',
 };
 
+/** "1.234" (whole numbers with a thousands point, as people write them in Angola). */
+const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
 export const t = {
   appName: 'Caixa',
   nonFiscal: 'Documento não fiscal — não serve de factura.',
@@ -139,6 +142,95 @@ export const t = {
     inFavourShort: (amount: string) => `Saldo a favor: ${amount}`,
     voidedPurchase: 'Compra a crédito anulada',
     lastDays: (n: number) => `${n} dias`,
+  },
+  backups: {
+    passwordLog: {
+      set: 'Cópias de segurança protegidas com palavra-passe',
+      changed: 'Palavra-passe das cópias de segurança mudada',
+      removed: 'Palavra-passe das cópias de segurança retirada',
+      adopted: 'Cópias de segurança protegidas com a palavra-passe da cópia recuperada',
+    },
+    restoredLog: (date: string | null) =>
+      date
+        ? `Cópia de segurança de ${date} recuperada (todos os dados substituídos)`
+        : 'Cópia de segurança recuperada (todos os dados substituídos)',
+    undoneLog: 'Recuperação desfeita: voltaram os dados que estavam no telemóvel antes dela',
+    // Making a copy
+    done: (locked: boolean) => (locked ? 'Cópia de segurança feita, protegida com palavra-passe.' : 'Cópia de segurança feita.'),
+    saved: (locked: boolean) =>
+      locked ? 'Cópia guardada na pasta Transferências, protegida com palavra-passe.' : 'Cópia guardada na pasta Transferências.',
+    making: 'A preparar a cópia…',
+    // The password
+    protectedOn: 'As cópias estão protegidas com palavra-passe.',
+    protectedOff: 'As cópias não têm palavra-passe: quem receber o ficheiro pode ver os dados da loja.',
+    protect: 'Proteger as cópias com palavra-passe',
+    manage: 'Mudar ou tirar a palavra-passe',
+    passwordTitle: 'Palavra-passe das cópias',
+    passwordHint:
+      'Quem receber a cópia (por WhatsApp ou e-mail) não a consegue abrir sem a palavra-passe. Use pelo menos 8 letras ou números: uma frase curta é fácil de lembrar e difícil de adivinhar.',
+    passwordWarning:
+      'Se esquecer a palavra-passe, as cópias não se abrem. Ninguém a consegue recuperar, nem a Caixa. Escreva-a num papel e guarde-o em casa.',
+    newPassword: 'Palavra-passe',
+    repeatPassword: 'Repetir a palavra-passe',
+    tooShort: 'Use pelo menos 8 letras ou números.',
+    notSame: 'As duas palavras-passe não são iguais.',
+    savePassword: 'Guardar a palavra-passe',
+    saving: 'A guardar…',
+    passwordSaved: 'Palavra-passe guardada. As próximas cópias ficam protegidas.',
+    oldCopies: 'As cópias já feitas continuam a abrir com a palavra-passe com que foram feitas.',
+    removePassword: 'Tirar a palavra-passe',
+    removeWarning: 'As próximas cópias deixam de estar protegidas.',
+    removeConfirm: 'Sim, tirar a palavra-passe',
+    passwordRemoved: 'Palavra-passe retirada.',
+    // Restoring
+    restore: 'Recuperar uma cópia de segurança',
+    restoreTitle: 'Recuperar uma cópia',
+    reading: 'A ler a cópia…',
+    lockedInfo: (date: string) => `Cópia de ${date}, protegida com palavra-passe.`,
+    password: 'Palavra-passe da cópia',
+    open: 'Abrir a cópia',
+    opening: 'A abrir…',
+    theCopy: 'Na cópia',
+    thisPhone: 'Neste telemóvel agora',
+    madeOn: (date: string) => `Feita a ${date}`,
+    keptOn: (date: string) => `Guardada a ${date}, antes da última recuperação`,
+    sales: (n: number, last: string | null) =>
+      n === 0 ? 'Sem vendas' : `${n === 1 ? '1 venda' : `${count(n)} vendas`}${last ? `, a última a ${last}` : ''}`,
+    things: (products: number, customers: number) =>
+      `${products === 1 ? '1 produto' : `${count(products)} produtos`} · ${customers === 1 ? '1 cliente' : `${count(customers)} clientes`}`,
+    demoCopy: 'Dados da demonstração (fictícios).',
+    nothingLost: 'Tudo o que está neste telemóvel também está na cópia.',
+    willLose: (what: string) =>
+      `Atenção: este telemóvel tem ${what} que a cópia não tem (ou que mudaram depois dela). Se recuperar, perdem-se.`,
+    lostSales: (n: number) => (n === 1 ? '1 venda' : `${count(n)} vendas`),
+    lostPayments: (n: number) => (n === 1 ? '1 pagamento de cliente' : `${count(n)} pagamentos de clientes`),
+    lostOther: (n: number) => (n === 1 ? '1 outro registo' : `${count(n)} outros registos`),
+    and: ' e ',
+    safetyNote: 'Antes de recuperar, a app guarda o que está agora no telemóvel: se for engano, pode desfazer.',
+    confirmRestore: 'Recuperar esta cópia',
+    restoring: 'A recuperar…',
+    restored: 'Cópia recuperada.',
+    restoredHint: 'Se foi engano, pode desfazer: o que estava no telemóvel ficou guardado.',
+    undo: 'Desfazer',
+    undoTitle: 'Desfazer a última recuperação',
+    undoInfo: (date: string, sales: string) => `Antes da última recuperação (${date}) ficou guardado o que estava no telemóvel: ${sales}.`,
+    undoAction: 'Voltar a esses dados',
+    undone: 'Recuperação desfeita.',
+    finish: 'Concluir',
+    errors: {
+      not_a_backup: 'Este ficheiro não é uma cópia de segurança da Caixa.',
+      damaged: 'A cópia está incompleta ou danificada. Descarregue o ficheiro outra vez (do WhatsApp ou do e-mail) e tente de novo.',
+      unsupported_version: 'Esta cópia foi feita por uma versão mais recente da app. Actualize a app e tente outra vez.',
+      wrong_password: 'Palavra-passe errada (ou a cópia está danificada).',
+      demo_into_store: 'Esta cópia é da demonstração. Não pode ser recuperada na sua loja.',
+      store_into_demo: 'Esta cópia é da sua loja. Saia da demonstração (em «Mais») e recupere-a lá.',
+      changed_meanwhile: 'Entretanto houve alterações na loja. Tente outra vez.',
+      no_space: 'Não há espaço livre no telemóvel. Liberte espaço (fotos, vídeos) e tente outra vez.',
+    } as Record<string, string>,
+    // End of the day
+    closeDayDone: 'Dia fechado.',
+    closeDayBackup: 'Envie agora a cópia de segurança do dia: se o telemóvel se perder, não perde as vendas.',
+    notNow: 'Agora não',
   },
   backupReminder: {
     never: 'Ainda não fez nenhuma cópia de segurança. Se o telemóvel se perder, perde as vendas e o que os clientes devem.',
@@ -885,8 +977,6 @@ export const t = {
     exportJsonHint: 'Escolha WhatsApp, e-mail ou Drive para a guardar fora do telemóvel.',
     lastBackup: (d: string) => `Última cópia: ${d}`,
     noBackupYet: 'Ainda não fez nenhuma cópia de segurança.',
-    backupDone: 'Cópia de segurança feita.',
-    backupSaved: 'Cópia guardada na pasta Transferências.',
     storageProtected: 'Dados protegidos: o telemóvel não os apaga sozinho.',
     storageNotProtected: 'Instale a app no ecrã inicial para o telemóvel não apagar os dados sozinho.',
     exportsTitle: 'Exportar para Excel',
@@ -896,11 +986,6 @@ export const t = {
     exportExpenses: 'Saídas (CSV)',
     exportPurchases: 'Compras (CSV)',
     exportSuppliers: 'Fornecedores (CSV)',
-    import: 'Recuperar uma cópia de segurança',
-    importConfirm: 'Importar substitui TODOS os dados actuais desta loja. Continuar?',
-    importOk: 'Cópia importada.',
-    importBad: 'Ficheiro inválido. Escolha uma cópia feita por esta app.',
-    importDemoBlocked: 'Esta cópia é da demonstração. Não pode ser importada para a sua loja.',
     demo: 'Modo demonstração',
     demoOn: 'Entrar no modo demonstração',
     demoOff: 'Sair da demonstração (voltar à minha loja)',

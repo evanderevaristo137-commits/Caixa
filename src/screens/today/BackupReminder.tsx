@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { makeBackup } from '../../app/backup-action';
+import { backupMessage, makeBackup } from '../../app/backup-action';
 import { lastBackupAt } from '../../data/backup';
 import { backupReminderDays } from '../../domain/backup-reminder';
 import { t } from '../../i18n/pt-AO';
 import { Button } from '../../ui/kit';
+import { useBusy } from '../../ui/use-busy';
 
 /** Gentle reminder to back up, only for the real shop (never in the demo). */
 export function BackupReminder() {
@@ -13,19 +14,20 @@ export function BackupReminder() {
     const [last, first] = await Promise.all([lastBackupAt(store.db), store.db.sales.orderBy('createdAt').first()]);
     return { last, days: backupReminderDays({ lastBackupAt: last, firstSaleAt: first?.createdAt, now: new Date() }) };
   }, [store]);
+  const [busy, run] = useBusy();
   if (mode !== 'store' || !info || info.days === null) return null;
 
-  const run = async () => {
-    const result = await makeBackup(store, mode);
-    if (result === 'shared') showToast(t.settings.backupDone);
-    if (result === 'downloaded') showToast(t.settings.backupSaved);
-  };
+  const backup = () =>
+    run(async () => {
+      const message = backupMessage(await makeBackup(store, mode));
+      if (message) showToast(message);
+    });
 
   return (
     <div role="alert" className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950">
       <p className="font-semibold">{info.last ? t.backupReminder.late(info.days) : t.backupReminder.never}</p>
-      <Button className="mt-3 w-full" onClick={() => void run()}>
-        {t.backupReminder.action}
+      <Button className="mt-3 w-full" disabled={busy} onClick={() => void backup()}>
+        {busy ? t.backups.making : t.backupReminder.action}
       </Button>
     </div>
   );

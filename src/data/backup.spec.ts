@@ -64,6 +64,18 @@ describe('demo backups', () => {
     await expect(importBackup(real, backup)).rejects.toThrow('demo_into_store');
     expect((await new Store(real).products.list()).map((p) => p.name)).toEqual(['Produto real']);
   });
+
+  it("a shop's copy never goes into the demo, which renews itself every day", async () => {
+    const real = newDb('test-bk-real');
+    await new Store(real).products.create({ name: 'Produto real', priceCents: 100, minStock: 0 });
+    const backup = await exportBackup(real);
+    const demo = newDb(DB_NAMES.demo);
+    await seedDemo(demo, new Date(2026, 10, 6, 12));
+    await expect(importBackup(demo, backup)).rejects.toThrow('store_into_demo');
+    // The demo's own copies (and its safety copy) can be restored there.
+    await importBackup(demo, await exportBackup(demo));
+    expect(await demo.products.count()).toBeGreaterThan(20);
+  });
 });
 
 describe('backups and the tables added later', () => {

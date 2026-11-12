@@ -29,6 +29,19 @@ export interface MetaRow {
   value: number | string;
 }
 
+/** What the phone held before the last restore of a backup (shown to undo it). */
+export interface SafetyInfo {
+  id: 'info';
+  createdAt: string;
+  summary: import('./backup').BackupSummary;
+}
+
+/**
+ * The safety copy: before a backup replaces everything, what was on the phone is kept here,
+ * compressed (gzip of the backup JSON), so the restore can be undone. Never part of a backup.
+ */
+export type SafetyRow = SafetyInfo | { id: 'data'; bytes: Uint8Array<ArrayBuffer> };
+
 export class CaixaDB extends Dexie {
   products!: Table<Product, string>;
   customers!: Table<Customer, string>;
@@ -44,6 +57,7 @@ export class CaixaDB extends Dexie {
   purchases!: Table<Purchase, string>;
   supplierPayments!: Table<SupplierPayment, string>;
   inssContributions!: Table<InssContribution, string>;
+  safety!: Table<SafetyRow, string>;
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -85,6 +99,8 @@ export class CaixaDB extends Dexie {
     this.version(5).stores({ products: 'id, name, barcode, category, updatedAt' });
     // v6: the owner's INSS contributions (the plan itself is kept in the settings).
     this.version(6).stores({ inssContributions: 'id, month, createdAt' });
+    // v7: the safety copy kept before restoring a backup (to undo it). Not a business table: never backed up.
+    this.version(7).stores({ safety: 'id' });
   }
 }
 

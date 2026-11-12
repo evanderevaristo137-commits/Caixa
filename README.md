@@ -48,7 +48,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
   - **Registar pagamento:** depois de pagar no INSS (até ao dia 10 do mês seguinte), registe o mês, o valor e o número do comprovativo. A app conta os meses pagos, os meses seguidos e quanto falta para os 15 anos, e lembra-o antes do prazo.
   - **Como me inscrevo:** onde ir e o que levar.
   - A Caixa não é o INSS e não recebe dinheiro: o pagamento faz-se sempre ao INSS. As regras e as dúvidas a confirmar estão em [docs/INSS.md](docs/INSS.md).
-- **Mais:** nome da loja, telefone, NIF (aceita letras e números), prazo habitual para os clientes pagarem, **fundo de caixa** (o troco com que a caixa começa o dia), **avisos** (um aviso por dia, mesmo com a app fechada: pagamentos de clientes e a fornecedores 2 dias antes, no próprio dia e quando atrasam, e o alarme dos pagamentos digitais do crédito para stock), cópias de segurança (JSON), exportação para Excel (CSV) e **Piloto**: «Enviar resumo do piloto por WhatsApp» manda a quem acompanha o piloto os números da loja (dias com vendas, vendas, o que se usa na app), nunca nomes nem telefones de clientes.
+- **Mais:** nome da loja, telefone, NIF (aceita letras e números), prazo habitual para os clientes pagarem, **fundo de caixa** (o troco com que a caixa começa o dia), **avisos** (um aviso por dia, mesmo com a app fechada: pagamentos de clientes e a fornecedores 2 dias antes, no próprio dia e quando atrasam, e o alarme dos pagamentos digitais do crédito para stock), cópias de segurança (comprimidas e, se quiser, com palavra-passe), exportação para Excel (CSV) e **Piloto**: «Enviar resumo do piloto por WhatsApp» manda a quem acompanha o piloto os números da loja (dias com vendas, vendas, o que se usa na app), nunca nomes nem telefones de clientes.
 
 ## Controlo e segurança
 
@@ -67,7 +67,12 @@ A app **não emite facturas**. Em **Mais → Dados para facturação (opcional)*
 
 ## Cópias de segurança
 
-Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no ecrã «Hoje» quando a última cópia tiver mais de 7 dias. Para recuperar: **Mais → Recuperar uma cópia de segurança** e escolha o ficheiro.
+Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no ecrã «Hoje» quando a última cópia tiver mais de 7 dias, e propõe a cópia quando se fecha o dia.
+
+- **Mais pequena:** a cópia vai comprimida (cerca de 5 vezes mais pequena), por isso gasta menos dados a enviar.
+- **Palavra-passe (opcional):** em **Mais → Proteger as cópias com palavra-passe**. Quem receber o ficheiro não o consegue abrir sem ela. **Se a esquecer, as cópias não se abrem** (ninguém a consegue recuperar): escreva-a num papel e guarde-o em casa.
+- **Recuperar:** **Mais → Recuperar uma cópia de segurança** e escolha o ficheiro. Antes de substituir, a app mostra o que a cópia tem, o que o telemóvel tem e o que se perderia. Guarda também o que estava no telemóvel: se for engano, **Desfazer** (ou «Voltar a esses dados», em **Mais**) traz tudo de volta.
+- As cópias antigas (anteriores a Novembro de 2026) continuam a recuperar-se. A cópia da demonstração nunca entra na loja, e a da loja nunca entra na demonstração.
 
 ## Pagamentos
 

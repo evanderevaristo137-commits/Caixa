@@ -40,7 +40,7 @@ Os clientes da loja podem pedir à loja para ver, corrigir ou apagar os seus dad
 ## 7. Segurança
 
 - O código do dono guarda-se apenas como resumo cifrado e nunca vai nas cópias de segurança.
-- As cópias de segurança contêm os dados da loja: guarde-as em lugar seguro.
+- As cópias de segurança contêm os dados da loja: guarde-as em lugar seguro. Pode protegê-las com uma palavra-passe (em «Mais»); sem ela, a cópia não se abre.
 - A demonstração usa uma base de dados separada e dados fictícios.
 
 ## 8. Quanto tempo
