@@ -21,7 +21,7 @@ export const MAX_IMPORT_ROWS = 5000;
 
 /** Reads CSV text: separator ";" "," or tab (guessed from the first line), quotes, Excel's BOM. Blank lines are skipped. */
 export function parseCsv(text: string): SheetRow[] {
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^\uFEFF/, '');
   const firstLine = src.split(/\r\n|\r|\n/).find((l) => l.trim() !== '') ?? '';
   const count = (sep: string) => firstLine.split(sep).length - 1;
   const sep = [';', '\t', ','].reduce((best, s) => (count(s) > count(best) ? s : best), ';');
@@ -142,10 +142,11 @@ export interface ImportPlan {
 
 /** "1.200", "1200", "1 200,50", "1200.5", "1.200 Kz" → cêntimos (null when not a price). */
 export function parseImportKz(text: string): Cents | null {
-  const s = text.replace(/kz/gi, '').replace(/[\s ]/g, '');
+  // \s also covers the non-breaking space that Excel puts between thousands.
+  const s = text.replace(/kz/gi, '').replace(/\s/g, '');
   if (s === '') return null;
   let whole: string;
-  let dec = '';
+  let dec: string;
   if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(s) || /^\d+(,\d{1,2})?$/.test(s)) {
     [whole, dec = ''] = s.replace(/\./g, '').split(',') as [string, string?];
   } else if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s) || /^\d+\.\d{1,2}$/.test(s)) {

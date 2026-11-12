@@ -37,7 +37,7 @@ export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const products = data?.products ?? [];
+  const products = useMemo(() => data?.products ?? [], [data]);
   const found = useMemo(() => {
     const q = normalise(query);
     return products.filter((p) => !lines.some((l) => l.product.id === p.id) && (!q || normalise(p.name).includes(q))).slice(0, 30);

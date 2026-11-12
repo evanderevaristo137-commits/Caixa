@@ -22,7 +22,7 @@ export function LabelsSheet({ onClose, initialIds }: { onClose: () => void; init
   const [printing, setPrinting] = useState<LabelItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const list = products ?? [];
+  const list = useMemo(() => products ?? [], [products]);
   const withoutCode = useMemo(() => list.filter((p) => !p.barcode), [list]);
   const isPicked = (p: Product) => printable(p) && (picked === null || picked.has(p.id));
 
