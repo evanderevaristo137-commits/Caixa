@@ -13,6 +13,7 @@ import { usePinGuard } from '../../ui/pin';
 import { returnable } from '../../domain/returns';
 import { isPaymentPending } from '../../domain/types';
 import { ReturnSheet } from './ReturnSheet';
+import { ReceiptPrint } from '../sell/ReceiptPrint';
 import { PaymentStatus } from './PaymentStatus';
 
 /** One sale: details, resend the non-fiscal receipt, give goods back (returns), or void it (with a reason). */
@@ -30,6 +31,7 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
   }, [store, saleId]);
   const [voiding, setVoiding] = useState(false);
   const [returning, setReturning] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -169,6 +171,9 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
           >
             {t.sale.resend}
           </LinkButton>
+          <Button variant="secondary" className="w-full" onClick={() => setPrinting(true)}>
+            {t.printReceipt.open}
+          </Button>
           {canReturn && (
             <Button variant="secondary" className="w-full" onClick={() => setReturning(true)}>
               {t.returns.open}
@@ -184,6 +189,7 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
         </div>
       )}
       {returning && <ReturnSheet sale={sale} earlier={returns} onClose={() => setReturning(false)} />}
+      {printing && <ReceiptPrint text={receiptText(sale, settings, customer?.name)} onClose={() => setPrinting(false)} />}
     </Sheet>
   );
 }

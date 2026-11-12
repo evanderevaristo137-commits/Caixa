@@ -9,6 +9,7 @@ import { whatsAppLink } from '../../domain/whatsapp';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { formatDateStringLong } from '../../lib/dates';
 import { Button, LinkButton, Money, Sheet } from '../../ui/kit';
+import { ReceiptPrint } from './ReceiptPrint';
 
 /**
  * "Venda registada": what was recorded, the change to give back and the non-fiscal receipt.
@@ -27,6 +28,7 @@ export function ReceiptSheet({
   onClose: () => void;
 }) {
   const { store } = useApp();
+  const [printing, setPrinting] = useState(false);
   // What the customer owes after this purchase goes on the receipt: a bonus that may fail quietly.
   const [balanceAfter, setBalanceAfter] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -72,6 +74,11 @@ export function ReceiptSheet({
             {t.sell.shareReceipt}
           </LinkButton>
         )}
+        {settings && (
+          <Button variant="secondary" className="w-full" onClick={() => setPrinting(true)}>
+            {t.printReceipt.open}
+          </Button>
+        )}
         <p className="text-center text-sm text-slate-600">{t.nonFiscal}</p>
         {settings?.storeName === DEFAULT_STORE_NAME && (
           <p className="rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-900">{t.sell.nameHint}</p>
@@ -80,6 +87,9 @@ export function ReceiptSheet({
           {t.sell.newSale}
         </Button>
       </div>
+      {printing && settings && (
+        <ReceiptPrint text={receiptText(sale, settings, customer?.name, balanceAfter)} onClose={() => setPrinting(false)} />
+      )}
     </Sheet>
   );
 }

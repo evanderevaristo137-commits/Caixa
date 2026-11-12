@@ -973,6 +973,12 @@ export const t = {
     forgot:
       'Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.',
   },
+  printReceipt: {
+    open: 'Imprimir talão',
+    dialog: 'Talão para imprimir',
+    again: 'Imprimir',
+    hint: 'Escolha a impressora de talões (pela app dela no Android) ou «Guardar como PDF». É um talão, não uma factura.',
+  },
   pending: {
     toggle: 'O dinheiro ainda não entrou (confirmar depois)',
     toggleHint: 'A venda fica registada e aparece no «Hoje» até tocar em «Já entrou».',

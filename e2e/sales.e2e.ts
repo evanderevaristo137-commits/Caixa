@@ -207,3 +207,51 @@ test('an electronic payment to confirm later stays on Hoje until «Já entrou»,
   await search.getByRole('group', { name: 'Estado' }).getByRole('button', { name: 'Por confirmar' }).click();
   await expect(search).toContainText('Nenhuma venda com estes filtros.');
 });
+
+test('the receipt prints (or saves as PDF) with the same words as the WhatsApp one, never as an invoice', async ({ page }) => {
+  // window.print would open the phone's print screen: count the calls instead.
+  await page.addInitScript(() => {
+    const w = window as unknown as { printed: number };
+    w.printed = 0;
+    window.print = () => {
+      w.printed += 1;
+    };
+  });
+  const printed = () => page.evaluate(() => (window as unknown as { printed: number }).printed);
+  await openDemo(page);
+  await page.getByRole('button', { name: /Óleo vegetal/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await page.getByRole('button', { name: 'Imprimir talão' }).click();
+  const receipt = page.getByRole('dialog', { name: 'Talão para imprimir' });
+  await expect(receipt).toContainText('Mercearia da Dona Teresa');
+  await expect(receipt).toContainText(/Talão n\.º \d+ — /);
+  await expect(receipt).toContainText('1 x Óleo vegetal 1 L — 1.850 Kz');
+  await expect(receipt).toContainText('TOTAL: 1.850 Kz'); // bold on paper, without the asterisks
+  await expect(receipt).not.toContainText('*');
+  await expect(receipt).toContainText('Documento não fiscal — não serve de factura.');
+  await expect.poll(printed).toBe(1);
+  await receipt.getByRole('button', { name: 'Imprimir' }).click();
+  await expect.poll(printed).toBe(2);
+  // The back button closes it, and the sale's receipt is still there.
+  await page.goBack();
+  await expect(receipt).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Venda registada' })).toBeVisible();
+
+  // An older sale prints from its detail too.
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+  await nav(page, 'Hoje');
+  await page
+    .getByRole('list')
+    .getByRole('button', { name: /Óleo vegetal/ })
+    .first()
+    .click();
+  await page
+    .getByRole('dialog', { name: /^Venda n\.º \d+$/ })
+    .getByRole('button', { name: 'Imprimir talão' })
+    .click();
+  await expect(receipt).toContainText('Documento não fiscal — não serve de factura.');
+  await receipt.getByRole('button', { name: 'Fechar' }).click();
+  await expect(receipt).toHaveCount(0);
+});
