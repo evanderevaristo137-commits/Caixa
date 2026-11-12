@@ -13,6 +13,7 @@ import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { inCategory } from '../../domain/categories';
 import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
+import { StockInsightsSheet } from './StockInsightsSheet';
 
 type View = 'products' | 'purchases' | 'suppliers';
 
@@ -59,6 +60,7 @@ function ProductsList() {
   const [labels, setLabels] = useState(false);
   const [importing, setImporting] = useState(false);
   const [counting, setCounting] = useState(false);
+  const [insights, setInsights] = useState(false);
   // An unfinished count is shown on its button (read again when the count sheet closes).
   const inCount = useMemo(() => (counting ? 0 : countedSoFar(mode)), [counting, mode]);
 
@@ -85,7 +87,10 @@ function ProductsList() {
         <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
       </div>
       {products && products.length > 0 && (
-        <div className="mb-3 grid grid-cols-3 gap-2">
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setInsights(true)}>
+            {t.stockInsights.open}
+          </Button>
           <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setCounting(true)}>
             {inCount > 0 ? t.stockCount.resume(inCount) : t.stockCount.open}
           </Button>
@@ -145,6 +150,7 @@ function ProductsList() {
       {labels && <LabelsSheet onClose={() => setLabels(false)} />}
       {importing && <ImportProductsSheet onClose={() => setImporting(false)} />}
       {counting && <StockCountSheet onClose={() => setCounting(false)} />}
+      {insights && <StockInsightsSheet onClose={() => setInsights(false)} />}
     </div>
   );
 }

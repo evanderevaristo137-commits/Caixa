@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isLowStock, lowStockProducts, restockList, summariseDayView } from './today';
+import { isLowStock, lowStockProducts, summariseDayView } from './today';
+import { restockList } from './stock-insights';
 import type { CreditPayment, Product, Sale } from './types';
 
 const now = new Date(2026, 10, 6, 18, 0);

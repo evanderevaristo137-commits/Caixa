@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { DomainError } from '../../data/store';
@@ -9,6 +9,7 @@ import { Button, Field } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { adjustmentDelta } from '../../domain/stock';
 import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
+import { daysLeft, paceOf, speedFromMovements } from '../../domain/stock-insights';
 import { useBusy } from '../../ui/use-busy';
 
 const ERRORS: Record<string, string> = {
@@ -39,6 +40,10 @@ export function StockPanel({ product }: { product: Product }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, runOnce] = useBusy();
+  // How fast it sells (last 30 days) and how long the stock lasts, from its own movements.
+  const speed = useMemo(() => (movements ? speedFromMovements(movements, product, new Date()) : undefined), [movements, product]);
+  const left = daysLeft(product.stock, speed);
+  const pace = speed && paceOf(speed.perDay, product.soldBy);
 
   const save = async () => {
     // Weighed products: kg typed, grams stored.
@@ -69,7 +74,18 @@ export function StockPanel({ product }: { product: Product }) {
 
   return (
     <div className="mt-6">
-      <p className="mb-2 text-center text-2xl font-extrabold">{t.products.inStock(formatQuantity(product.stock, product.soldBy))}</p>
+      <p className="mb-1 text-center text-2xl font-extrabold">{t.products.inStock(formatQuantity(product.stock, product.soldBy))}</p>
+      {movements && (
+        <p className="mb-2 text-center text-sm text-slate-600">
+          {speed && pace
+            ? t.stockInsights.paceLine(
+                formatQuantity(speed.sold, product.soldBy),
+                t.stockInsights.pace(pace.qty, pace.per),
+                left === undefined ? null : t.stockInsights.endsIn(left),
+              )
+            : t.stockInsights.noSales}
+        </p>
+      )}
       {mode === 'none' ? (
         <div className="grid grid-cols-2 gap-2">
           <Button onClick={() => setMode('entry')}>+ {t.products.entry}</Button>

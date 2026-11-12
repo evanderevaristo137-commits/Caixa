@@ -4,6 +4,8 @@ import { MAX_GRAMS } from '../../domain/quantity';
 import type { CreditPayment, Sale, SaleItem } from '../../domain/types';
 import { CURRENCY, isElectronic, isPaymentPending, PAYMENT_METHODS } from '../../domain/types';
 import { compareText } from '../../domain/ranking';
+import { SPEED_DAYS, salesSpeed } from '../../domain/stock-insights';
+import { addDays, startOfLocalDay } from '../../lib/dates';
 import { saleLog } from '../../domain/audit-entry';
 import { isUuid, uuid } from '../../lib/ids';
 import { StoreCore } from './core';
@@ -20,6 +22,12 @@ export class SalesRepository {
   get = (id: string) => this.c.db.sales.get(id);
   /** Sales with from <= createdAt < to (ISO strings). */
   between = (fromIso: string, toIso: string) => this.c.db.sales.where('createdAt').between(fromIso, toIso, true, false).toArray();
+  /** How fast each product sells: the last SPEED_DAYS days of sales (see salesSpeed). */
+  speeds = async (now = this.c.now()) => {
+    const from = addDays(startOfLocalDay(now), -(SPEED_DAYS - 1)).toISOString();
+    const [sales, products] = await Promise.all([this.since(from), this.c.db.products.toArray()]);
+    return salesSpeed(sales, products, now);
+  };
   /** Electronic payments still to confirm (the money had not arrived), oldest first. */
   pending = async (): Promise<Sale[]> =>
     (await this.c.db.sales.where('pendingSince').above('').toArray())

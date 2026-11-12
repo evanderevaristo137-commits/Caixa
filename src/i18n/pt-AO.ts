@@ -680,6 +680,37 @@ export const t = {
     profit: (kz: string) => `lucro ${kz}`,
     hintReports: 'O lucro conta só os produtos com preço de custo.',
   },
+  stockInsights: {
+    open: 'Análise do stock',
+    title: 'Análise do stock',
+    views: { buy: 'Comprar', still: 'Parados', losses: 'Perdas' } as Record<'buy' | 'still' | 'losses', string>,
+    buyHint:
+      'Pela velocidade de venda dos últimos 30 dias: o que está abaixo do mínimo ou acaba numa semana, com quantidades para duas semanas.',
+    buyNone: 'Nada a comprar: nenhum produto abaixo do mínimo nem a acabar esta semana.',
+    low: (min: string) => `abaixo do mínimo (${min})`,
+    endsIn: (days: number) => (days <= 0 ? 'já acabou' : days === 1 ? 'acaba amanhã' : `acaba em ~${days} dias`),
+    has: (qty: string) => `há ${qty}`,
+    buy: (qty: string) => `Comprar ${qty}`,
+    sendList: 'Enviar lista de compras',
+    stillHint:
+      'Com stock, na loja há mais de 30 dias e sem vendas nos últimos 30 dias: dinheiro parado na prateleira. Pense numa promoção ou em deixar de comprar.',
+    stillNone: 'Nenhum produto parado: tudo o que tem em stock vendeu nos últimos 30 dias.',
+    stillTotal: (n: number, amount: string) =>
+      `${n === 1 ? '1 produto parado' : `${count(n)} produtos parados`} · ${amount} ao preço de custo`,
+    stillNoCost: 'sem preço de custo',
+    lossesHint:
+      'Stock que saiu sem ser vendido: acertos para menos (partido, fora de prazo, roubo, contagens…) e devoluções estragadas. Valor ao preço de custo de hoje.',
+    lossesNone: 'Sem perdas neste período.',
+    lossesTotal: (amount: string) => `Perdas: ${amount}`,
+    lossesUnknown: (n: number) =>
+      n === 1 ? '1 produto sem preço de custo não entra no valor.' : `${n} produtos sem preço de custo não entram no valor.`,
+    found: (amount: string) => `Encontrado a mais (contagens e acertos): ${amount}`,
+    periods: { '30d': '30 dias', '90d': '90 dias', '12m': '12 meses' } as Record<'30d' | '90d' | '12m', string>,
+    pace: (qty: string, per: 'day' | 'week') => `vende ~${qty} por ${per === 'day' ? 'dia' : 'semana'}`,
+    paceLine: (sold: string, pace: string, left: string | null) =>
+      `Vendeu ${sold} nos últimos 30 dias · ${pace}${left ? ` · ${left}` : ''}`,
+    noSales: 'Sem vendas nos últimos 30 dias.',
+  },
   stockCount: {
     open: 'Contar o stock',
     resume: (n: number) => `Continuar a contagem (${n})`,

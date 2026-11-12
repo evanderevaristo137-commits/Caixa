@@ -100,23 +100,3 @@ export function isLowStock(p: Pick<Product, 'stock' | 'minStock' | 'archivedAt'>
 export function lowStockProducts(products: Product[]): Product[] {
   return products.filter(isLowStock).sort((a, b) => a.stock - a.minStock - (b.stock - b.minStock));
 }
-
-export interface RestockLine {
-  productId: string;
-  name: string;
-  stock: number;
-  /** Suggested quantity to buy: enough to reach twice the minimum (at least 1 unit, or 1 kg). */
-  suggested: number;
-  soldBy?: 'weight';
-}
-
-/** Shopping list from the products that are low, most urgent first. */
-export function restockList(products: Product[]): RestockLine[] {
-  return lowStockProducts(products).map((p) => ({
-    productId: p.id,
-    name: p.name,
-    stock: p.stock,
-    suggested: Math.max(p.soldBy === 'weight' ? 1_000 : 1, p.minStock * 2 - p.stock),
-    ...(p.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
-  }));
-}

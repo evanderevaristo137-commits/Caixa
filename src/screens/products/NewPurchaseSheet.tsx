@@ -5,7 +5,7 @@ import { DomainError } from '../../data/store';
 import { dueDateFromTerm, DEFAULT_TERM_DAYS } from '../../domain/credit';
 import { purchaseLineTotal } from '../../domain/purchases';
 import { formatKg, parseWeight } from '../../domain/quantity';
-import { restockList } from '../../domain/today';
+import { restockList } from '../../domain/stock-insights';
 import { PURCHASE_PAYMENTS, type Product, type PurchasePayment } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
@@ -25,7 +25,10 @@ const parseQty = (p: Product, text: string) =>
 /** Goods received from a supplier: products, quantities and costs, and how it was paid. */
 export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
   const { store, showToast } = useApp();
-  const data = useLiveQuery(async () => ({ products: await store.products.list(), suppliers: await store.suppliers.list() }), [store]);
+  const data = useLiveQuery(
+    async () => ({ products: await store.products.list(), suppliers: await store.suppliers.list(), speeds: await store.sales.speeds() }),
+    [store],
+  );
   const [supplierId, setSupplierId] = useState<string | undefined>(undefined);
   const [newSupplier, setNewSupplier] = useState<{ name: string; phone: string } | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -53,7 +56,7 @@ export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
 
   const addLow = () => {
     const chosen = supplierId;
-    const candidates = restockList(products).filter((r) => !lines.some((l) => l.product.id === r.productId));
+    const candidates = restockList(products, data?.speeds).filter((r) => !lines.some((l) => l.product.id === r.productId));
     for (const r of candidates) {
       const p = products.find((x) => x.id === r.productId)!;
       // With a supplier chosen, only what is usually bought from them (or from nobody yet).

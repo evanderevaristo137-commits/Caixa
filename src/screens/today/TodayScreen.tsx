@@ -5,7 +5,8 @@ import { useApp } from '../../app/context';
 import { daySummaryText, shoppingListText } from '../../domain/messages';
 import { creditAlerts, totalOutstanding } from '../../domain/credit';
 import { formatQuantity } from '../../domain/quantity';
-import { lowStockProducts, restockList, summariseDayView } from '../../domain/today';
+import { lowStockProducts, summariseDayView } from '../../domain/today';
+import { restockList, salesSpeed } from '../../domain/stock-insights';
 import { profitByProduct, summariseProfit } from '../../domain/profit';
 import { summariseReturns } from '../../domain/returns';
 import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
@@ -66,7 +67,8 @@ export default function TodayScreen() {
     const digital = isToday ? digitalStatus(watchSales, watchPayments, now, settings.digitalMinShareBp) : undefined;
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => compareText(b.createdAt, a.createdAt));
-    const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
+    const speeds = isToday ? salesSpeed(watchSales, products, now) : undefined;
+    const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products, speeds), now));
     const view = summariseDayView(sales, payments, day, now);
     // Sold next to received: a sale on credit is sold, not received; a debt paid is received, not sold today.
     const money = soldAndReceived(

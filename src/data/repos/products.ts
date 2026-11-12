@@ -13,6 +13,8 @@ export class ProductsRepository {
   constructor(private readonly c: StoreCore) {}
 
   list = async (): Promise<Product[]> => (await this.c.db.products.toArray()).filter((p) => !p.archivedAt).sort(byName);
+  /** Every product, archived ones too (to name them in old records). */
+  all = async (): Promise<Product[]> => (await this.c.db.products.toArray()).sort(byName);
   get = (id: string) => this.c.db.products.get(id);
   findByBarcode = async (code: string): Promise<Product | undefined> => {
     const matches = await this.c.db.products.where('barcode').equals(code.trim()).toArray();
@@ -132,6 +134,9 @@ export class ProductsRepository {
       return { counted: lines.length, adjusted };
     });
   movements = (productId: string) => this.c.db.stockMovements.where('productId').equals(productId).reverse().sortBy('createdAt');
+  /** Stock movements with from <= createdAt < to (ISO strings). */
+  movementsBetween = (fromIso: string, toIso: string) =>
+    this.c.db.stockMovements.where('createdAt').between(fromIso, toIso, true, false).toArray();
   /**
    * Next free in-store barcode (EAN-13 starting with 20). The number is reserved at once,
    * so two products never get the same code, even if the form is cancelled.

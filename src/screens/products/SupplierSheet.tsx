@@ -5,7 +5,7 @@ import { useApp } from '../../app/context';
 import { DomainError } from '../../data/store';
 import { payableStatus } from '../../domain/payables';
 import { supplierOrderText } from '../../domain/purchases';
-import { restockList } from '../../domain/today';
+import { restockList } from '../../domain/stock-insights';
 import { toWhatsAppNumber, whatsAppLink } from '../../domain/whatsapp';
 import { t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
@@ -18,14 +18,15 @@ import { useBusy } from '../../ui/use-busy';
 export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
   const { store, showToast } = useApp();
   const data = useLiveQuery(async () => {
-    const [supplier, purchases, payments, products, settings] = await Promise.all([
+    const [supplier, purchases, payments, products, settings, speeds] = await Promise.all([
       store.suppliers.get(supplierId),
       store.purchases.bySupplier(supplierId),
       store.supplierPayments.bySupplier(supplierId),
       store.products.list(),
       store.settings.get(),
+      store.sales.speeds(),
     ]);
-    return { supplier, purchases, payments, products, settings };
+    return { supplier, purchases, payments, products, settings, speeds };
   }, [store, supplierId]);
   const [paying, setPaying] = useState(false);
   const [amount, setAmount] = useState('');
@@ -36,12 +37,15 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
   const [busy, run] = useBusy();
 
   if (!data?.supplier) return null;
-  const { supplier, purchases, payments, products, settings } = data;
+  const { supplier, purchases, payments, products, settings, speeds } = data;
   const now = new Date();
   const status = payableStatus(supplier.id, purchases, payments, now);
   const badge = status.balanceCents > 0 ? dueBadge(status) : null;
-  // The order: low-stock products usually bought from this supplier.
-  const toOrder = restockList(products.filter((p) => p.supplierId === supplier.id));
+  // The order: products usually bought from this supplier that are low, or run out within a week.
+  const toOrder = restockList(
+    products.filter((p) => p.supplierId === supplier.id),
+    speeds,
+  );
   const orderLink =
     toOrder.length > 0 && toWhatsAppNumber(supplier.phone)
       ? whatsAppLink(supplierOrderText(settings.storeName, supplier.name, toOrder, now), supplier.phone)
