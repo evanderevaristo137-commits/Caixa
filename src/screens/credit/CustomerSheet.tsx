@@ -3,17 +3,20 @@ import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditStatus, validateCreditPayment } from '../../domain/credit';
+import { customerPunctuality } from '../../domain/debtors';
 import { normaliseNif } from '../../domain/nif';
 import { formatQuantity } from '../../domain/quantity';
 import type { CreditPayment } from '../../domain/types';
 import { creditPaymentLabel, methodLabel, t } from '../../i18n/pt-AO';
-import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib/dates';
+import { calendarDaysBetween, formatDateString, formatDateTime, toLocalDateString } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge, reminderLink } from './due';
 import { useBusy } from '../../ui/use-busy';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
+
+const VERDICT_CLASS = { good: 'text-brand-800', fair: 'text-amber-800', poor: 'text-red-700' } as const;
 
 const PAY_METHODS: Exclude<CreditPayment['method'], 'return'>[] = [
   'cash',
@@ -57,6 +60,8 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const status = creditStatus(customer.id, sales, payments, now);
   const badge = status.balanceCents > 0 ? dueBadge(status) : null;
   const remind = reminderLink(status, customer, settings.storeName, now);
+  const punct = customerPunctuality(sales, payments, toLocalDateString(now));
+  const judged = punct.onTime + punct.late + punct.openLate;
 
   // One tap, one payment: a second tap while it is being saved is ignored.
   const pay = (cents: number | null) =>
@@ -124,6 +129,14 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
         {status.dueNowCents > 0 && status.dueNowCents < status.balanceCents && (
           <p className="mt-2 font-semibold text-red-800">
             {t.credit.dueNow}: <Money cents={status.dueNowCents} />
+          </p>
+        )}
+        {judged > 0 && (
+          <p className="mt-2 text-sm text-slate-700">
+            {punct.verdict && (
+              <span className={`font-bold ${VERDICT_CLASS[punct.verdict]}`}>{t.punctuality.verdict[punct.verdict]} · </span>
+            )}
+            {punct.verdict ? t.punctuality.line(punct.onTime, judged, punct.avgDaysLate) : t.punctuality.tooFew}
           </p>
         )}
       </div>

@@ -15,6 +15,7 @@ import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
+import { PurchasePricesPanel } from './PurchasePricesPanel';
 import { CategoryField } from './CategoryField';
 import { useBusy } from '../../ui/use-busy';
 
@@ -299,6 +300,7 @@ function ProductForm({
       )}
 
       {product && <StockPanel product={product} />}
+      {product && <PurchasePricesPanel product={product} />}
 
       {product && (
         <Button variant="danger" className="mt-6 w-full" onClick={() => void archive()}>

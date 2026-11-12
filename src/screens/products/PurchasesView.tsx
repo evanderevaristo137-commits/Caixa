@@ -8,6 +8,7 @@ import { formatKz } from '../../lib/money';
 import { Button, Empty, Field, Money, Sheet, Skeleton } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { NewPurchaseSheet } from './NewPurchaseSheet';
+import { PurchaseReportSheet } from './PurchaseReportSheet';
 
 /** Purchases (goods received), newest first. */
 export function PurchasesView() {
@@ -17,6 +18,7 @@ export function PurchasesView() {
     return { purchases: purchases.reverse(), names: new Map(suppliers.map((s) => [s.id, s.name])) };
   }, [store]);
   const [adding, setAdding] = useState(false);
+  const [report, setReport] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
@@ -24,6 +26,11 @@ export function PurchasesView() {
       <Button className="mb-3 w-full" onClick={() => setAdding(true)}>
         + {t.purchases.add}
       </Button>
+      {data && data.purchases.length > 0 && (
+        <Button variant="secondary" className="mb-3 w-full" onClick={() => setReport(true)}>
+          {t.buying.reportOpen}
+        </Button>
+      )}
       {!data ? (
         <Skeleton />
       ) : data.purchases.length === 0 ? (
@@ -55,6 +62,7 @@ export function PurchasesView() {
         </ul>
       )}
       {adding && <NewPurchaseSheet onClose={() => setAdding(false)} />}
+      {report && <PurchaseReportSheet onClose={() => setReport(false)} />}
       {openId && <PurchaseSheet purchaseId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );

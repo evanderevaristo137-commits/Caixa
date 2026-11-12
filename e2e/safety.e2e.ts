@@ -33,6 +33,8 @@ test('a phone clock that went back is reported, and selling still works', async 
   await page.getByLabel('Nome').fill('Produto de teste');
   await page.getByLabel('Preço (Kz)').fill('1.000');
   await page.getByRole('button', { name: 'Guardar' }).click();
+  // Saved before the reload below (a reload in the middle of saving loses the product, all or nothing).
+  await expect(page.getByRole('button', { name: /Produto de teste/ })).toBeVisible();
   await expect(page.getByRole('alert').filter({ hasText: 'A data do telemóvel parece errada' })).toHaveCount(0);
 
   // …then the phone's clock goes back two days (set by hand, or lost with the battery).

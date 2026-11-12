@@ -6,9 +6,10 @@ import { DomainError } from '../../data/store';
 import { payableStatus } from '../../domain/payables';
 import { supplierOrderText } from '../../domain/purchases';
 import { restockList } from '../../domain/stock-insights';
+import { supplierPrices, supplierTerms } from '../../domain/purchase-report';
 import { toWhatsAppNumber, whatsAppLink } from '../../domain/whatsapp';
 import { t } from '../../i18n/pt-AO';
-import { formatDateTime } from '../../lib/dates';
+import { formatDateTime, toLocalDateString } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge } from '../credit/due';
@@ -40,6 +41,9 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
   const { supplier, purchases, payments, products, settings, speeds } = data;
   const now = new Date();
   const status = payableStatus(supplier.id, purchases, payments, now);
+  const prices = supplierPrices(supplier.id, purchases);
+  const terms = supplierTerms(supplier.id, purchases, payments, toLocalDateString(now));
+  const judged = terms.punctuality.onTime + terms.punctuality.late + terms.punctuality.openLate;
   const badge = status.balanceCents > 0 ? dueBadge(status) : null;
   // The order: products usually bought from this supplier that are low, or run out within a week.
   const toOrder = restockList(
@@ -102,6 +106,12 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
           <p className="text-sm font-semibold text-slate-600">{status.balanceCents < 0 ? t.suppliers.inFavour : t.suppliers.owes}</p>
           <Money cents={Math.abs(status.balanceCents)} className="block text-3xl font-extrabold" />
           {badge && <span className={`mt-1 inline-block rounded px-1.5 text-sm font-semibold ${badge.className}`}>{badge.text}</span>}
+          {terms.avgTermDays !== undefined && <p className="mt-1 text-sm text-slate-700">{t.buying.terms(terms.avgTermDays)}</p>}
+          {judged > 0 && (
+            <p className="text-sm text-slate-700">
+              {t.punctuality.supplierLine(terms.punctuality.onTime, judged, terms.punctuality.avgDaysLate)}
+            </p>
+          )}
         </div>
 
         {status.balanceCents > 0 &&
@@ -163,6 +173,29 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
             </Button>
           )}
         </div>
+
+        {prices.length > 0 && (
+          <div>
+            <h3 className="mb-1 font-bold">{t.buying.supplierPrices}</h3>
+            <ul className="divide-y divide-slate-100 rounded-xl bg-white">
+              {prices.map((p) => (
+                <li key={p.productId} className="flex justify-between gap-2 p-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{p.name}</span>
+                    {p.changeBp !== undefined && (
+                      <span className={p.changeBp > 0 ? 'text-red-700' : p.changeBp < 0 ? 'text-brand-800' : 'text-slate-600'}>
+                        {p.changeBp === 0 ? t.buying.same : t.buying.change(`${Math.round(Math.abs(p.changeBp) / 100)}%`, p.changeBp > 0)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-bold whitespace-nowrap tabular-nums">
+                    {p.soldBy === 'weight' ? t.buying.perKg(formatKz(p.lastCents)) : formatKz(p.lastCents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {history.length > 0 && (
           <div>

@@ -680,6 +680,46 @@ export const t = {
     profit: (kz: string) => `lucro ${kz}`,
     hintReports: 'O lucro conta só os produtos com preço de custo.',
   },
+  punctuality: {
+    verdict: { good: 'Paga a tempo', fair: 'Às vezes atrasa', poor: 'Costuma atrasar' } as Record<'good' | 'fair' | 'poor', string>,
+    line: (onTime: number, total: number, avgDays?: number) =>
+      `${onTime} de ${total} ${total === 1 ? 'compra paga' : 'compras pagas'} a tempo${avgDays ? ` · atraso médio de ${avgDays} ${avgDays === 1 ? 'dia' : 'dias'}` : ''}`,
+    supplierLine: (onTime: number, total: number, avgDays?: number) =>
+      `A loja pagou ${onTime} de ${total} ${total === 1 ? 'compra' : 'compras'} a tempo${avgDays ? ` · atraso médio de ${avgDays} ${avgDays === 1 ? 'dia' : 'dias'}` : ''}`,
+    tooFew: 'Ainda poucas compras a crédito para dizer se paga a tempo.',
+  },
+  debtors: {
+    open: 'Relatório de devedores',
+    title: 'Devedores',
+    total: 'Em dívida',
+    overdue: 'Em atraso',
+    buckets: { current: 'A vencer', d1_7: '1 a 7 dias', d8_30: '8 a 30 dias', d31: 'Mais de 30 dias' } as Record<
+      'current' | 'd1_7' | 'd8_30' | 'd31',
+      string
+    >,
+    bucketsHint: 'Quanto está em dívida, pelo atraso.',
+    row: (days?: number) => (days === undefined ? 'nada em atraso' : `em atraso há ${days} ${days === 1 ? 'dia' : 'dias'}`),
+    overduePart: (amount: string) => `${amount} em atraso`,
+    none: 'Ninguém deve nada.',
+  },
+  buying: {
+    pricesTitle: 'Preços de compra',
+    pricesNone: 'Ainda sem compras deste produto.',
+    noSupplier: 'Sem fornecedor',
+    cheapest: (supplier: string, price: string) => `Mais barato na última compra: ${supplier}, ${price}`,
+    perKg: (price: string) => `${price}/kg`,
+    supplierPrices: 'Preços deste fornecedor',
+    change: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct} desde a compra anterior`,
+    same: 'igual à compra anterior',
+    terms: (days: number) => `Prazo médio para pagar: ${days} ${days === 1 ? 'dia' : 'dias'}`,
+    reportOpen: 'Relatório de compras',
+    reportTitle: 'Relatório de compras',
+    reportTotal: (n: number, amount: string) => `${n === 1 ? '1 compra' : `${count(n)} compras`} · ${amount}`,
+    reportPaid: (now: string, credit: string) => `Pago na hora: ${now} · A crédito: ${credit}`,
+    bySupplier: 'Por fornecedor',
+    byProduct: 'Produtos mais comprados',
+    reportNone: 'Sem compras neste período.',
+  },
   costMethod: {
     title: 'Preço de custo depois de uma compra',
     hint: 'Usado no lucro estimado. A maior parte das lojas fica com o da última compra; o custo médio mistura o que estava na prateleira com o que chegou.',

@@ -8,6 +8,9 @@ import { Button, Card, Empty, Money, Sheet, Skeleton } from '../../ui/kit';
 import { CustomerSheet } from './CustomerSheet';
 import { dueBadge, reminderLink } from './due';
 import { CustomerPicker } from '../sell/CustomerPicker';
+import { DebtorsSheet } from './DebtorsSheet';
+import { byCustomer, customerPunctuality } from '../../domain/debtors';
+import { toLocalDateString } from '../../lib/dates';
 
 export default function CreditScreen() {
   const { store } = useApp();
@@ -19,14 +22,22 @@ export default function CreditScreen() {
       store.settings.get(),
     ]);
     const now = new Date();
+    const today = toLocalDateString(now);
+    const salesOf = byCustomer(sales);
+    const paymentsOf = byCustomer(payments);
     return creditBook(customers, sales, payments, now).map((b) => ({
       ...b,
       // Quick "Lembrar" only when the payment is late, due today or due soon.
       remind: b.dueState === 'later' ? null : reminderLink(b, b.customer, settings.storeName, now),
+      // Who usually pays late (only said with enough history).
+      poorPayer:
+        b.balanceCents > 0 &&
+        customerPunctuality(salesOf.get(b.customer.id) ?? [], paymentsOf.get(b.customer.id) ?? [], today).verdict === 'poor',
     }));
   }, [store]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [report, setReport] = useState(false);
 
   if (!data) return <Skeleton />;
   const owing = data.filter((b) => b.balanceCents > 0);
@@ -44,6 +55,11 @@ export default function CreditScreen() {
         </Button>
       </Card>
 
+      {owing.length > 0 && (
+        <Button variant="secondary" className="mb-3 w-full" onClick={() => setReport(true)}>
+          {t.debtors.open}
+        </Button>
+      )}
       {owing.length === 0 && <Empty>{t.credit.empty}</Empty>}
 
       <ul className="space-y-2">
@@ -57,9 +73,12 @@ export default function CreditScreen() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-semibold">{b.customer.name}</p>
                 {b.balanceCents > 0 ? (
-                  <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-semibold ${dueBadge(b)?.className ?? ''}`}>
-                    {dueBadge(b)?.text}
-                  </span>
+                  <>
+                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-semibold ${dueBadge(b)?.className ?? ''}`}>
+                      {dueBadge(b)?.text}
+                    </span>
+                    {b.poorPayer && <span className="ml-1 text-sm font-semibold text-red-700">{t.punctuality.verdict.poor}</span>}
+                  </>
                 ) : b.balanceCents < 0 ? (
                   <span className="text-sm font-semibold text-brand-700">{t.credit.inFavourShort(formatKz(-b.balanceCents))}</span>
                 ) : (
@@ -88,6 +107,7 @@ export default function CreditScreen() {
       </ul>
 
       {openId && <CustomerSheet customerId={openId} onClose={() => setOpenId(null)} />}
+      {report && <DebtorsSheet onClose={() => setReport(false)} />}
       {adding && (
         <Sheet title={t.credit.newCustomer} onClose={() => setAdding(false)}>
           <CustomerPicker
