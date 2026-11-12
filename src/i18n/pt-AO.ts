@@ -927,6 +927,27 @@ export const t = {
     forgot:
       'Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.',
   },
+  history: {
+    open: 'Procurar vendas',
+    title: 'Procurar vendas',
+    search: 'Produto, cliente ou n.º da venda',
+    period: 'Período',
+    periods: { today: 'Hoje', yesterday: 'Ontem', '7d': '7 dias', '30d': '30 dias' } as Record<
+      'today' | 'yesterday' | '7d' | '30d',
+      string
+    >,
+    method: 'Forma de pagamento',
+    allMethods: 'Todas',
+    customer: 'Cliente',
+    allCustomers: 'Todos os clientes',
+    stateLabel: 'Vendas anuladas',
+    states: { all: 'Todas', valid: 'Válidas', voided: 'Anuladas' } as Record<'all' | 'valid' | 'voided', string>,
+    summary: (n: number, total: string) => `${n === 1 ? '1 venda' : `${count(n)} vendas`} · ${total}`,
+    voided: (n: number) => (n === 1 ? 'E 1 anulada (não conta no total).' : `E ${count(n)} anuladas (não contam no total).`),
+    none: 'Nenhuma venda com estes filtros.',
+    more: (n: number) => `Ver mais ${n}`,
+    number: (n: number) => `n.º ${n}`,
+  },
   clock: {
     wrong: (phone: string, last: string) =>
       `A data do telemóvel parece errada: diz ${phone}, mas a última coisa registada na loja é de ${last}. Acerte a data e a hora nas definições do Android (de preferência «automática»), para as vendas ficarem no dia certo.`,

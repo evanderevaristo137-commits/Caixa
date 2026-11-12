@@ -24,12 +24,14 @@ import { CashCard } from './CashCard';
 import { DigitalCard } from './DigitalCard';
 import { digitalStatus } from '../../domain/digital-watch';
 import { ReportsSheet } from './ReportsSheet';
+import { SalesHistorySheet } from './SalesHistorySheet';
 import { InssCard } from '../inss/InssCard';
 
 export default function TodayScreen() {
   const { store } = useApp();
   const [offset, setOffset] = useState(0);
   const [reports, setReports] = useState(false);
+  const [history, setHistory] = useState(false);
   const data = useLiveQuery(async () => {
     const now = new Date();
     const day = addDays(startOfLocalDay(now), offset);
@@ -187,6 +189,24 @@ export default function TodayScreen() {
         </svg>
         {t.reports.open}
       </button>
+      <button
+        type="button"
+        onClick={() => setHistory(true)}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM21 21l-4.35-4.35" />
+        </svg>
+        {t.history.open}
+      </button>
 
       {(day.count > 0 || data.outflows.expensesCents > 0) && (
         <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
@@ -289,6 +309,7 @@ export default function TodayScreen() {
 
       <SalesList sales={data.daySales} />
       {reports && <ReportsSheet onClose={() => setReports(false)} />}
+      {history && <SalesHistorySheet onClose={() => setHistory(false)} />}
     </div>
   );
 }

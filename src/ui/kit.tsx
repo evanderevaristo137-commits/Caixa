@@ -155,6 +155,5 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 }
 
 /** Accent-insensitive search helper. */
-export function normalise(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-}
+/** Kept here too, as the screens import it from the kit. */
+export { normalise } from '../lib/text';
