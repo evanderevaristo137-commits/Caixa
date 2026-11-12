@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
@@ -28,12 +28,16 @@ import { ReportsSheet } from './ReportsSheet';
 import { SalesHistorySheet } from './SalesHistorySheet';
 import { InssCard } from '../inss/InssCard';
 import { PendingPaymentsCard } from './PendingPaymentsCard';
+import { DayCard } from './DayCard';
+import { FinanceSheet } from './FinanceSheet';
+import { soldAndReceived } from '../../domain/finance';
 
 export default function TodayScreen() {
   const { store } = useApp();
   const [offset, setOffset] = useState(0);
   const [reports, setReports] = useState(false);
   const [history, setHistory] = useState(false);
+  const [finance, setFinance] = useState(false);
   const data = useLiveQuery(async () => {
     const now = new Date();
     const day = addDays(startOfLocalDay(now), offset);
@@ -64,6 +68,11 @@ export default function TodayScreen() {
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => compareText(b.createdAt, a.createdAt));
     const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products), now));
     const view = summariseDayView(sales, payments, day, now);
+    // Sold next to received: a sale on credit is sold, not received; a debt paid is received, not sold today.
+    const money = soldAndReceived(
+      daySales,
+      payments.filter((p) => p.createdAt >= dayStartIso),
+    );
     const returns = summariseReturns(dayReturns);
     const profit = summariseProfit(daySales, dayReturns);
     // Electronic payments of the day whose money has not arrived yet, by method.
@@ -84,7 +93,7 @@ export default function TodayScreen() {
     });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
     const summaryLink = whatsAppLink(
-      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns, pending }),
+      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns, pending, money }),
     );
     return {
       offset,
@@ -95,6 +104,7 @@ export default function TodayScreen() {
       outflows,
       drawer,
       returns,
+      money,
       pendingByMethod,
       lastClose,
       dayExpenses: dayExpenses.sort((a, b) => compareText(b.createdAt, a.createdAt)),
@@ -158,77 +168,17 @@ export default function TodayScreen() {
       {isToday && <PendingPaymentsCard />}
       {data.digital?.alarm && <DigitalCard status={data.digital} />}
 
-      <Card className="bg-brand-700 text-white">
-        <p className="text-sm font-semibold text-brand-100">{t.today.sold}</p>
-        <Money cents={day.totalCents} className="block text-4xl font-extrabold" />
-        <p className="mt-1 text-lg">{t.today.sales(day.count)}</p>
-        <div className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-base">
-          <p>
-            {view.comparisonIsSameTime ? t.today.vsYesterday : t.today.comparedPrevDay}:{' '}
-            <Money cents={view.comparison.totalCents} className="font-semibold" />
-          </p>
-          <p className="font-bold">
-            {view.diffCents === 0 ? (
-              t.today.same
-            ) : (
-              <>
-                {view.diffCents > 0 ? '▲ ' : '▼ '}
-                <Money cents={Math.abs(view.diffCents)} /> {view.diffCents > 0 ? t.today.more : t.today.less}
-              </>
-            )}
-          </p>
-          {view.comparisonIsSameTime && (
-            <p className="mt-1 text-sm text-white/90">
-              {t.today.yesterdayFull}: <Money cents={view.previousFull.totalCents} /> · {t.today.sales(view.previousFull.count)}
-            </p>
-          )}
-        </div>
-        {day.voidedCount > 0 && (
-          <p className="mt-2 text-sm font-semibold text-amber-200">{t.today.voidedLine(day.voidedCount, formatKz(day.voidedCents))}</p>
-        )}
-        {data.returns.count > 0 && (
-          <p className="mt-1 text-sm font-semibold text-amber-200">
-            {t.today.returnsLine(data.returns.count, formatKz(data.returns.totalCents))}
-          </p>
-        )}
-      </Card>
+      <DayCard view={view} money={data.money} returns={data.returns} />
 
-      <button
-        type="button"
-        onClick={() => setReports(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-        </svg>
+      <ActionButton icon="M4 20V10M10 20V4M16 20v-7M22 20H2" onClick={() => setReports(true)}>
         {t.reports.open}
-      </button>
-      <button
-        type="button"
-        onClick={() => setHistory(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM21 21l-4.35-4.35" />
-        </svg>
+      </ActionButton>
+      <ActionButton icon="M3 7h18v12H3zM3 11h18M16 15h2" onClick={() => setFinance(true)}>
+        {t.finance.open}
+      </ActionButton>
+      <ActionButton icon="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM21 21l-4.35-4.35" onClick={() => setHistory(true)}>
         {t.history.open}
-      </button>
+      </ActionButton>
 
       {(day.count > 0 || data.outflows.expensesCents > 0) && (
         <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
@@ -339,6 +289,32 @@ export default function TodayScreen() {
       <SalesList sales={data.daySales} />
       {reports && <ReportsSheet onClose={() => setReports(false)} />}
       {history && <SalesHistorySheet onClose={() => setHistory(false)} />}
+      {finance && <FinanceSheet onClose={() => setFinance(false)} />}
     </div>
+  );
+}
+
+/** A wide button of «Hoje» that opens a sheet, with a small line icon. */
+function ActionButton({ icon, onClick, children }: { icon: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d={icon} />
+      </svg>
+      {children}
+    </button>
   );
 }

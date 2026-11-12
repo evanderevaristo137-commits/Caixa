@@ -2,7 +2,7 @@ import { addDays, startOfLocalDay } from '../lib/dates';
 import { comparePt } from './ranking';
 import { summariseOutflows, type OutflowSummary } from './cash';
 import { summariseProfit, type ProfitSummary } from './profit';
-import type { Cents, CreditPayment, Expense, PaymentMethod, Sale } from './types';
+import type { Cents, CreditPayment, Expense, PaymentMethod, Sale, SaleReturn } from './types';
 import { isElectronic, PAYMENT_METHODS } from './types';
 
 /** Reports over a period: totals, buckets for the chart, payment methods and best sellers. */
@@ -11,6 +11,7 @@ export type PeriodKind = '7d' | '30d' | '12m';
 type SaleLike = Pick<Sale, 'createdAt' | 'totalCents' | 'method' | 'voidedAt' | 'items' | 'customerId'>;
 type PaymentLike = Pick<CreditPayment, 'createdAt' | 'amountCents'> & Partial<Pick<CreditPayment, 'method'>>;
 type ExpenseLike = Pick<Expense, 'createdAt' | 'category' | 'amountCents' | 'fromCash' | 'voidedAt'>;
+type ReturnLike = Pick<SaleReturn, 'createdAt' | 'totalCents' | 'items' | 'restock'>;
 
 export const MONTHS = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
 const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
@@ -87,27 +88,37 @@ export function buckets(kind: PeriodKind, now: Date): Bucket[] {
  * (a year of sales is thousands of them): dates are compared as ISO text, the bucket found by
  * binary search (buckets are consecutive and in time order).
  */
-export function fillBuckets(empty: Bucket[], sales: SaleLike[]): Bucket[] {
+export function fillBuckets(empty: Bucket[], sales: SaleLike[], returns: ReturnLike[] = []): Bucket[] {
   const starts = empty.map((b) => b.start.toISOString());
   const ends = empty.map((b) => b.end.toISOString());
-  const groups: SaleLike[][] = empty.map(() => []);
-  for (const s of sales) {
-    if (s.voidedAt) continue;
+  const bucketOf = (iso: string) => {
     let lo = 0;
     let hi = starts.length - 1;
     let at = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
-      if (starts[mid]! <= s.createdAt) {
+      if (starts[mid]! <= iso) {
         at = mid;
         lo = mid + 1;
       } else hi = mid - 1;
     }
-    if (at >= 0 && s.createdAt < ends[at]!) groups[at]!.push(s);
+    return at >= 0 && iso < ends[at]! ? at : -1;
+  };
+  const groups: SaleLike[][] = empty.map(() => []);
+  for (const s of sales) {
+    if (s.voidedAt) continue;
+    const at = bucketOf(s.createdAt);
+    if (at >= 0) groups[at]!.push(s);
+  }
+  // Returns lower the profit of the day (or month) they were made.
+  const returned: ReturnLike[][] = empty.map(() => []);
+  for (const r of returns) {
+    const at = bucketOf(r.createdAt);
+    if (at >= 0) returned[at]!.push(r);
   }
   return empty.map((b, i) => {
     const inside = groups[i]!;
-    const profit = summariseProfit(inside);
+    const profit = summariseProfit(inside, returned[i]);
     return {
       ...b,
       salesCents: inside.reduce((a, s) => a + s.totalCents, 0),
@@ -131,9 +142,18 @@ export interface PeriodSummary {
   creditSoldCents: Cents;
   creditPaidCents: Cents;
   daysWithSales: number;
+  /** Goods given back in the period (their money is taken off the profit). */
+  returns: { count: number; totalCents: Cents };
 }
 
-export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expenses: ExpenseLike[], from: Date, to: Date): PeriodSummary {
+export function periodSummary(
+  sales: SaleLike[],
+  payments: PaymentLike[],
+  expenses: ExpenseLike[],
+  from: Date,
+  to: Date,
+  returns: ReturnLike[] = [],
+): PeriodSummary {
   // ISO dates compare as text: no date parsing for each of thousands of sales.
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
@@ -143,6 +163,7 @@ export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expens
   for (const s of valid) byMethod[s.method] += s.totalCents;
   const salesCents = valid.reduce((a, s) => a + s.totalCents, 0);
   const days = new Set(valid.map((s) => startOfLocalDay(new Date(s.createdAt)).getTime()));
+  const returned = returns.filter((r) => between(r.createdAt));
   return {
     salesCents,
     count: valid.length,
@@ -150,12 +171,13 @@ export function periodSummary(sales: SaleLike[], payments: PaymentLike[], expens
     avgTicketCents: valid.length ? Math.round(salesCents / valid.length / 100) * 100 : 0,
     byMethod,
     electronicCents: PAYMENT_METHODS.filter(isElectronic).reduce((a, m) => a + byMethod[m], 0),
-    profit: summariseProfit(valid),
+    profit: summariseProfit(valid, returned),
     outflows: summariseOutflows(expenses.filter((e) => between(e.createdAt))),
     creditSoldCents: byMethod.credit,
     // Goods returned from a credit sale lower the debt but are not money received.
     creditPaidCents: payments.filter((p) => p.method !== 'return' && between(p.createdAt)).reduce((a, p) => a + p.amountCents, 0),
     daysWithSales: days.size,
+    returns: { count: returned.length, totalCents: returned.reduce((a, r) => a + r.totalCents, 0) },
   };
 }
 

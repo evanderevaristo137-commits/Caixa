@@ -1,8 +1,8 @@
 import { calendarDaysBetween, formatDate, startOfLocalDay } from '../lib/dates';
 import { formatKz } from '../lib/money';
-import { formatMargin, marginBp, summariseProfit } from './profit';
+import { formatMargin, marginBp } from './profit';
 import { changeBp, formatChange, MONTHS, periodSummary, shareBp } from './reports';
-import type { Cents, CreditPayment, Sale } from './types';
+import type { Cents, CreditPayment, Sale, SaleReturn } from './types';
 import { digitalLineText, type DigitalLine } from './pilot';
 
 /**
@@ -72,6 +72,8 @@ export function buildStoreSheet(input: {
   now: Date;
   digital?: DigitalLine;
   inss?: InssLine;
+  /** Goods given back: their money is taken off the estimated profit. */
+  returns?: Pick<SaleReturn, 'createdAt' | 'totalCents' | 'items' | 'restock'>[];
 }): StoreSheet {
   const { now } = input;
   const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -79,14 +81,15 @@ export function buildStoreSheet(input: {
   const valid = input.sales.filter((s) => !s.voidedAt && new Date(s.createdAt) >= windowStart);
   const first = valid.reduce<string | undefined>((min, s) => (!min || s.createdAt < min ? s.createdAt : min), undefined);
   const from = first ? startOfLocalDay(new Date(first)) : startOfLocalDay(now);
-  const summary = periodSummary(valid, input.payments, [], from, end);
-  const profit = summariseProfit(valid);
+  const returns = input.returns ?? [];
+  const summary = periodSummary(valid, input.payments, [], from, end, returns);
+  const profit = summary.profit;
   const margin = marginBp(profit);
 
   const months: StoreSheetMonth[] = [];
   for (let m = new Date(from.getFullYear(), from.getMonth(), 1); m <= now; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
     const next = new Date(m.getFullYear(), m.getMonth() + 1, 1);
-    const s = periodSummary(valid, [], [], m, next);
+    const s = periodSummary(valid, [], [], m, next, returns);
     months.push({
       label: `${MONTHS[m.getMonth()]} ${m.getFullYear()}`,
       salesCents: s.salesCents,

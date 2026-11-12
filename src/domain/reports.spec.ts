@@ -51,6 +51,25 @@ describe('reports', () => {
     expect(filled.at(-2)).toMatchObject({ salesCents: 0, count: 0, profitCents: undefined });
   });
 
+  it('takes returns off the profit, in the period and in the bucket of the day they were made', () => {
+    // 500 Kz back for goods that cost 400 Kz, back on the shelf: the profit loses 100 Kz.
+    const back = {
+      createdAt: new Date(2026, 10, 8, 12).toISOString(),
+      totalCents: 50_000,
+      restock: true,
+      items: [{ productId: 'arroz', name: 'arroz', quantity: 1, refundCents: 50_000, costCents: 40_000 }],
+    };
+    const sales = [sale(8, 100_000), sale(7, 200_000)];
+    const s = periodSummary(sales, [], [], new Date(2026, 10, 2), new Date(2026, 10, 9), [back]);
+    expect(s.profit.profitCents).toBe(60_000 - 10_000);
+    expect(s.returns).toEqual({ count: 1, totalCents: 50_000 });
+    // Outside the period: not counted.
+    expect(periodSummary(sales, [], [], new Date(2026, 10, 2), new Date(2026, 10, 8), [back]).returns.count).toBe(0);
+    const filled = fillBuckets(buckets('7d', now), sales, [back]);
+    expect(filled.at(-1)!.profitCents).toBe(20_000 - 10_000);
+    expect(filled.at(-2)!.profitCents).toBe(40_000);
+  });
+
   it('summarises a period: methods, electronic share, profit, money out and credit', () => {
     const s = periodSummary(
       [sale(3, 100_000), sale(4, 60_000, 'kwik'), sale(5, 40_000, 'credit'), sale(5, 10_000, 'cash', { voidedAt: 'x' })],

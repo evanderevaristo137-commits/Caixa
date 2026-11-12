@@ -136,6 +136,13 @@ describe('daySummaryText', () => {
     );
   });
 
+  it('puts what was received next to what was sold', () => {
+    const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
+    const text = daySummaryText('Loja', 'Hoje', view, { money: { receivedCents: 200_000, onCreditCents: 100_000 } });
+    expect(text).toContain('Vendido: *0 Kz* (0 vendas)\nRecebido: 2.000 Kz (a crédito: 1.000 Kz)\n');
+    expect(daySummaryText('Loja', 'Hoje', view, { money: { receivedCents: 0, onCreditCents: 0 } })).toContain('Recebido: 0 Kz\n');
+  });
+
   it('counts the payments of the day still to confirm', () => {
     const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
     expect(daySummaryText('Loja', 'Hoje', view, { pending: { count: 2, totalCents: 350_000 } })).toContain(

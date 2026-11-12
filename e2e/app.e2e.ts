@@ -781,7 +781,7 @@ test('week and month reports with a chart, and the store sheet for a bank', asyn
   await nav(page, 'Hoje');
   await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
   const sheet = page.getByRole('dialog', { name: 'Semana e mês' });
-  await expect(sheet.getByText('Vendido', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('Vendido', { exact: true }).first()).toBeVisible();
   await expect(sheet.getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
   await expect(sheet.getByRole('button', { name: /^[a-zçá]+\., \d\d\/\d\d: [\d.]+ Kz, \d+ vendas?/ })).toHaveCount(7);
   await expect(sheet.getByText(/Pagamentos electrónicos: \d+% das vendas/)).toBeVisible();

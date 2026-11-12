@@ -25,6 +25,8 @@ import { Button, Card, Sheet, Skeleton } from '../../ui/kit';
 import { StoreSheetView } from './StoreSheetView';
 import { CategoryReport } from './CategoryReport';
 import { salesByCategory, type CategorySales } from '../../domain/categories';
+import { soldAndReceived, type SoldReceived } from '../../domain/finance';
+import { SoldReceivedCard } from './FinanceCards';
 
 const KINDS: PeriodKind[] = ['7d', '30d', '12m'];
 const pct = (bp: number) => `${Math.round(bp / 100)}%`;
@@ -37,19 +39,21 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
   const data = useLoaded(async (): Promise<ReportData> => {
     const now = new Date();
     const { from, to, prevFrom } = periodRange(kind, now);
-    const [sales, payments, expenses, categoryOf] = await Promise.all([
+    const [sales, payments, expenses, categoryOf, returns] = await Promise.all([
       store.sales.between(prevFrom.toISOString(), to.toISOString()),
       store.credit.paymentsBetween(from.toISOString(), to.toISOString()),
       store.expenses.between(from.toISOString(), to.toISOString()),
       store.products.categoryMap(),
+      store.returns.between(prevFrom.toISOString(), to.toISOString()),
     ]);
     const fromIso = from.toISOString();
     const inPeriod = sales.filter((s) => s.createdAt >= fromIso);
     return {
       kind,
-      current: periodSummary(sales, payments, expenses, from, to),
-      previous: periodSummary(sales, [], [], prevFrom, from),
-      cols: fillBuckets(buckets(kind, now), sales),
+      current: periodSummary(sales, payments, expenses, from, to, returns),
+      previous: periodSummary(sales, [], [], prevFrom, from, returns),
+      money: soldAndReceived(inPeriod, payments),
+      cols: fillBuckets(buckets(kind, now), sales, returns),
       top: topProducts(inPeriod, 5),
       topProfit: profitByProduct(inPeriod).slice(0, 5),
       byCategory: salesByCategory(inPeriod, categoryOf),
@@ -93,6 +97,7 @@ interface ReportData {
   kind: PeriodKind;
   current: PeriodSummary;
   previous: PeriodSummary;
+  money: SoldReceived;
   cols: Bucket[];
   top: TopProduct[];
   topProfit: ProductProfit[];
@@ -194,12 +199,7 @@ function Body({ data }: { data: ReportData }) {
 
       <CategoryReport rows={data.byCategory} totalCents={current.salesCents} />
 
-      {(current.creditSoldCents > 0 || current.creditPaidCents > 0) && (
-        <Card>
-          <h3 className="mb-1 font-bold">{t.reports.credit}</h3>
-          <p className="text-slate-700">{t.reports.creditLine(formatKz(current.creditSoldCents), formatKz(current.creditPaidCents))}</p>
-        </Card>
-      )}
+      <SoldReceivedCard money={data.money} returns={current.returns} />
     </>
   );
 }

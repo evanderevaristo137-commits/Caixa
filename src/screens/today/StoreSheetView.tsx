@@ -23,12 +23,14 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
   const sheet = useLoaded(async () => {
     const now = new Date();
     const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString();
-    const [sales, payments, settings, book, contributions] = await Promise.all([
+    const untilNow = new Date(now.getTime() + 60_000).toISOString();
+    const [sales, payments, settings, book, contributions, returns] = await Promise.all([
       store.sales.since(windowStart),
-      store.credit.paymentsBetween(windowStart, new Date(now.getTime() + 60_000).toISOString()),
+      store.credit.paymentsBetween(windowStart, untilNow),
       store.settings.get(),
       store.credit.book(now),
       store.inss.list(),
+      store.returns.between(windowStart, untilNow),
     ]);
     // The owner's INSS record goes on the sheet once there is something to show.
     const inss = settings.inss ? inssStatus(settings.inss, contributions, now) : undefined;
@@ -44,6 +46,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
       now,
       digital: { shareBp: digital.week.shareBp, minShareBp: digital.minShareBp, alarm: digital.alarm },
       inss: inss && inss.totalMonths > 0 ? { months: inss.totalMonths, streak: inss.streak } : undefined,
+      returns,
     });
   }, [store, mode]);
   const close = useRef(onClose);

@@ -8,6 +8,7 @@ import type { DayView } from './today';
 import { formatMargin, marginBp, type ProfitSummary } from './profit';
 import type { Drawer, OutflowSummary } from './cash';
 import type { CashClose } from './types';
+import type { SoldReceived } from './finance';
 import { isPaymentPending, PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
@@ -104,13 +105,19 @@ export interface DaySummaryExtras {
   returns?: { count: number; totalCents: Cents };
   /** Electronic payments of the day whose money has not arrived yet. */
   pending?: { count: number; totalCents: Cents };
+  /** Sold next to received. */
+  money?: Pick<SoldReceived, 'receivedCents' | 'onCreditCents'>;
 }
 
 export function daySummaryText(storeName: string, dayTitle: string, view: DayView, extras: DaySummaryExtras = {}): string {
   const { day } = view;
-  const { profit, drawer, outflows, close, returns, pending } = extras;
+  const { profit, drawer, outflows, close, returns, pending, money } = extras;
   const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
   lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
+  if (money) {
+    const credit = money.onCreditCents > 0 ? ` (a crédito: ${formatKz(money.onCreditCents)})` : '';
+    lines.push(`Recebido: ${formatKz(money.receivedCents)}${credit}`);
+  }
   const margin = profit ? marginBp(profit) : undefined;
   if (profit && margin !== undefined) {
     const partial = profit.unknownLines > 0 ? ' — só dos produtos com preço de custo' : '';

@@ -97,6 +97,29 @@ describe('store sheet', () => {
     expect(storeSheetText(buildStoreSheet(input))).not.toContain('INSS');
   });
 
+  it('takes returns off the estimated profit', () => {
+    const base = {
+      storeName: 'Loja Exemplo',
+      demo: false,
+      sales: [sale(2026, 10, 2, 100_000, 'cash', 0.8)],
+      payments: [],
+      owedCents: 0,
+      overdueCustomers: 0,
+      now,
+    };
+    const back = {
+      createdAt: new Date(2026, 10, 3).toISOString(),
+      totalCents: 50_000,
+      restock: false,
+      items: [{ productId: 'p', name: 'p', quantity: 1, refundCents: 50_000, costCents: 40_000 }],
+    };
+    expect(buildStoreSheet(base).profit?.profitCents).toBe(20_000);
+    // Money given back, goods lost: the profit drops by the 500 Kz given back.
+    const sheet = buildStoreSheet({ ...base, returns: [back] });
+    expect(sheet.profit?.profitCents).toBe(20_000 - 50_000);
+    expect(sheet.months.at(-1)!.profitCents).toBe(-30_000);
+  });
+
   it('says when there are no sales yet', () => {
     const sheet = buildStoreSheet({ storeName: 'Loja', demo: false, sales: [], payments: [], owedCents: 0, overdueCustomers: 0, now });
     expect(storeSheetText(sheet)).toContain('Ainda não há vendas registadas.');
