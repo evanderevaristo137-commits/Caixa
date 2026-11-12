@@ -6,8 +6,12 @@ import {
   cartTotal,
   cashSuggestions,
   changeDue,
+  lineProblem,
+  parseOpenSale,
   parseStoredCart,
   reconcileCart,
+  saleItem,
+  sameLines,
   setQuantity,
   setWeightLine,
 } from './cart';
@@ -97,7 +101,7 @@ describe('cashSuggestions', () => {
 });
 
 describe('cart with products sold by weight', () => {
-  const beans = { id: 'w1', name: 'Feijão a granel', priceCents: 140_000 }; // 1.400 Kz/kg
+  const beans = { id: 'w1', name: 'Feijão a granel', priceCents: 140_000, soldBy: 'weight' as const }; // 1.400 Kz/kg
 
   it('one line per weighed product, set by the weight sheet', () => {
     let cart = setWeightLine([], beans, 750);
@@ -121,5 +125,100 @@ describe('cart with products sold by weight', () => {
     const cart = setWeightLine([], beans, 357, 50_000);
     expect(cartTotal(reconcileCart(cart, [{ ...beans, priceCents: 150_000 }]))).toBe(53_600);
     expect(parseStoredCart(JSON.stringify(cart))).toEqual(cart);
+  });
+});
+
+describe('a cart line is checked against the product before it is sold', () => {
+  const beans = { id: 'w1', name: 'Feijão a granel', priceCents: 140_000, soldBy: 'weight' as const };
+
+  it('accepts a line that matches the product', () => {
+    expect(lineProblem(addToCart([], rice)[0]!, rice)).toBeNull();
+    expect(lineProblem(setWeightLine([], beans, 750)[0]!, beans)).toBeNull();
+    expect(lineProblem(setWeightLine([], beans, 357, 50_000)[0]!, beans)).toBeNull();
+  });
+
+  it('refuses a product that is gone, archived or sold another way', () => {
+    const line = addToCart([], rice)[0]!;
+    expect(lineProblem(line, undefined)).toBe('unavailable');
+    expect(lineProblem(line, { ...rice, archivedAt: '2026-11-06T10:00:00Z' })).toBe('unavailable');
+    expect(lineProblem(line, { ...rice, soldBy: 'weight' })).toBe('sold_by');
+    expect(lineProblem(setWeightLine([], beans, 750)[0]!, { ...beans, soldBy: undefined })).toBe('sold_by');
+  });
+
+  it('refuses a price that is not the product price, whatever the screen says', () => {
+    const line = { ...addToCart([], rice)[0]!, unitPriceCents: 100 };
+    expect(lineProblem(line, rice)).toBe('price');
+  });
+
+  it('refuses an asked amount that does not match the weight', () => {
+    // 357 g at 1.400 Kz/kg is 499,80 Kz: "500 Kz" fits, "100 Kz" for the same weight does not.
+    expect(lineProblem(setWeightLine([], beans, 357, 10_000)[0]!, beans)).toBe('amount');
+    // Units never have an asked amount.
+    expect(lineProblem({ ...addToCart([], rice)[0]!, fixedTotalCents: 100 }, rice)).toBe('amount');
+  });
+
+  it('builds the sale line from the product: its name and its price', () => {
+    const tampered = { ...addToCart([], rice, 2)[0]!, name: 'Outro nome', unitPriceCents: 1 };
+    expect(saleItem(tampered, rice)).toEqual({
+      productId: 'p1',
+      name: 'Arroz 1 kg',
+      unitPriceCents: 120_000,
+      quantity: 2,
+      lineTotalCents: 240_000,
+    });
+    expect(saleItem(setWeightLine([], beans, 750)[0]!, beans)).toMatchObject({ soldBy: 'weight', quantity: 750, lineTotalCents: 105_000 });
+    expect(saleItem(setWeightLine([], beans, 357, 50_000)[0]!, beans).lineTotalCents).toBe(50_000);
+  });
+
+  it('repairs a cart that can no longer be sold as it is', () => {
+    const cart = [
+      { ...addToCart([], rice)[0]!, fixedTotalCents: 100 }, // an amount on a unit line: dropped
+      setWeightLine([], beans, 357, 10_000)[0]!, // an amount that does not match: back to the weight
+      { ...addToCart([], oil)[0]!, soldBy: 'weight' as const }, // sold another way: the line goes
+    ];
+    const fixed = reconcileCart(cart, [rice, beans, oil]);
+    expect(fixed).toHaveLength(2);
+    expect(fixed.every((l) => l.fixedTotalCents === undefined)).toBe(true);
+    expect(cartTotal(fixed)).toBe(120_000 + 50_000);
+    for (const l of fixed)
+      expect(
+        lineProblem(
+          l,
+          [rice, beans].find((p) => p.id === l.productId),
+        ),
+      ).toBeNull();
+  });
+});
+
+describe('the sale kept on the phone', () => {
+  const line = { productId: 'p1', name: 'Arroz', unitPriceCents: 100, quantity: 2 };
+
+  it('carries the id of the sale with the lines', () => {
+    expect(parseOpenSale(JSON.stringify({ id: 'abc', lines: [line] }))).toEqual({ id: 'abc', lines: [line] });
+  });
+
+  it('still reads the format of older versions (only the lines)', () => {
+    expect(parseOpenSale(JSON.stringify([line]))).toEqual({ lines: [line] });
+    expect(parseStoredCart(JSON.stringify({ id: 'abc', lines: [line] }))).toEqual([line]);
+  });
+
+  it('ignores anything malformed', () => {
+    expect(parseOpenSale(null)).toEqual({ lines: [] });
+    expect(parseOpenSale('not json')).toEqual({ lines: [] });
+    expect(parseOpenSale('7')).toEqual({ lines: [] });
+    expect(parseOpenSale(JSON.stringify({ id: 7, lines: 'x' }))).toEqual({ lines: [] });
+    expect(parseOpenSale(JSON.stringify({ id: 'abc', lines: [line, { ...line, quantity: 0 }] }))).toEqual({ id: 'abc', lines: [line] });
+  });
+
+  it('knows when a cart is exactly what a sale recorded', () => {
+    const cart = addToCart(addToCart([], rice, 2), oil);
+    const items = cartItems(cart);
+    expect(sameLines(cart, items)).toBe(true);
+    expect(sameLines(cart, [...items].reverse())).toBe(true);
+    expect(sameLines(addToCart(cart, soap), items)).toBe(false);
+    expect(sameLines(setQuantity(cart, 'p1', 3), items)).toBe(false);
+    expect(sameLines([], items)).toBe(false);
+    // A price that changed since does not make it another sale.
+    expect(sameLines(reconcileCart(cart, [{ ...rice, priceCents: 1 }, oil]), items)).toBe(true);
   });
 });

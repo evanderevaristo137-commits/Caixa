@@ -77,6 +77,10 @@ export const t = {
     outOfStock: 'Sem stock',
     stockLeft: (q: string) => `${q} em stock`,
     paymentFailed: 'Não foi possível confirmar o pagamento.',
+    cartChanged: 'Um preço ou um produto mudou. Veja o carrinho e cobre de novo.',
+    alreadySaved: (number: number, total: string) =>
+      `A venda n.º ${number} (${total}) já estava registada. O carrinho foi limpo para não cobrar duas vezes.`,
+    alreadySavedOk: 'Entendi',
     simulated: 'Pagamento simulado (teste) — confirme que recebeu o dinheiro.',
   },
   scanner: {

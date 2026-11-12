@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { addToCart, cartCount, cartTotal, parseStoredCart, reconcileCart, setWeightLine, type Cart } from '../../domain/cart';
+import { addToCart, cartCount, cartTotal, setWeightLine } from '../../domain/cart';
 import { formatKg, formatQuantity } from '../../domain/quantity';
 import { formatKz } from '../../lib/money';
 import { sortByFrequency } from '../../domain/ranking';
 import { useFrozenRanking } from './use-ranking';
-import type { Product } from '../../domain/types';
+import type { Customer, Product, Sale } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatTime } from '../../lib/dates';
-import { hold, parseHeld, resume, type HeldCart } from '../../domain/held';
-import { uuid } from '../../lib/ids';
+import type { HeldCart } from '../../domain/held';
 import { Button, Empty, Money, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { ProductSheet } from '../products/ProductSheet';
 import { CartIcon, PlusIcon } from '../../ui/icons';
@@ -18,6 +17,8 @@ import { promptInstall, useCanInstall } from '../../lib/install';
 import { CartSheet } from './CartSheet';
 import { WeightSheet } from './WeightSheet';
 import { CheckoutSheet } from './CheckoutSheet';
+import { ReceiptSheet } from './ReceiptSheet';
+import { useOpenSale } from './use-open-sale';
 import { Scanner, scannerSupported } from './Scanner';
 import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { inCategory } from '../../domain/categories';
@@ -26,37 +27,21 @@ export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
   const canInstall = useCanInstall();
   const products = useLiveQuery(() => store.products.list(), [store]);
+  // The shop details, ready for the receipt the moment a sale is recorded.
+  const settings = useLiveQuery(() => store.settings.get(), [store]);
   // Best sellers of the last 30 days first, fixed when the screen opens.
   const ranking = useFrozenRanking(store, mode, products);
   const ordered = useMemo(() => (products && ranking ? sortByFrequency(products, ranking) : undefined), [products, ranking]);
-  // The cart is saved on the phone, so it survives if Android closes the app mid-sale.
-  const cartKey = `caixa.cart.${mode}`;
-  const [cart, setCart] = useState<Cart>(() => {
-    try {
-      return parseStoredCart(localStorage.getItem(cartKey));
-    } catch {
-      return [];
-    }
-  });
-  // Sales on hold (several customers at once), also kept on the phone.
-  const heldKey = `caixa.held.${mode}`;
-  const [held, setHeld] = useState<HeldCart[]>(() => {
-    try {
-      return parseHeld(localStorage.getItem(heldKey));
-    } catch {
-      return [];
-    }
-  });
-  useEffect(() => {
-    try {
-      if (held.length === 0) localStorage.removeItem(heldKey);
-      else localStorage.setItem(heldKey, JSON.stringify(held));
-    } catch {
-      /* storage unavailable: held sales just aren't saved */
-    }
-  }, [held, heldKey]);
+  // The sale being rung up and the ones on hold, kept on the phone.
+  const { cart, saleId, setCart, held, putOnHold, takeBack, finish, refresh, settle, alreadySaved, dismissAlreadySaved } = useOpenSale(
+    store,
+    mode,
+    products,
+  );
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<'none' | 'cart' | 'checkout' | 'scan'>('none');
+  // The sale just recorded, while its receipt is on the screen.
+  const [receipt, setReceipt] = useState<{ sale: Sale; customer: Customer | null } | null>(null);
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [creatingCode, setCreatingCode] = useState<string | null>(null);
 
@@ -73,20 +58,6 @@ export function SellScreen() {
   useEffect(() => {
     if (cart.length === 0 && sheet === 'checkout') setSheet('none');
   }, [cart.length, sheet]);
-
-  useEffect(() => {
-    try {
-      if (cart.length === 0) localStorage.removeItem(cartKey);
-      else localStorage.setItem(cartKey, JSON.stringify(cart));
-    } catch {
-      /* storage unavailable: the cart just isn't saved */
-    }
-  }, [cart, cartKey]);
-
-  // Keep names/prices current if a product is edited or archived while it is in the cart.
-  useEffect(() => {
-    if (products) setCart((c) => reconcileCart(c, products));
-  }, [products]);
 
   const qtyIn = useMemo(() => new Map(cart.map((l) => [l.productId, l.quantity])), [cart]);
   // Products sold by weight open the weighing sheet; the others go straight into the cart.
@@ -110,7 +81,7 @@ export function SellScreen() {
         setUnknownCode(code);
       }
     },
-    [store, showToast],
+    [store, showToast, setCart],
   );
 
   const onSearchEnter = async () => {
@@ -128,21 +99,32 @@ export function SellScreen() {
   const count = cartCount(cart);
   const total = cartTotal(cart);
 
-  const putOnHold = () => {
-    const next = hold(held, cart, uuid(), new Date());
-    if (!next) return showToast(t.sell.heldFull);
-    setHeld(next);
-    setCart([]);
+  const onHold = () => {
+    if (!putOnHold()) return showToast(t.sell.heldFull);
     setSheet('none');
     setQuery('');
     showToast(t.sell.heldDone);
   };
-  const takeBack = (id: string) => {
-    const r = resume(held, id, cart, uuid(), new Date());
-    if (!r) return;
-    setHeld(r.held);
-    setCart(products ? reconcileCart(r.cart, products) : r.cart);
-    showToast(t.sell.resumed);
+  const onResume = (id: string) => {
+    if (takeBack(id)) showToast(t.sell.resumed);
+  };
+  // The sale is recorded: the cart empties at once (so it can never be charged again) and the receipt shows.
+  const onSaved = (sale: Sale, customer: Customer | null) => {
+    finish();
+    setQuery('');
+    setSheet('none');
+    setReceipt({ sale, customer });
+  };
+  // The Store refused the cart as it was (a price or a product changed): show it again, up to date.
+  const onOutdated = async () => {
+    await refresh();
+    setSheet('cart');
+    showToast(t.sell.cartChanged);
+  };
+  // The Store says this sale already exists: empty the cart if it is that sale, otherwise let them try again.
+  const onDuplicate = async () => {
+    setSheet('none');
+    if (!(await settle())) showToast(t.errors.saveFailed);
   };
   const heldText = (h: HeldCart) => [formatTime(h.at), t.sell.cartItems(cartCount(h.cart)), formatKz(cartTotal(h.cart))] as const;
 
@@ -181,6 +163,15 @@ export function SellScreen() {
         </button>
       </div>
 
+      {alreadySaved && (
+        <div role="alert" className="mx-3 mb-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-amber-950">
+          <p className="font-semibold">{t.sell.alreadySaved(alreadySaved.number, formatKz(alreadySaved.totalCents))}</p>
+          <Button variant="secondary" className="mt-2 w-full" onClick={dismissAlreadySaved}>
+            {t.sell.alreadySavedOk}
+          </Button>
+        </div>
+      )}
+
       {held.length > 0 && (
         <div className="-mt-1 flex items-center gap-2 overflow-x-auto px-3 pb-2" role="group" aria-label={t.sell.heldTitle}>
           <span className="shrink-0 text-sm font-bold text-amber-800">{t.sell.heldTitle}:</span>
@@ -188,7 +179,7 @@ export function SellScreen() {
             <button
               key={h.id}
               type="button"
-              onClick={() => takeBack(h.id)}
+              onClick={() => onResume(h.id)}
               aria-label={t.sell.resumeHeld(...heldText(h))}
               className="min-h-11 shrink-0 rounded-full border-2 border-amber-400 bg-amber-50 px-3 text-sm font-semibold whitespace-nowrap text-amber-950 active:bg-amber-100"
             >
@@ -325,7 +316,7 @@ export function SellScreen() {
           setCart={setCart}
           onClose={() => setSheet('none')}
           onCharge={() => setSheet('checkout')}
-          onHold={putOnHold}
+          onHold={onHold}
           onEditWeight={(productId) => {
             const p = products?.find((x) => x.id === productId);
             if (p) setWeighing(p);
@@ -335,14 +326,14 @@ export function SellScreen() {
       {sheet === 'checkout' && (
         <CheckoutSheet
           cart={cart}
+          saleId={saleId}
           onClose={() => setSheet('none')}
-          onDone={() => {
-            setCart([]);
-            setQuery('');
-            setSheet('none');
-          }}
+          onSaved={onSaved}
+          onOutdated={() => void onOutdated()}
+          onDuplicate={() => void onDuplicate()}
         />
       )}
+      {receipt && <ReceiptSheet sale={receipt.sale} customer={receipt.customer} settings={settings} onClose={() => setReceipt(null)} />}
       {/* Last on purpose: it opens on top of the cart ("Mudar peso"). */}
       {weighing && (
         <WeightSheet

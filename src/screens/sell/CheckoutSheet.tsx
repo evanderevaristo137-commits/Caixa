@@ -3,21 +3,36 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { payAndWait } from '../../providers/payment';
 import { uuid } from '../../lib/ids';
-import { DEFAULT_STORE_NAME, DomainError } from '../../data/store';
+import { DomainError } from '../../data/store';
 import { cartTotal, cashSuggestions, changeDue, type Cart } from '../../domain/cart';
 import { checkCreditLimit, creditStatus, DEFAULT_TERM_DAYS, dueDateFromTerm } from '../../domain/credit';
-import { receiptText } from '../../domain/messages';
-import { whatsAppLink } from '../../domain/whatsapp';
 import { PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
-import { formatDateStringLong } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
-import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
+import { Button, Field, Money, Sheet } from '../../ui/kit';
 import { CustomerPicker } from './CustomerPicker';
 import { TermPicker } from './TermPicker';
 import { usePinGuard } from '../../ui/pin';
 
-export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: () => void; onDone: () => void }) {
+/** Choosing how the customer pays and recording the sale. The receipt is shown by ReceiptSheet. */
+export function CheckoutSheet({
+  cart,
+  saleId,
+  onClose,
+  onSaved,
+  onOutdated,
+  onDuplicate,
+}: {
+  cart: Cart;
+  /** Id of this sale, born with the cart: it cannot be recorded twice. */
+  saleId: string;
+  onClose: () => void;
+  onSaved: (sale: Sale, customer: Customer | null) => void;
+  /** A price or a product changed since the cart was made: show the cart again. */
+  onOutdated: () => void;
+  /** This sale was already recorded (the app closed just after saving). */
+  onDuplicate: () => void;
+}) {
   const { store, payments, showToast } = useApp();
   const guard = usePinGuard();
   const settings = useLiveQuery(() => store.settings.get(), [store]);
@@ -29,9 +44,8 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
   const [busy, setBusy] = useState(false);
   // Guards against a double tap saving the same sale twice (state updates are not instant).
   const submitting = useRef(false);
+  // Payments: a new key after each failed attempt; the reference is always this sale.
   const attemptKey = useRef(uuid());
-  const [sale, setSale] = useState<Sale | null>(null);
-  const [balanceAfter, setBalanceAfter] = useState<number | undefined>(undefined);
   const total = cartTotal(cart);
   const receivedCents = received ? parseKz(received) : null;
   const change = receivedCents !== null ? changeDue(total, receivedCents) : null;
@@ -72,7 +86,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
           amountCents: total,
           currency: 'AOA',
           method,
-          reference: attemptKey.current,
+          reference: saleId,
         });
         if (res.status !== 'confirmed') {
           attemptKey.current = uuid();
@@ -82,6 +96,7 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         paymentRef = res.providerRef;
       }
       const saved = await store.sales.create({
+        id: saleId,
         cart,
         method,
         customerId: customer?.id,
@@ -92,53 +107,18 @@ export function CheckoutSheet({ cart, onClose, onDone }: { cart: Cart; onClose: 
         allowOverLimit,
       });
       navigator.vibrate?.([40, 60, 40]);
-      setSale(saved);
-      // The sale is saved at this point; the fiado balance on the receipt is a bonus that may fail quietly.
-      if (saved.method === 'credit' && saved.customerId) {
-        const customerId = saved.customerId;
-        Promise.all([store.sales.byCustomer(customerId), store.credit.byCustomer(customerId)])
-          .then(([sales, credits]) => setBalanceAfter(creditStatus(customerId, sales, credits, new Date()).balanceCents))
-          .catch(() => undefined);
-      }
+      onSaved(saved, customer);
     } catch (e) {
-      showToast(e instanceof DomainError && e.code === 'credit_limit' ? t.credit.limitExceeded : t.errors.saveFailed);
+      const code = e instanceof DomainError ? e.code : '';
+      if (code === 'credit_limit') showToast(t.credit.limitExceeded);
+      else if (code === 'price_changed' || code === 'product_unavailable') onOutdated();
+      else if (code === 'duplicate_sale') onDuplicate();
+      else showToast(t.errors.saveFailed);
     } finally {
       submitting.current = false;
       setBusy(false);
     }
   };
-
-  if (sale) {
-    const text = settings ? receiptText(sale, settings, customer?.name, balanceAfter) : '';
-    return (
-      <Sheet title={t.sell.done} onClose={onDone}>
-        <div className="py-2 text-center">
-          <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-4xl text-brand-700">✓</div>
-          <Money cents={sale.totalCents} className="block text-4xl font-extrabold" />
-          <p className="mt-1 text-lg text-slate-600">
-            {methodLabel[sale.method]}
-            {customer ? ` — ${customer.name}` : ''}
-          </p>
-          {sale.dueDate && <p className="mt-1 font-semibold text-amber-800">{t.sell.payBy(formatDateStringLong(sale.dueDate))}</p>}
-          {sale.cashReceivedCents !== undefined && change !== null && (
-            <p className="mt-2 text-2xl font-bold text-amber-700">
-              {t.sell.change}: <Money cents={change} />
-            </p>
-          )}
-        </div>
-        <div className="mt-4 space-y-2">
-          <LinkButton href={whatsAppLink(text, sale.method === 'credit' ? customer?.phone : undefined)}>{t.sell.shareReceipt}</LinkButton>
-          <p className="text-center text-sm text-slate-600">{t.nonFiscal}</p>
-          {settings?.storeName === DEFAULT_STORE_NAME && (
-            <p className="rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-900">{t.sell.nameHint}</p>
-          )}
-          <Button big className="w-full" onClick={onDone}>
-            {t.sell.newSale}
-          </Button>
-        </div>
-      </Sheet>
-    );
-  }
 
   return (
     <Sheet title={t.sell.howPay} onClose={onClose}>

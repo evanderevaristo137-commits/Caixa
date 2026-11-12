@@ -1,4 +1,4 @@
-import { cartItems, cartTotal, type Cart } from '../domain/cart';
+import { lineProblem, saleItem, type Cart, type LineProblem } from '../domain/cart';
 import { adjustmentDelta, validateEntry, type StockChangeError } from '../domain/stock';
 import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../domain/credit';
 import { addDays, isValidDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
@@ -33,10 +33,10 @@ import type {
   Supplier,
   SupplierPayment,
 } from '../domain/types';
-import { CURRENCY, EXPENSE_CATEGORIES, PURCHASE_PAYMENTS } from '../domain/types';
+import { CURRENCY, EXPENSE_CATEGORIES, PAYMENT_METHODS, PURCHASE_PAYMENTS } from '../domain/types';
 import { purchaseLineTotal } from '../domain/purchases';
 import { payablesBook, payableStatus, totalPayable } from '../domain/payables';
-import { uuid } from '../lib/ids';
+import { isUuid, uuid } from '../lib/ids';
 import { CaixaDB } from './db';
 
 /** Purchases paid in cash and supplier payments made with money from the till. */
@@ -89,6 +89,15 @@ export interface NewPurchase {
 }
 
 export interface NewSale {
+  /**
+   * Id of the sale, born with the cart on the screen. A cart that was already recorded is refused
+   * ('duplicate_sale'), so a sale is never saved twice. Without it, a new id is made here.
+   */
+  id?: string;
+  /**
+   * What is being sold. Only the product and the quantity are taken from here: the name and the
+   * price come from the product. The price the screen showed must still be the product's price.
+   */
   cart: Cart;
   method: PaymentMethod;
   customerId?: string;
@@ -101,6 +110,14 @@ export interface NewSale {
   /** Credit sales: the shopkeeper confirmed going over the customer's credit limit. */
   allowOverLimit?: boolean;
 }
+
+/** Why the Store refuses a cart line (the screen must show the cart again). */
+const LINE_ERRORS: Record<LineProblem, string> = {
+  unavailable: 'product_unavailable',
+  sold_by: 'invalid_quantity',
+  price: 'price_changed',
+  amount: 'price_changed',
+};
 
 /** Owner code (PIN) is kept in `meta`, only as a salted hash. */
 export const PIN_KEYS = ['ownerPinHash', 'ownerPinSalt'] as const;
@@ -147,22 +164,25 @@ export class Store {
     return bought - payments.reduce((a, p) => a + p.amountCents, 0);
   }
 
-  /** Sale lines with the invoicing data that applies today (call inside the sale transaction). */
-  private async snapshotItems(cart: Cart): Promise<SaleItem[]> {
+  /**
+   * The lines of a sale (call inside the sale transaction). Name, price and how it is sold come from
+   * the product as it is now, with the cost and the invoicing data that apply today. A line the
+   * screen priced differently, or whose product is no longer sold, stops the sale.
+   */
+  private async saleItems(cart: Cart): Promise<SaleItem[]> {
     const settings = await this.db.settings.get(SETTINGS_ID);
-    const items = cartItems(cart);
-    const products = await this.db.products.bulkGet(items.map((i) => i.productId));
-    return items.map((item, i) => {
+    const products = await this.db.products.bulkGet(cart.map((l) => l.productId));
+    return cart.map((line, i) => {
       const p = products[i];
-      // The product decides how it is sold: a stale cart line can never sell grams as units.
-      if (p && (p.soldBy ?? 'unit') !== (item.soldBy ?? 'unit')) throw new DomainError('invalid_quantity');
+      const problem = lineProblem(line, p);
+      if (!p || problem) throw new DomainError(LINE_ERRORS[problem ?? 'unavailable']);
       return {
-        ...item,
-        ...(p?.costCents !== undefined ? { unitCostCents: p.costCents } : {}),
-        barcode: p?.barcode,
-        unit: p?.unit,
-        taxRateBp: p?.taxRateBp ?? settings?.defaultTaxRateBp,
-        taxExemption: p?.taxExemption,
+        ...saleItem(line, p),
+        ...(p.costCents !== undefined ? { unitCostCents: p.costCents } : {}),
+        barcode: p.barcode,
+        unit: p.unit,
+        taxRateBp: p.taxRateBp ?? settings?.defaultTaxRateBp,
+        taxExemption: p.taxExemption,
       };
     });
   }
@@ -498,9 +518,22 @@ export class Store {
           this.db.creditPayments,
         ],
         async () => {
+          if (!(PAYMENT_METHODS as readonly string[]).includes(input.method)) throw new DomainError('invalid_method');
           if (input.cart.length === 0) throw new DomainError('empty_cart');
           if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0 || l.quantity > MAX_GRAMS)) {
             throw new DomainError('invalid_quantity');
+          }
+          // The same cart is never recorded twice (the app closed just after saving, a second tap…).
+          if (input.id !== undefined) {
+            if (!isUuid(input.id)) throw new DomainError('invalid_id');
+            if (await this.db.sales.get(input.id)) throw new DomainError('duplicate_sale');
+          }
+          const items = await this.saleItems(input.cart);
+          const totalCents = items.reduce((a, i) => a + i.lineTotalCents, 0);
+          if (!Number.isSafeInteger(totalCents) || totalCents < 0) throw new DomainError('invalid_amount');
+          if (input.method === 'cash' && input.cashReceivedCents !== undefined) {
+            if (!Number.isSafeInteger(input.cashReceivedCents) || input.cashReceivedCents < totalCents)
+              throw new DomainError('invalid_amount');
           }
           let dueDate: string | undefined;
           let creditLimitOverride: Sale['creditLimitOverride'];
@@ -518,7 +551,7 @@ export class Store {
             const balanceBeforeCents = await this.customerBalance(input.customerId);
             const limit = checkCreditLimit({
               balanceCents: balanceBeforeCents,
-              saleCents: cartTotal(input.cart),
+              saleCents: totalCents,
               customerLimitCents: customer.creditLimitCents,
               shopLimitCents: settings?.creditLimitCents,
             });
@@ -532,10 +565,10 @@ export class Store {
           await this.db.meta.put({ key: 'saleNumber', value: number });
           const at = this.stamp();
           const sale: Sale = {
-            id: uuid(),
+            id: input.id ?? uuid(),
             number,
-            items: await this.snapshotItems(input.cart),
-            totalCents: cartTotal(input.cart),
+            items,
+            totalCents,
             currency: CURRENCY,
             method: input.method,
             customerId: input.method === 'credit' ? input.customerId : undefined,

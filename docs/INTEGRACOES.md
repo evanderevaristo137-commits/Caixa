@@ -119,10 +119,13 @@ ou, em caso de recusa, `{ "status": "rejected", "reason": "…" }`.
   "amountCents": 240000,
   "currency": "AOA",
   "method": "paypay",
-  "reference": "a1b2c3d4-…",
+  "reference": "3f2b8c1e-0000-4000-8000-000000000001",
   "payerPhone": "opcional, só se o meio o exigir"
 }
 ```
+
+- `reference` é o **identificador da venda na Caixa** (o mesmo `saleId` do pedido de factura): serve para ligar o pagamento, a venda e a factura. Nasce com o carrinho, antes de se pedir o pagamento, e a Caixa nunca regista duas vendas com o mesmo identificador.
+- `idempotencyKey` muda a cada nova tentativa depois de uma falha; a `reference` mantém-se enquanto for a mesma venda.
 
 Resposta esperada: `{ "status": "pending" | "confirmed" | "failed" | "expired" | "refunded", "providerRef": "…", "reason": "…" }`.
 

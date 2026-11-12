@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CaixaDB } from './db';
 import { DomainError, Store } from './store';
-import { addToCart, setWeightLine } from '../domain/cart';
+import { addToCart, reconcileCart, setWeightLine } from '../domain/cart';
 import { creditStatus } from '../domain/credit';
 import { summariseOutflows } from '../domain/cash';
 import { parseCsv, planImport } from '../domain/import-products';
@@ -122,6 +122,99 @@ describe('Store: sales', () => {
 
   it('rejects empty carts', async () => {
     await expect(store.sales.create({ cart: [], method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'empty_cart');
+  });
+});
+
+describe('Store: a sale is priced from the products, never from the screen', () => {
+  it('takes the name and the price from the product', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const cart = addToCart([], rice, 2).map((l) => ({ ...l, name: 'Nome escrito no ecrã' }));
+    const sale = await store.sales.create({ cart, method: 'cash' });
+    expect(sale.items[0]).toMatchObject({ name: 'Arroz 1 kg', unitPriceCents: 120_000, quantity: 2, lineTotalCents: 240_000 });
+    expect(sale.totalCents).toBe(240_000);
+  });
+
+  it('refuses a cart priced differently from the product, and saves nothing', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const oil = await store.products.create({ name: 'Óleo 1 L', priceCents: 185_000, minStock: 0 }, 10);
+    // The cart was made before the price went up (or someone changed what the phone remembers).
+    const cart = addToCart(addToCart([], oil), rice, 2);
+    await store.products.update(rice.id, { name: 'Arroz 1 kg', priceCents: 130_000, minStock: 0 });
+    await expect(store.sales.create({ cart, method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'price_changed');
+    await expect(
+      store.sales.create({ cart: addToCart([], oil).map((l) => ({ ...l, unitPriceCents: 1 })), method: 'cash' }),
+    ).rejects.toSatisfy((e) => code(e) === 'price_changed');
+    expect(await store.sales.list()).toHaveLength(0);
+    expect((await store.products.get(oil.id))!.stock).toBe(10);
+    expect((await store.products.get(rice.id))!.stock).toBe(10);
+    // With the cart brought up to date, the sale goes through at today's price and is number 1.
+    const sale = await store.sales.create({ cart: reconcileCart(cart, await store.products.list()), method: 'cash' });
+    expect(sale).toMatchObject({ number: 1, totalCents: 185_000 + 2 * 130_000 });
+  });
+
+  it('refuses products that were archived or no longer exist', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const cart = addToCart([], rice);
+    await expect(
+      store.sales.create({ cart: [{ productId: 'nao-existe', name: 'X', unitPriceCents: 100, quantity: 1 }], method: 'cash' }),
+    ).rejects.toSatisfy((e) => code(e) === 'product_unavailable');
+    await store.products.archive(rice.id);
+    await expect(store.sales.create({ cart, method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'product_unavailable');
+    expect(await store.sales.list()).toHaveLength(0);
+  });
+
+  it('refuses an asked amount that does not match the weight', async () => {
+    const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 0, soldBy: 'weight' }, 5_000);
+    // 2 kg "for 100 Kz" is not what 2 kg cost.
+    await expect(store.sales.create({ cart: setWeightLine([], beans, 2_000, 10_000), method: 'cash' })).rejects.toSatisfy(
+      (e) => code(e) === 'price_changed',
+    );
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 5);
+    await expect(
+      store.sales.create({ cart: addToCart([], rice).map((l) => ({ ...l, fixedTotalCents: 100 })), method: 'cash' }),
+    ).rejects.toSatisfy((e) => code(e) === 'price_changed');
+    expect(await store.sales.list()).toHaveLength(0);
+  });
+
+  it('refuses cash received below the total and payment methods that do not exist', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 5);
+    const cart = addToCart([], rice);
+    await expect(store.sales.create({ cart, method: 'cash', cashReceivedCents: 100_000 })).rejects.toSatisfy(
+      (e) => code(e) === 'invalid_amount',
+    );
+    await expect(store.sales.create({ cart, method: 'cheque' as 'cash' })).rejects.toSatisfy((e) => code(e) === 'invalid_method');
+    expect((await store.sales.create({ cart, method: 'cash', cashReceivedCents: 120_000 })).cashReceivedCents).toBe(120_000);
+  });
+});
+
+describe('Store: a sale is never saved twice', () => {
+  const id = '3f0c8a52-6c1e-4b7a-9d55-0a1b2c3d4e5f';
+
+  it('uses the id born with the cart and refuses the same sale again', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const cart = addToCart([], rice, 2);
+    const sale = await store.sales.create({ id, cart, method: 'cash' });
+    expect(sale.id).toBe(id);
+    // The app closed just after saving and the same cart is charged again: nothing new is recorded.
+    await expect(store.sales.create({ id, cart, method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'duplicate_sale');
+    await expect(store.sales.create({ id, cart: addToCart(cart, rice), method: 'kwik' })).rejects.toSatisfy(
+      (e) => code(e) === 'duplicate_sale',
+    );
+    expect(await store.sales.list()).toHaveLength(1);
+    expect((await store.products.get(rice.id))!.stock).toBe(8);
+    expect(await store.products.movements(rice.id)).toHaveLength(2); // initial stock + one sale
+    // The next customer gets a new id and the next number.
+    const next = await store.sales.create({ id: '3f0c8a52-6c1e-4b7a-9d55-0a1b2c3d4e60', cart, method: 'cash' });
+    expect(next.number).toBe(2);
+  });
+
+  it('refuses ids that are not uuids and makes one when none is given', async () => {
+    const rice = await store.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const cart = addToCart([], rice);
+    await expect(store.sales.create({ id: '../x', cart, method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'invalid_id');
+    await expect(store.sales.create({ id: '', cart, method: 'cash' })).rejects.toSatisfy((e) => code(e) === 'invalid_id');
+    const sale = await store.sales.create({ cart, method: 'cash' });
+    expect(sale.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });
 

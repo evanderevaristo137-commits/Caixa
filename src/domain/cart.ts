@@ -1,5 +1,5 @@
 import { sumCents } from '../lib/money';
-import { articleCount, lineTotalFor, type SoldBy } from './quantity';
+import { amountFitsWeight, articleCount, lineTotalFor, type SoldBy } from './quantity';
 import type { Cents, Product, SaleItem } from './types';
 
 export interface CartLine {
@@ -85,25 +85,68 @@ export function changeDue(totalCents: Cents, receivedCents: Cents): Cents | null
   return receivedCents >= totalCents ? receivedCents - totalCents : null;
 }
 
+/** Why a cart line can no longer be sold as it is. */
+export type LineProblem = 'unavailable' | 'sold_by' | 'price' | 'amount';
+
 /**
- * Brings a cart up to date with the current products: refreshes name and price,
- * and drops products that were archived or deleted. Returns the same array when nothing changed.
+ * Checks a cart line against the product as it is now. The product decides the price and how it is
+ * sold: what the screen remembers is only compared with it, never trusted.
  */
-export function reconcileCart(cart: Cart, products: Pick<Product, 'id' | 'name' | 'priceCents' | 'archivedAt'>[]): Cart {
+export function lineProblem(
+  line: CartLine,
+  product: Pick<Product, 'priceCents' | 'soldBy' | 'archivedAt'> | undefined,
+): LineProblem | null {
+  if (!product || product.archivedAt) return 'unavailable';
+  if ((product.soldBy ?? 'unit') !== (line.soldBy ?? 'unit')) return 'sold_by';
+  if (product.priceCents !== line.unitPriceCents) return 'price';
+  if (line.fixedTotalCents !== undefined) {
+    // Only weighed products take an amount asked by the customer, and it must match the weight.
+    if (line.soldBy !== 'weight' || !amountFitsWeight(line.fixedTotalCents, line.quantity, product.priceCents)) return 'amount';
+  }
+  return null;
+}
+
+/** One line of a sale: name and price come from the product, the quantity from the cart. */
+export function saleItem(line: CartLine, product: Pick<Product, 'id' | 'name' | 'priceCents' | 'soldBy'>): SaleItem {
+  const soldBy = product.soldBy ?? 'unit';
+  return {
+    productId: product.id,
+    name: product.name,
+    unitPriceCents: product.priceCents,
+    quantity: line.quantity,
+    lineTotalCents: line.fixedTotalCents ?? lineTotalFor(product.priceCents, line.quantity, soldBy),
+    ...(soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
+  };
+}
+
+/** True when the cart holds exactly what a sale recorded (same products and quantities). */
+export function sameLines(cart: Cart, items: Pick<SaleItem, 'productId' | 'quantity'>[]): boolean {
+  if (cart.length !== items.length) return false;
+  const left = new Map<string, number>();
+  for (const i of items) left.set(i.productId, (left.get(i.productId) ?? 0) + i.quantity);
+  for (const l of cart) left.set(l.productId, (left.get(l.productId) ?? 0) - l.quantity);
+  return [...left.values()].every((v) => v === 0);
+}
+
+/**
+ * Brings a cart up to date with the current products: refreshes name and price, and drops what can
+ * no longer be sold (archived or deleted products). Returns the same array when nothing changed.
+ */
+export function reconcileCart(cart: Cart, products: Pick<Product, 'id' | 'name' | 'priceCents' | 'soldBy' | 'archivedAt'>[]): Cart {
   const byId = new Map(products.map((p) => [p.id, p]));
   let changed = false;
   const next: Cart = [];
   for (const line of cart) {
     const p = byId.get(line.productId);
-    if (!p || p.archivedAt) {
+    const problem = lineProblem(line, p);
+    if (!p || problem === 'unavailable' || problem === 'sold_by') {
       changed = true;
       continue;
     }
-    if (p.name !== line.name || p.priceCents !== line.unitPriceCents) {
+    if (problem || p.name !== line.name) {
       changed = true;
       // A new price cancels an amount asked by the customer: the weighed quantity stays.
-      const fixed = p.priceCents === line.unitPriceCents ? line.fixedTotalCents : undefined;
-      next.push({ ...line, name: p.name, unitPriceCents: p.priceCents, fixedTotalCents: fixed });
+      next.push({ ...line, name: p.name, unitPriceCents: p.priceCents, fixedTotalCents: problem ? undefined : line.fixedTotalCents });
     } else {
       next.push(line);
     }
@@ -111,27 +154,48 @@ export function reconcileCart(cart: Cart, products: Pick<Product, 'id' | 'name' 
   return changed ? next : cart;
 }
 
-/** Reads a cart saved on the phone; anything malformed is ignored. */
-export function parseStoredCart(raw: string | null): Cart {
-  if (!raw) return [];
+const isLine = (l: unknown): l is CartLine =>
+  typeof l === 'object' &&
+  l !== null &&
+  typeof (l as CartLine).productId === 'string' &&
+  typeof (l as CartLine).name === 'string' &&
+  Number.isInteger((l as CartLine).unitPriceCents) &&
+  Number.isInteger((l as CartLine).quantity) &&
+  (l as CartLine).quantity > 0 &&
+  ((l as CartLine).soldBy === undefined || (l as CartLine).soldBy === 'weight' || (l as CartLine).soldBy === 'unit') &&
+  ((l as CartLine).fixedTotalCents === undefined || Number.isInteger((l as CartLine).fixedTotalCents));
+
+/** The valid lines of a cart read from somewhere it cannot be trusted (the phone's storage). */
+export function parseLines(data: unknown): Cart {
+  return Array.isArray(data) ? data.filter(isLine) : [];
+}
+
+/**
+ * The sale being rung up, as it is kept on the phone. Its id is born with the cart and becomes
+ * the id of the sale, so the same cart can never be recorded twice.
+ */
+export interface OpenSale {
+  id?: string;
+  lines: Cart;
+}
+
+/** Reads the sale kept on the phone; anything malformed is ignored. Older versions kept only the lines. */
+export function parseOpenSale(raw: string | null): OpenSale {
+  if (!raw) return { lines: [] };
   try {
     const data: unknown = JSON.parse(raw);
-    if (!Array.isArray(data)) return [];
-    return data.filter(
-      (l): l is CartLine =>
-        typeof l === 'object' &&
-        l !== null &&
-        typeof (l as CartLine).productId === 'string' &&
-        typeof (l as CartLine).name === 'string' &&
-        Number.isInteger((l as CartLine).unitPriceCents) &&
-        Number.isInteger((l as CartLine).quantity) &&
-        (l as CartLine).quantity > 0 &&
-        ((l as CartLine).soldBy === undefined || (l as CartLine).soldBy === 'weight' || (l as CartLine).soldBy === 'unit') &&
-        ((l as CartLine).fixedTotalCents === undefined || Number.isInteger((l as CartLine).fixedTotalCents)),
-    );
+    if (Array.isArray(data)) return { lines: parseLines(data) };
+    if (typeof data !== 'object' || data === null) return { lines: [] };
+    const { id, lines } = data as { id?: unknown; lines?: unknown };
+    return { ...(typeof id === 'string' ? { id } : {}), lines: parseLines(lines) };
   } catch {
-    return [];
+    return { lines: [] };
   }
+}
+
+/** Reads a cart saved on the phone; anything malformed is ignored. */
+export function parseStoredCart(raw: string | null): Cart {
+  return parseOpenSale(raw).lines;
 }
 
 /** Angolan notes used to suggest "how much did the customer hand over". */

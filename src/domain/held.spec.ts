@@ -18,6 +18,8 @@ describe('sales on hold', () => {
   it('resuming swaps with the cart being served, so nothing is lost', () => {
     const list = hold(hold([], [line('arroz', 2)], 'a', now)!, [line('oleo')], 'b', now)!;
     const r = resume(list, 'a', [line('sal', 3)], 'c', now)!;
+    // The sale comes back with its own id, and the one being served keeps its id on hold.
+    expect(r.id).toBe('a');
     expect(r.cart).toEqual([line('arroz', 2)]);
     expect(r.held.map((h) => h.id)).toEqual(['c', 'b']);
     expect(r.held[0]!.cart).toEqual([line('sal', 3)]);

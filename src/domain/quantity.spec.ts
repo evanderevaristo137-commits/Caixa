@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { articleCount, formatKg, formatQuantity, gramsForAmount, lineTotalFor, parseWeight } from './quantity';
+import { amountFitsWeight, articleCount, formatKg, formatQuantity, gramsForAmount, lineTotalFor, parseWeight } from './quantity';
 
 describe('selling by weight', () => {
   it('computes line totals in integers, rounded to the whole kwanza', () => {
@@ -40,5 +40,32 @@ describe('selling by weight', () => {
 
   it('counts a weighed line as one article', () => {
     expect(articleCount([{ quantity: 3 }, { quantity: 750, soldBy: 'weight' }])).toBe(4);
+  });
+});
+
+describe('an amount asked by the customer must match the weight', () => {
+  it('accepts the weight the app itself worked out, and refuses another one', () => {
+    // 500 Kz of beans at 1.400 Kz/kg: 357 g.
+    expect(gramsForAmount(50_000, 140_000)).toBe(357);
+    expect(amountFitsWeight(50_000, 357, 140_000)).toBe(true);
+    expect(amountFitsWeight(50_000, 400, 140_000)).toBe(false);
+    expect(amountFitsWeight(10_000, 357, 140_000)).toBe(false);
+    expect(amountFitsWeight(0, 357, 140_000)).toBe(false);
+    expect(amountFitsWeight(50_000, 0, 140_000)).toBe(false);
+    expect(amountFitsWeight(50_000.5, 357, 140_000)).toBe(false);
+  });
+
+  it('always accepts what the weighing sheet proposes, for any price and amount', () => {
+    // Deterministic sweep over prices (per kg) and amounts, including awkward ones.
+    const prices = [1, 7, 99, 100, 12_345, 35_000, 140_000, 199_999, 1_250_050, 99_999_999];
+    const amounts = [1, 50, 99, 100, 5_000, 10_000, 33_333, 50_000, 100_000, 777_777, 5_000_000];
+    for (const price of prices) {
+      for (const amount of amounts) {
+        const grams = gramsForAmount(amount, price);
+        if (grams > 0) expect(amountFitsWeight(amount, grams, price), `${amount} at ${price}/kg`).toBe(true);
+        // One gram more or less is another weight (unless a gram costs less than the rounding).
+        if (grams > 1 && price >= 2_000) expect(amountFitsWeight(amount, grams + 2, price)).toBe(false);
+      }
+    }
   });
 });

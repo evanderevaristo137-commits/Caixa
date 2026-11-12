@@ -53,6 +53,15 @@ export function gramsForAmount(amountCents: Cents, pricePerKgCents: Cents): numb
   return Math.round((amountCents * GRAMS_PER_KG) / pricePerKgCents);
 }
 
+/**
+ * "500 Kz de feijão": the amount must be what that weight costs, give or take half a gram
+ * (the weight is rounded to the gram). Whole numbers only, so there is no rounding surprise.
+ */
+export function amountFitsWeight(amountCents: Cents, grams: number, pricePerKgCents: Cents): boolean {
+  if (!Number.isInteger(amountCents) || !Number.isInteger(grams) || amountCents <= 0 || grams <= 0) return false;
+  return Math.abs(amountCents * GRAMS_PER_KG - grams * pricePerKgCents) * 2 <= pricePerKgCents;
+}
+
 /** Lines count as articles: units count one by one, a weighed line counts as one. */
 export function articleCount(lines: { quantity: number; soldBy?: SoldBy }[]): number {
   return lines.reduce((acc, l) => acc + (l.soldBy === 'weight' ? 1 : l.quantity), 0);
