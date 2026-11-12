@@ -899,7 +899,7 @@ export const t = {
   },
   pin: {
     title: 'Código do dono',
-    hint: 'Opcional. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos e recuperar cópias de segurança.',
+    hint: 'Opcional. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos, vender a crédito acima do limite e recuperar cópias de segurança. Depois de 3 códigos errados, a app faz esperar.',
     set: 'Definir código',
     change: 'Alterar código',
     remove: 'Remover código',
@@ -910,6 +910,9 @@ export const t = {
     newCode: 'Novo código (4 a 6 números)',
     repeat: 'Repita o novo código',
     wrong: 'Código errado.',
+    locked: (seconds: number) =>
+      `Código errado demasiadas vezes. Tente outra vez daqui a ${seconds < 60 ? `${seconds} segundos` : seconds < 120 ? '1 minuto' : `${Math.ceil(seconds / 60)} minutos`}.`,
+    required: 'Esta acção precisa do código do dono. Tente outra vez.',
     invalid: 'Use 4 a 6 números.',
     mismatch: 'Os dois códigos não são iguais.',
     saved: 'Código guardado.',

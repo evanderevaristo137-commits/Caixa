@@ -6,6 +6,14 @@ import { isValidPin } from '../../domain/pin';
 import { t } from '../../i18n/pt-AO';
 import { Button, Card, Field } from '../../ui/kit';
 
+/** The message for a refused code: wrong, or too many wrong codes (wait). */
+const pinError = (e: unknown) =>
+  e instanceof DomainError && e.code === 'pin_locked'
+    ? t.pin.locked(e.detail ?? 30)
+    : e instanceof DomainError && e.code === 'wrong_pin'
+      ? t.pin.wrong
+      : t.errors.saveFailed;
+
 type Mode = 'idle' | 'set' | 'remove';
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6);
 
@@ -35,7 +43,7 @@ export function OwnerPinCard() {
       showToast(t.pin.saved);
       reset();
     } catch (e) {
-      setError(e instanceof DomainError && e.code === 'wrong_pin' ? t.pin.wrong : t.errors.saveFailed);
+      setError(pinError(e));
     }
   };
 
@@ -45,7 +53,7 @@ export function OwnerPinCard() {
       showToast(t.pin.removed);
       reset();
     } catch (e) {
-      setError(e instanceof DomainError && e.code === 'wrong_pin' ? t.pin.wrong : t.errors.saveFailed);
+      setError(pinError(e));
     }
   };
 

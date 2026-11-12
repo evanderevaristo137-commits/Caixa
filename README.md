@@ -53,7 +53,7 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 ## Controlo e segurança
 
 - **Referência do pagamento:** nos pagamentos electrónicos (KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay) pode escrever o código que aparece no telemóvel do cliente. Fica na venda, no talão e no Excel, para confirmar depois com o banco.
-- **Código do dono (opcional):** em **Mais → Código do dono**. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos e recuperar cópias de segurança. Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.
+- **Código do dono (opcional):** em **Mais → Código do dono**. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos, vender a crédito acima do limite e recuperar cópias de segurança. Depois de 3 códigos errados, a app faz esperar (30 segundos, e mais a cada novo erro). Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.
 - **Verificar os dados:** em **Mais**, confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos; se o stock de algum produto não bater, um toque corrige-o.
 - **Registo de alterações:** em **Mais**, a lista do que foi feito e quando (anulações, mudanças de preço, acertos de stock, pagamentos, cópias), em português simples.
 

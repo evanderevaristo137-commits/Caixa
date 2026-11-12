@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useApp } from '../../app/context';
 import {
   BackupError,
-  importBackup,
   openSafetyCopy,
+  restoreBackup,
   restoreImpact,
   summariseBackup,
   summarisePhone,
@@ -161,7 +161,7 @@ function Review({
     guard(() =>
       run(async () => {
         try {
-          await importBackup(store.db, opened.backup, new Date(), { source, lock: opened.lock });
+          await restoreBackup(store, opened.backup, new Date(), { source, lock: opened.lock });
           onDone();
         } catch (e) {
           setError(errorText(e));

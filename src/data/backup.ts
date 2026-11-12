@@ -8,7 +8,7 @@ import { lineCostCents } from '../domain/profit';
 import { payablesBook } from '../domain/payables';
 import { decrypt, deriveKey, encrypt, exportRawKey, fromBase64, gunzip, gzip, importRawKey, toBase64 } from '../lib/pack';
 import { DB_NAMES, LATER_TABLES, TABLES, type CaixaDB, type SafetyInfo, type TableName } from './db';
-import { BACKUP_LOCK_KEY, PHONE_ONLY_KEYS, type BackupLock } from './store';
+import { BACKUP_LOCK_KEY, PHONE_ONLY_KEYS, type BackupLock, type Store } from './store';
 
 export const BACKUP_APP = 'caixa';
 /** Shape of the data inside a backup (the tables and their records). */
@@ -445,6 +445,17 @@ export async function importBackup(
     if (isQuotaError(e)) throw new BackupError('no_space');
     throw e;
   }
+}
+
+/** Restoring from the app: replacing everything is a sensitive action, so the Store asks for the owner code. */
+export async function restoreBackup(
+  store: Store,
+  backup: Backup,
+  now = new Date(),
+  options: { source?: 'file' | 'safety'; lock?: BackupLock } = {},
+): Promise<void> {
+  await store.security.requireOwner();
+  await importBackup(store.db, backup, now, options);
 }
 
 /** When and what the phone held before the last restore, if a safety copy exists. */

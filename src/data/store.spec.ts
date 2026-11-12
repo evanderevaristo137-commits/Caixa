@@ -429,9 +429,89 @@ describe('Store: owner code', () => {
     expect(raw).not.toContain('2580');
   });
 
+  it('sensitive actions are refused by the Store itself without the code, and go ahead once it is typed', async () => {
+    let now = new Date(2026, 10, 12, 10, 0).getTime();
+    const st = new Store(db, () => new Date(now));
+    const rice = await st.products.create({ name: 'Arroz 1 kg', priceCents: 120_000, minStock: 0 }, 10);
+    const customer = await st.customers.create('Cliente de teste');
+    const sale = await st.sales.create({ cart: addToCart([], rice), method: 'cash' });
+    const expense = await st.expenses.create({ category: 'transport', amountCents: 50_000, fromCash: true });
+    await st.settings.save({ creditLimitCents: 100_000 });
+    await st.security.setPin('2580');
+    const refused = (p: Promise<unknown>) => expect(p).rejects.toSatisfy((e) => code(e) === 'owner_code_required');
+
+    await refused(st.sales.void(sale.id, 'Engano no registo'));
+    await refused(st.products.update(rice.id, { name: 'Arroz 1 kg', priceCents: 130_000, minStock: 0 }));
+    await refused(st.products.adjust(rice.id, 5, 'Partido'));
+    await refused(st.products.applyCount([{ productId: rice.id, counted: 3, expected: 9 }]));
+    await refused(st.products.archive(rice.id));
+    await refused(st.expenses.void(expense.id, 'Engano no valor'));
+    await refused(st.integrity.fixStock(rice.id));
+    await refused(st.settings.save({ digitalMinShareBp: 4000 }));
+    await refused(st.sales.create({ cart: addToCart([], rice, 2), method: 'credit', customerId: customer.id, allowOverLimit: true }));
+    await refused(st.security.setBackupPassword('frase secreta da loja'));
+    // What is not sensitive goes on as before.
+    await st.products.update(rice.id, { name: 'Arroz agulha 1 kg', priceCents: 120_000, minStock: 1 });
+    await st.products.addEntry(rice.id, 5);
+    await st.products.applyCount([{ productId: rice.id, counted: 14, expected: 14 }]);
+    await st.settings.save({ storeName: 'Loja de teste' });
+    await st.sales.create({ cart: addToCart([], rice), method: 'cash' });
+    // Nothing sensitive was saved.
+    expect((await st.sales.get(sale.id))!.voidedAt).toBeUndefined();
+    expect((await st.products.get(rice.id))!).toMatchObject({ priceCents: 120_000, stock: 13 });
+
+    // With the code typed, they go ahead, until the screen closes it again.
+    expect(await st.security.unlock('2580')).toEqual({ ok: true });
+    await st.sales.void(sale.id, 'Engano no registo');
+    await st.products.update(rice.id, { name: 'Arroz agulha 1 kg', priceCents: 130_000, minStock: 1 });
+    st.security.lock();
+    await refused(st.expenses.void(expense.id, 'Engano no valor'));
+    // And never for more than 2 minutes.
+    await st.security.unlock('2580');
+    now += 2 * 60_000 + 1;
+    await refused(st.expenses.void(expense.id, 'Engano no valor'));
+  });
+
+  it('after 3 wrong codes the next try must wait, even with the right code; a right code starts the count again', async () => {
+    let now = new Date(2026, 10, 12, 10, 0).getTime();
+    const st = new Store(db, () => new Date(now));
+    await st.security.setPin('2580');
+    expect(await st.security.unlock('0000')).toEqual({ ok: false });
+    expect(await st.security.unlock('1111')).toEqual({ ok: false });
+    expect(await st.security.unlock('2222')).toEqual({ ok: false, waitSeconds: 30 });
+    // While waiting, not even the right code is tried.
+    now += 10_000;
+    expect(await st.security.unlock('2580')).toEqual({ ok: false, waitSeconds: 20 });
+    await expect(st.security.removePin('2580')).rejects.toSatisfy(
+      (e) => e instanceof DomainError && e.code === 'pin_locked' && e.detail === 20,
+    );
+    now += 20_000;
+    // One more wrong code: twice as long.
+    expect(await st.security.unlock('3333')).toEqual({ ok: false, waitSeconds: 60 });
+    now += 60_000;
+    expect(await st.security.unlock('2580')).toEqual({ ok: true });
+    st.security.lock();
+    expect(await st.security.unlock('0000')).toEqual({ ok: false });
+  });
+
+  it('a code kept the old way still opens, and is then kept the new way', async () => {
+    const { legacyHashPin } = await import('../domain/pin');
+    await db.meta.bulkPut([
+      { key: 'ownerPinSalt', value: 'sal-antigo' },
+      { key: 'ownerPinHash', value: await legacyHashPin('2580', 'sal-antigo') },
+    ]);
+    expect(await store.security.verify('2580')).toBe(true);
+    const kept = (await db.meta.get('ownerPinHash'))!.value as string;
+    expect(kept.startsWith('pbkdf2-sha256')).toBe(true);
+    expect((await db.meta.get('ownerPinSalt'))!.value).not.toBe('sal-antigo');
+    expect(await store.security.verify('2580')).toBe(true);
+    expect(await store.security.verify('0000')).toBe(false);
+  });
+
   it("never travels in a backup, and restoring a backup keeps this phone's code", async () => {
     const { exportBackup, importBackup } = await import('./backup');
     await store.security.setPin('2580');
+    expect(await store.security.verify('0000')).toBe(false); // a wrong code is counted on the phone only
     const backup = JSON.parse(JSON.stringify(await exportBackup(db)));
     expect(JSON.stringify(backup)).not.toContain('ownerPin');
     await importBackup(db, backup);

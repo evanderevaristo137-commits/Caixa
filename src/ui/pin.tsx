@@ -14,6 +14,7 @@ const PinCtx = createContext<((action: Action) => Promise<void>) | null>(null);
 export function PinProvider({ children }: { children: ReactNode }) {
   const { store } = useApp();
   const [pending, setPending] = useState<Action | null>(null);
+  // The Store checks the code itself: the typed code opens it for this action only.
 
   const guard = useCallback(
     async (action: Action) => {
@@ -31,7 +32,11 @@ export function PinProvider({ children }: { children: ReactNode }) {
           onCancel={() => setPending(null)}
           onOk={async () => {
             setPending(null);
-            await pending();
+            try {
+              await pending();
+            } finally {
+              store.security.lock();
+            }
           }}
         />
       )}
@@ -53,10 +58,13 @@ function PinSheet({ onOk, onCancel }: { onOk: () => Promise<void>; onCancel: () 
   // A double tap on "Confirmar" must not run the protected action twice.
   const check = () =>
     run(async () => {
-      if (await store.security.verify(pin)) await onOk();
+      const tried = pin;
+      const result = await store.security.unlock(tried);
+      if (result.ok) await onOk();
       else {
-        setError(t.pin.wrong);
-        setPin('');
+        setError(result.waitSeconds ? t.pin.locked(result.waitSeconds) : t.pin.wrong);
+        // Clear the code that was refused, not one being typed meanwhile.
+        setPin((current) => (current === tried ? '' : current));
       }
     });
   return (

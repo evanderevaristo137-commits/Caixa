@@ -9,6 +9,7 @@ import {
   importBackup,
   openBackupFile,
   openSafetyCopy,
+  restoreBackup,
   restoreImpact,
   safetyCopyInfo,
   summariseBackup,
@@ -180,7 +181,11 @@ describe('copies protected with a password', () => {
     const db = newDb();
     const { store } = await smallShop(db);
     await store.security.setPin('1234');
+    // With an owner code, changing the backup password needs it.
+    await expect(store.security.setBackupPassword('frase secreta da loja')).rejects.toSatisfy((e) => code(e) === 'owner_code_required');
+    expect((await store.security.unlock('1234')).ok).toBe(true);
     await store.security.setBackupPassword('frase secreta da loja');
+    store.security.lock();
     const file = locked(await openBackupFile(await backupFileText(db, await store.security.backupLock(), now)));
     const { backup } = await unlockBackupFile(file, 'frase secreta da loja');
     const keys = (backup.data.meta as { key: string }[]).map((m) => m.key);
@@ -258,6 +263,20 @@ describe('restoring safely', () => {
     // The activity log keeps both: the restore and its undo.
     const restores = (await phone.audit.toArray()).filter((a) => a.action === 'imported');
     expect(restores.map((a) => (a.after as { source: string }).source).sort()).toEqual(['file', 'safety']);
+  });
+
+  it('restoring from the app needs the owner code, when there is one', async () => {
+    const phone = newDb();
+    const { store } = await smallShop(phone);
+    const copy = await exportBackup(phone, now);
+    await restoreBackup(store, copy, now); // no code: goes ahead
+    await store.security.setPin('2580');
+    await expect(restoreBackup(store, copy, now)).rejects.toSatisfy((e) => code(e) === 'owner_code_required');
+    expect((await store.security.unlock('2580')).ok).toBe(true);
+    await restoreBackup(store, copy, now);
+    store.security.lock();
+    const restores = (await phone.audit.toArray()).filter((a) => a.action === 'imported');
+    expect(restores).toHaveLength(2);
   });
 
   it('a safety copy is never part of a backup', async () => {

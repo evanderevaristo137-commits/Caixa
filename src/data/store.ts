@@ -7,7 +7,7 @@ import { byName, compareText } from '../domain/ranking';
 import { normaliseNif } from '../domain/nif';
 import { MAX_GRAMS } from '../domain/quantity';
 import { checkIntegrity, type IntegrityIssue } from '../domain/integrity';
-import { hashPin, isValidPin, newSalt, verifyPin } from '../domain/pin';
+import { hashPin, isValidPin, newSalt, pinWaitMs, verifyPin } from '../domain/pin';
 import { internalBarcode } from '../domain/barcode';
 import type { PlanRow } from '../domain/import-products';
 import { canonicalCategory } from '../domain/categories';
@@ -56,7 +56,11 @@ export function tillPurchasesCents(
 export const STOCK_COUNT_REASON = 'Contagem de stock';
 
 export class DomainError extends Error {
-  constructor(public readonly code: string) {
+  /** `detail`: a number that goes with the code (e.g. the seconds to wait after wrong owner codes). */
+  constructor(
+    public readonly code: string,
+    public readonly detail?: number,
+  ) {
     super(code);
   }
 }
@@ -121,8 +125,17 @@ const LINE_ERRORS: Record<LineProblem, string> = {
   amount: 'price_changed',
 };
 
-/** Owner code (PIN) is kept in `meta`, only as a salted hash. */
-export const PIN_KEYS = ['ownerPinHash', 'ownerPinSalt'] as const;
+/** Owner code (PIN) is kept in `meta`, only as a salted hash, with the count of wrong codes in a row. */
+export const PIN_KEYS = ['ownerPinHash', 'ownerPinSalt', 'ownerPinFails', 'ownerPinWaitUntil'] as const;
+
+/**
+ * How long a typed owner code allows sensitive actions. The screens close it as soon as the action
+ * ends; this is only the limit, so the Store never stays open by mistake.
+ */
+export const OWNER_GRANT_MS = 2 * 60_000;
+
+/** Result of checking an owner code. `waitSeconds`: too many wrong codes, try again after this. */
+export type PinCheck = { ok: true } | { ok: false; waitSeconds?: number };
 
 /**
  * The password of the backups is never kept: only the key made from it (PBKDF2), so the phone can
@@ -180,6 +193,8 @@ const clean = (s: string | undefined) => {
 export class Store {
   readonly db: CaixaDB;
   private readonly now: () => Date;
+  /** Until when (ms, on the Store's clock) a typed owner code allows sensitive actions. */
+  private ownerGrantUntil = 0;
 
   constructor(db: CaixaDB, now: () => Date = () => new Date()) {
     this.db = db;
@@ -232,6 +247,13 @@ export class Store {
     return id;
   }
 
+  /** Throws 'pin_locked' (with the seconds to wait) or 'wrong_pin' unless the code is right. */
+  private async ownerCode(pin: string): Promise<void> {
+    const result = await this.security.check(pin);
+    if (result.ok) return;
+    throw result.waitSeconds ? new DomainError('pin_locked', result.waitSeconds) : new DomainError('wrong_pin');
+  }
+
   private audit(entry: Omit<AuditEntry, 'id' | 'createdAt' | 'updatedAt'>) {
     const at = this.stamp();
     return this.db.audit.add({ ...entry, id: uuid(), createdAt: at, updatedAt: at });
@@ -275,9 +297,11 @@ export class Store {
         return (await this.db.products.get(product.id))!;
       }),
     update: (id: string, input: ProductInput): Promise<Product> =>
-      this.db.transaction('rw', [this.db.products, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.products, this.db.audit, this.db.meta], async () => {
         const before = await this.db.products.get(id);
         if (!before) throw new DomainError('not_found');
+        // A new price needs the owner code (when there is one).
+        if (input.priceCents !== before.priceCents) await this.security.requireOwner();
         await this.assertProduct(input, id);
         const after: Product = {
           ...before,
@@ -305,7 +329,8 @@ export class Store {
         return after;
       }),
     archive: (id: string) =>
-      this.db.transaction('rw', [this.db.products, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.products, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.products.get(id);
         if (!before) throw new DomainError('not_found');
         const at = this.stamp();
@@ -320,7 +345,8 @@ export class Store {
         await this.addMovement({ productId: id, type: 'entry', delta: quantity });
       }),
     adjust: (id: string, countedQuantity: number, reason: string) =>
-      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const product = await this.db.products.get(id);
         if (!product) throw new DomainError('not_found');
         const result = adjustmentDelta(product.stock, countedQuantity, reason);
@@ -336,7 +362,9 @@ export class Store {
      * Equal counts change nothing but are part of the audited count.
      */
     applyCount: (lines: { productId: string; counted: number; expected: number }[]): Promise<{ counted: number; adjusted: number }> =>
-      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        // Adjusting the stock needs the owner code; a count where everything matches does not.
+        if (lines.some((l) => l.counted !== l.expected)) await this.security.requireOwner();
         let adjusted = 0;
         for (const line of lines) {
           if (!Number.isInteger(line.counted) || line.counted < 0 || line.counted > MAX_GRAMS || !Number.isInteger(line.expected)) {
@@ -531,7 +559,8 @@ export class Store {
      * The stock comes back through 'void' movements. A reason is mandatory.
      */
     void: (id: string, reason: string): Promise<Sale> =>
-      this.db.transaction('rw', [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.sales, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.sales.get(id);
         if (!before) throw new DomainError('not_found');
         if (before.voidedAt) throw new DomainError('already_voided');
@@ -599,6 +628,8 @@ export class Store {
             });
             if (limit.exceedsByCents > 0) {
               if (!input.allowOverLimit) throw new DomainError('credit_limit');
+              // Going over the limit needs the owner code (when there is one).
+              await this.security.requireOwner();
               creditLimitOverride = { limitCents: limit.limitCents!, balanceBeforeCents };
             }
           }
@@ -699,7 +730,8 @@ export class Store {
       }),
     /** A mistake stays in the history, marked as voided, and stops counting. A reason is mandatory. */
     void: (id: string, reason: string): Promise<Expense> =>
-      this.db.transaction('rw', [this.db.expenses, this.db.inssContributions, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.expenses, this.db.inssContributions, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.expenses.get(id);
         if (!before) throw new DomainError('not_found');
         if (before.voidedAt) throw new DomainError('already_voided');
@@ -897,7 +929,8 @@ export class Store {
       ),
     /** A mistake stays in the history as voided; the stock goes back down. A reason is mandatory. */
     void: (id: string, reason: string): Promise<Purchase> =>
-      this.db.transaction('rw', [this.db.purchases, this.db.products, this.db.stockMovements, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.purchases, this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.purchases.get(id);
         if (!before) throw new DomainError('not_found');
         if (before.voidedAt) throw new DomainError('already_voided');
@@ -1065,7 +1098,8 @@ export class Store {
       }),
     /** A mistake stays in the history, marked as voided. The money it used goes back to what is set aside. */
     void: (id: string, reason: string): Promise<InssContribution> =>
-      this.db.transaction('rw', [this.db.inssContributions, this.db.expenses, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.inssContributions, this.db.expenses, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.inssContributions.get(id);
         if (!before) throw new DomainError('not_found');
         if (before.voidedAt) throw new DomainError('already_voided');
@@ -1121,8 +1155,12 @@ export class Store {
         >
       >,
     ): Promise<Settings> =>
-      this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.settings, this.db.audit, this.db.meta], async () => {
         const before = await this.db.settings.get(SETTINGS_ID);
+        // The contract minimum of digital payments (credit for stock) needs the owner code to change.
+        if ('digitalMinShareBp' in input && (input.digitalMinShareBp || undefined) !== before?.digitalMinShareBp) {
+          await this.security.requireOwner();
+        }
         const at = this.stamp();
         const after: Settings = { storeName: DEFAULT_STORE_NAME, createdAt: at, ...before, id: SETTINGS_ID, updatedAt: at };
         if ('storeName' in input) {
@@ -1197,15 +1235,66 @@ export class Store {
   // ---------- Owner code (PIN) ----------
   readonly security = {
     hasPin: async () => !!(await this.db.meta.get('ownerPinHash')),
-    verify: async (pin: string): Promise<boolean> => {
-      const [hash, salt] = await Promise.all([this.db.meta.get('ownerPinHash'), this.db.meta.get('ownerPinSalt')]);
-      if (typeof hash?.value !== 'string' || typeof salt?.value !== 'string') return true; // no code set
-      return verifyPin(pin, salt.value, hash.value);
+    /**
+     * Checks a code. After 3 wrong codes in a row the next try must wait 30 s, then twice as long
+     * after each new wrong code (up to an hour); while waiting, no code is even tried. A right code
+     * resets the count, and a code kept the old way (before November 2026) is kept the new way.
+     */
+    check: async (pin: string): Promise<PinCheck> => {
+      const [hash, salt, fails, waitUntil] = await this.db.meta.bulkGet([...PIN_KEYS]);
+      if (typeof hash?.value !== 'string' || typeof salt?.value !== 'string') return { ok: true }; // no code set
+      const now = this.now().getTime();
+      const until = typeof waitUntil?.value === 'number' ? waitUntil.value : 0;
+      if (now < until) return { ok: false, waitSeconds: Math.ceil((until - now) / 1000) };
+      const result = await verifyPin(pin, salt.value, hash.value);
+      if (result.ok) {
+        const fresh = newSalt();
+        const upgraded = result.upgrade ? await hashPin(pin, fresh) : null;
+        await this.db.transaction('rw', [this.db.meta], async () => {
+          await this.db.meta.bulkDelete(['ownerPinFails', 'ownerPinWaitUntil']);
+          if (upgraded) {
+            await this.db.meta.bulkPut([
+              { key: 'ownerPinSalt', value: fresh },
+              { key: 'ownerPinHash', value: upgraded },
+            ]);
+          }
+        });
+        return { ok: true };
+      }
+      const count = (typeof fails?.value === 'number' ? fails.value : 0) + 1;
+      const wait = pinWaitMs(count);
+      await this.db.meta.bulkPut([
+        { key: 'ownerPinFails', value: count },
+        ...(wait ? [{ key: 'ownerPinWaitUntil', value: now + wait }] : []),
+      ]);
+      return wait ? { ok: false, waitSeconds: Math.ceil(wait / 1000) } : { ok: false };
+    },
+    /** True when the code is right (and counts wrong codes, like `check`). */
+    verify: async (pin: string): Promise<boolean> => (await this.security.check(pin)).ok,
+    /**
+     * Opens sensitive actions after the right code, until `lock` (the screens call it as soon as the
+     * action ends) or for OWNER_GRANT_MS at most.
+     */
+    unlock: async (pin: string): Promise<PinCheck> => {
+      const result = await this.security.check(pin);
+      if (result.ok) this.ownerGrantUntil = this.now().getTime() + OWNER_GRANT_MS;
+      return result;
+    },
+    lock: () => {
+      this.ownerGrantUntil = 0;
+    },
+    /**
+     * Sensitive actions call this first: with an owner code set, they only go ahead after `unlock`.
+     * Refuses with 'owner_code_required' otherwise.
+     */
+    requireOwner: async (): Promise<void> => {
+      if (this.now().getTime() < this.ownerGrantUntil) return;
+      if (await this.security.hasPin()) throw new DomainError('owner_code_required');
     },
     /** Sets or changes the code. Changing requires the current one. */
     setPin: async (newPin: string, currentPin?: string): Promise<void> => {
       if (!isValidPin(newPin)) throw new DomainError('invalid_pin');
-      if ((await this.security.hasPin()) && !(await this.security.verify(currentPin ?? ''))) throw new DomainError('wrong_pin');
+      if (await this.security.hasPin()) await this.ownerCode(currentPin ?? '');
       const salt = newSalt();
       const hash = await hashPin(newPin, salt);
       await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
@@ -1217,7 +1306,7 @@ export class Store {
       });
     },
     removePin: async (currentPin: string): Promise<void> => {
-      if (!(await this.security.verify(currentPin))) throw new DomainError('wrong_pin');
+      await this.ownerCode(currentPin);
       await this.db.transaction('rw', [this.db.meta, this.db.audit], async () => {
         await this.db.meta.bulkDelete([...PIN_KEYS]);
         await this.audit({ entity: 'settings', entityId: 'owner_pin', action: 'updated', after: { pin: 'removed' } });
@@ -1230,6 +1319,7 @@ export class Store {
      * made keep opening with the password they were made with. Audited, without the password.
      */
     setBackupPassword: async (password: string | null): Promise<void> => {
+      await this.security.requireOwner();
       let lock: BackupLock | null = null;
       if (password !== null) {
         if (normalisePassword(password).length < BACKUP_PASSWORD_MIN) throw new DomainError('weak_password');
@@ -1266,7 +1356,8 @@ export class Store {
     },
     /** Puts a product's stock back to the sum of its movements (the facts). Audited. */
     fixStock: (productId: string) =>
-      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit], async () => {
+      this.db.transaction('rw', [this.db.products, this.db.stockMovements, this.db.audit, this.db.meta], async () => {
+        await this.security.requireOwner();
         const before = await this.db.products.get(productId);
         if (!before) throw new DomainError('not_found');
         const computed = (await this.db.stockMovements.where('productId').equals(productId).toArray()).reduce((a, m) => a + m.delta, 0);

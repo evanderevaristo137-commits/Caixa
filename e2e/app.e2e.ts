@@ -387,6 +387,18 @@ test('the owner code protects voids and price changes, and everything shows in t
   await page.getByLabel('Código', { exact: true }).fill('1111');
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByText('Código errado.')).toBeVisible();
+  // After 3 wrong codes, the app makes them wait (not even the right code is tried).
+  for (const wrong of ['2222', '3333']) {
+    await page.getByLabel('Código', { exact: true }).fill(wrong);
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue(''); // checked and refused
+  }
+  await expect(page.getByText('Código errado demasiadas vezes. Tente outra vez daqui a 30 segundos.')).toBeVisible();
+  await page.getByLabel('Código', { exact: true }).fill('2580');
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByLabel('Código', { exact: true })).toHaveValue(''); // not even tried
+  await expect(page.getByText(/Código errado demasiadas vezes\. Tente outra vez daqui a \d+ segundos\./)).toBeVisible();
+  await page.clock.fastForward(30_000);
   await page.getByLabel('Código', { exact: true }).fill('2580');
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByText(/Anulada em/)).toBeVisible();
