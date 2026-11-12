@@ -16,6 +16,7 @@ import { usePinGuard } from '../../ui/pin';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
 import { CategoryField } from './CategoryField';
+import { useBusy } from '../../ui/use-busy';
 
 const ERRORS: Record<string, string> = {
   name_required: t.products.nameRequired,
@@ -89,8 +90,9 @@ function ProductForm({
   const [exemption, setExemption] = useState(product?.taxExemption ?? '');
   const [error, setError] = useState<{ field: string; msg: string } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [busy, runOnce] = useBusy();
 
-  const save = async () => {
+  const submit = async () => {
     const priceCents = parseKz(price);
     if (priceCents === null) return setError({ field: 'price', msg: t.products.invalidPrice });
     // Cost price is optional: empty = not known.
@@ -149,6 +151,8 @@ function ProductForm({
     if (product && priceCents !== product.priceCents) await guard(persist);
     else await persist();
   };
+  // One tap, one product: a second tap while it is being saved is ignored.
+  const save = () => runOnce(submit);
 
   const archive = async () => {
     if (!product || !window.confirm(t.products.archiveConfirm)) return;
@@ -256,7 +260,7 @@ function ProductForm({
             <p className="text-sm text-slate-600">{t.invoicing.rateHint}</p>
           </div>
         </details>
-        <Button big className="w-full" onClick={() => void save()}>
+        <Button big className="w-full" disabled={busy} onClick={() => void save()}>
           {t.common.save}
         </Button>
       </div>

@@ -6,6 +6,7 @@ import { t } from '../../i18n/pt-AO';
 import { Button, Card, Empty, Field, Money, Sheet, Skeleton } from '../../ui/kit';
 import { dueBadge } from '../credit/due';
 import { SupplierSheet } from './SupplierSheet';
+import { useBusy } from '../../ui/use-busy';
 
 /** Suppliers with what the shop owes them, most urgent first. */
 export function SuppliersView() {
@@ -66,18 +67,20 @@ function NewSupplierSheet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const save = async () => {
-    if (!name.trim()) return setError(t.products.nameRequired);
-    await store.suppliers.create(name, phone);
-    showToast(t.settings.saved);
-    onClose();
-  };
+  const [busy, run] = useBusy();
+  const save = () =>
+    run(async () => {
+      if (!name.trim()) return setError(t.products.nameRequired);
+      await store.suppliers.create(name, phone);
+      showToast(t.settings.saved);
+      onClose();
+    });
   return (
     <Sheet title={t.suppliers.add} onClose={onClose}>
       <div className="space-y-3">
         <Field label={t.purchases.supplierName} value={name} onChange={(e) => setName(e.target.value)} error={error} />
         <Field label={t.purchases.supplierPhone} value={phone} type="tel" inputMode="tel" onChange={(e) => setPhone(e.target.value)} />
-        <Button big className="w-full" onClick={() => void save()}>
+        <Button big className="w-full" disabled={busy} onClick={() => void save()}>
           {t.common.save}
         </Button>
       </div>

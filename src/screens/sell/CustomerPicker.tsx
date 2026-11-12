@@ -4,6 +4,7 @@ import { useApp } from '../../app/context';
 import type { Customer } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { Button, Field, normalise } from '../../ui/kit';
+import { useBusy } from '../../ui/use-busy';
 
 /** Choose an existing fiado customer or create a new one in the same place. */
 export function CustomerPicker({ selected, onSelect }: { selected?: string; onSelect: (c: Customer) => void }) {
@@ -20,12 +21,14 @@ export function CustomerPicker({ selected, onSelect }: { selected?: string; onSe
     return (customers ?? []).filter((c) => !q || normalise(c.name).includes(q));
   }, [customers, query]);
 
-  const create = async () => {
-    if (!name.trim()) return setError(t.products.nameRequired);
-    const c = await store.customers.create(name, phone);
-    setCreating(false);
-    onSelect(c);
-  };
+  const [busy, run] = useBusy();
+  const create = () =>
+    run(async () => {
+      if (!name.trim()) return setError(t.products.nameRequired);
+      const c = await store.customers.create(name, phone);
+      setCreating(false);
+      onSelect(c);
+    });
 
   if (creating) {
     return (
@@ -50,7 +53,7 @@ export function CustomerPicker({ selected, onSelect }: { selected?: string; onSe
           <Button variant="secondary" onClick={() => setCreating(false)}>
             {t.common.back}
           </Button>
-          <Button className="flex-1" onClick={() => void create()}>
+          <Button className="flex-1" disabled={busy} onClick={() => void create()}>
             {t.common.save}
           </Button>
         </div>

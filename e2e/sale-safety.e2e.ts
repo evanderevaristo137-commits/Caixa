@@ -134,3 +134,55 @@ test('a cart saved by an older version of the app is still there after the updat
   await chargeInCash(page);
   await expect(page.getByText('Venda registada')).toBeVisible();
 });
+
+/** How many records a table of the demo database has (read straight from the phone's database). */
+const rows = (page: Page, table: string) =>
+  page.evaluate(async (name) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open('caixa-demo');
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    const count = await new Promise<number>((resolve) => {
+      const read = db.transaction(name).objectStore(name).count();
+      read.onsuccess = () => resolve(read.result);
+    });
+    db.close();
+    return count;
+  }, table);
+
+test('a double tap never records twice: customer payment, stock entry and new product', async ({ page }) => {
+  await openDemo(page);
+
+  // A customer pays part of the debt.
+  await nav(page, 'Clientes');
+  await page.getByRole('button', { name: /Joana Mateus/ }).click();
+  const payments = await rows(page, 'creditPayments');
+  await page.getByRole('button', { name: 'Registar pagamento' }).click();
+  await page.getByLabel('Valor pago').fill('100');
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).dblclick();
+  await expect(page.getByText('Pagamento registado.')).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  expect(await rows(page, 'creditPayments')).toBe(payments + 1);
+
+  // Stock comes in.
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: /Arroz 5 kg/ }).click();
+  const dialog = page.getByRole('dialog');
+  const stockText = await dialog.getByText(/^\d+ em stock$/).textContent();
+  const stock = Number(stockText!.match(/\d+/)![0]);
+  await dialog.getByRole('button', { name: '+ Entrada de stock' }).click();
+  await dialog.getByLabel('Quantidade que entrou').fill('10');
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).dblclick();
+  await expect(dialog.getByText(`${stock + 10} em stock`)).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  // A new product is created once.
+  const products = await rows(page, 'products');
+  await page.getByRole('button', { name: '+ Novo produto' }).click();
+  await page.getByLabel('Nome').fill('Produto do toque duplo');
+  await page.getByLabel('Preço (Kz)').fill('500');
+  await page.getByRole('button', { name: 'Guardar' }).dblclick();
+  await expect(page.getByRole('button', { name: /Produto do toque duplo/ })).toHaveCount(1);
+  expect(await rows(page, 'products')).toBe(products + 1);
+});

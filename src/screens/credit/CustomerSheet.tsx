@@ -11,6 +11,7 @@ import { calendarDaysBetween, formatDateString, formatDateTime } from '../../lib
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge, reminderLink } from './due';
+import { useBusy } from '../../ui/use-busy';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
 
@@ -39,6 +40,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const [ownLimit, setOwnLimit] = useState<string | null>(null);
   const [limitError, setLimitError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [busy, run] = useBusy();
 
   if (!data?.customer) return null;
   const { customer, sales, payments, settings } = data;
@@ -47,16 +49,18 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
   const badge = status.balanceCents > 0 ? dueBadge(status) : null;
   const remind = reminderLink(status, customer, settings.storeName, now);
 
-  const pay = async (cents: number | null) => {
-    const check = validateCreditPayment(cents ?? 0, status.balanceCents);
-    if (check !== 'ok') return setError(check === 'zero' ? t.credit.zero : t.credit.tooMuch);
-    await store.credit.addPayment(customer.id, cents!, method, transactionRef);
-    setTransactionRef('');
-    setPaying(false);
-    setAmount('');
-    setError(null);
-    showToast(t.credit.paid);
-  };
+  // One tap, one payment: a second tap while it is being saved is ignored.
+  const pay = (cents: number | null) =>
+    run(async () => {
+      const check = validateCreditPayment(cents ?? 0, status.balanceCents);
+      if (check !== 'ok') return setError(check === 'zero' ? t.credit.zero : t.credit.tooMuch);
+      await store.credit.addPayment(customer.id, cents!, method, transactionRef);
+      setTransactionRef('');
+      setPaying(false);
+      setAmount('');
+      setError(null);
+      showToast(t.credit.paid);
+    });
 
   const saveDetails = async () => {
     const nextName = name ?? customer.name;
@@ -163,10 +167,10 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
                 />
               )}
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => void pay(status.balanceCents)}>
+                <Button variant="secondary" disabled={busy} onClick={() => void pay(status.balanceCents)}>
                   {t.credit.payAll}
                 </Button>
-                <Button className="flex-1" onClick={() => void pay(parseKz(amount))}>
+                <Button className="flex-1" disabled={busy} onClick={() => void pay(parseKz(amount))}>
                   {t.common.confirm}
                 </Button>
               </div>

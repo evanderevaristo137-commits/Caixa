@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { useApp } from '../app/context';
 import { t } from '../i18n/pt-AO';
 import { Button, Field, Sheet } from './kit';
+import { useBusy } from './use-busy';
 
 type Action = () => void | Promise<void>;
 const PinCtx = createContext<((action: Action) => Promise<void>) | null>(null);
@@ -48,13 +49,16 @@ function PinSheet({ onOk, onCancel }: { onOk: () => Promise<void>; onCancel: () 
   const { store } = useApp();
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const check = async () => {
-    if (await store.security.verify(pin)) await onOk();
-    else {
-      setError(t.pin.wrong);
-      setPin('');
-    }
-  };
+  const [busy, run] = useBusy();
+  // A double tap on "Confirmar" must not run the protected action twice.
+  const check = () =>
+    run(async () => {
+      if (await store.security.verify(pin)) await onOk();
+      else {
+        setError(t.pin.wrong);
+        setPin('');
+      }
+    });
   return (
     <Sheet title={t.pin.ask} onClose={onCancel}>
       <p className="mb-3 text-slate-700">{t.pin.askHint}</p>
@@ -73,7 +77,7 @@ function PinSheet({ onOk, onCancel }: { onOk: () => Promise<void>; onCancel: () 
         <Button variant="secondary" onClick={onCancel}>
           {t.common.cancel}
         </Button>
-        <Button className="flex-1" disabled={pin.length < 4} onClick={() => void check()}>
+        <Button className="flex-1" disabled={pin.length < 4 || busy} onClick={() => void check()}>
           {t.common.confirm}
         </Button>
       </div>

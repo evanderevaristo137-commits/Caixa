@@ -9,6 +9,7 @@ import { Button, Field } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { adjustmentDelta } from '../../domain/stock';
 import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
+import { useBusy } from '../../ui/use-busy';
 
 const ERRORS: Record<string, string> = {
   not_whole: t.products.invalidNumber,
@@ -36,8 +37,9 @@ export function StockPanel({ product }: { product: Product }) {
   const [qty, setQty] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, runOnce] = useBusy();
 
-  const submit = async () => {
+  const save = async () => {
     // Weighed products: kg typed, grams stored.
     const parsed = byWeight ? parseWeight(qty) : /^\d+$/.test(qty.trim()) ? Number(qty.trim()) : null;
     if (parsed === null) return setError(byWeight ? t.products.invalidWeight : t.products.invalidNumber);
@@ -61,6 +63,8 @@ export function StockPanel({ product }: { product: Product }) {
     if ('error' in check) return setError(ERRORS[check.error] ?? t.errors.saveFailed);
     await guard(run);
   };
+  // One tap, one entry: a second tap while it is being saved is ignored.
+  const submit = () => runOnce(save);
 
   return (
     <div className="mt-6">
@@ -124,7 +128,7 @@ export function StockPanel({ product }: { product: Product }) {
             >
               {t.common.cancel}
             </Button>
-            <Button className="flex-1" onClick={() => void submit()}>
+            <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
               {t.common.confirm}
             </Button>
           </div>

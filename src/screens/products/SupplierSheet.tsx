@@ -12,6 +12,7 @@ import { formatDateTime } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge } from '../credit/due';
+import { useBusy } from '../../ui/use-busy';
 
 /** One supplier: contact, what the shop owes, paying it, ordering by WhatsApp and the history. */
 export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
@@ -32,6 +33,7 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
+  const [busy, run] = useBusy();
 
   if (!data?.supplier) return null;
   const { supplier, purchases, payments, products, settings } = data;
@@ -45,18 +47,20 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
       ? whatsAppLink(supplierOrderText(settings.storeName, supplier.name, toOrder, now), supplier.phone)
       : null;
 
-  const pay = async (cents: number | null) => {
-    if (cents === null || cents <= 0) return setError(t.suppliers.zero);
-    try {
-      await store.supplierPayments.add(supplier.id, cents, fromCash);
-      setPaying(false);
-      setAmount('');
-      setError(null);
-      showToast(t.suppliers.paid);
-    } catch (e) {
-      setError(e instanceof DomainError && e.code === 'too_much' ? t.suppliers.tooMuch : t.errors.saveFailed);
-    }
-  };
+  // One tap, one payment: a second tap while it is being saved is ignored.
+  const pay = (cents: number | null) =>
+    run(async () => {
+      if (cents === null || cents <= 0) return setError(t.suppliers.zero);
+      try {
+        await store.supplierPayments.add(supplier.id, cents, fromCash);
+        setPaying(false);
+        setAmount('');
+        setError(null);
+        showToast(t.suppliers.paid);
+      } catch (e) {
+        setError(e instanceof DomainError && e.code === 'too_much' ? t.suppliers.tooMuch : t.errors.saveFailed);
+      }
+    });
 
   const saveDetails = async () => {
     await store.suppliers.update(supplier.id, { name: name ?? supplier.name, phone: phone ?? supplier.phone ?? '' });
@@ -115,10 +119,10 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
                 </button>
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => void pay(status.balanceCents)}>
+                <Button variant="secondary" disabled={busy} onClick={() => void pay(status.balanceCents)}>
                   {t.suppliers.payAll}
                 </Button>
-                <Button className="flex-1" onClick={() => void pay(parseKz(amount))}>
+                <Button className="flex-1" disabled={busy} onClick={() => void pay(parseKz(amount))}>
                   {t.common.confirm}
                 </Button>
               </div>
