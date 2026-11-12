@@ -3,6 +3,7 @@ import { formatDate, formatDateString, formatDateTime } from '../lib/dates';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
 import { formatKg } from '../domain/quantity';
+import { isPaymentPending } from '../domain/types';
 import { TEMPLATE_HEADER } from '../domain/import-products';
 import { lineCostCents } from '../domain/profit';
 import { payablesBook } from '../domain/payables';
@@ -512,6 +513,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Custo linha (Kz)',
       'Lucro linha (Kz)',
       'Categoria',
+      t.pending.exportColumn,
     ],
   ];
   for (const s of sales) {
@@ -534,6 +536,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         cost === undefined ? '' : kzNumber(cost),
         cost === undefined ? '' : kzNumber(it.lineTotalCents - cost),
         categories.get(it.productId) ?? '',
+        isPaymentPending(s) ? t.pending.tag : s.confirmedAt ? t.pending.exportConfirmed(formatDateTime(s.confirmedAt)) : '',
       ]);
     }
   }

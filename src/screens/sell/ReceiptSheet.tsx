@@ -4,7 +4,7 @@ import { DEFAULT_STORE_NAME } from '../../data/store';
 import { changeDue } from '../../domain/cart';
 import { creditStatus } from '../../domain/credit';
 import { receiptText } from '../../domain/messages';
-import type { Customer, Sale, Settings } from '../../domain/types';
+import { isPaymentPending, type Customer, type Sale, type Settings } from '../../domain/types';
 import { whatsAppLink } from '../../domain/whatsapp';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { formatDateStringLong } from '../../lib/dates';
@@ -51,6 +51,7 @@ export function ReceiptSheet({
         <Money cents={sale.totalCents} className="block text-4xl font-extrabold" />
         <p className="mt-1 text-lg text-slate-600">
           {methodLabel[sale.method]}
+          {isPaymentPending(sale) ? ` (${t.pending.receipt})` : ''}
           {customer ? ` — ${customer.name}` : ''}
         </p>
         {sale.dueDate && <p className="mt-1 font-semibold text-amber-800">{t.sell.payBy(formatDateStringLong(sale.dueDate))}</p>}

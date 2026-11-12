@@ -1,6 +1,6 @@
 import { returnLog } from '../../domain/audit-entry';
 import { returnItems } from '../../domain/returns';
-import type { CreditPayment, SaleReturn } from '../../domain/types';
+import { isPaymentPending, type CreditPayment, type SaleReturn } from '../../domain/types';
 import { uuid } from '../../lib/ids';
 import { StoreCore } from './core';
 import { DomainError } from './shared';
@@ -47,6 +47,8 @@ export class ReturnsRepository {
         const sale = await this.c.db.sales.get(input.saleId);
         if (!sale) throw new DomainError('not_found');
         if (sale.voidedAt) throw new DomainError('sale_voided');
+        // The money never came in: confirm it first (or record again how the customer pays).
+        if (isPaymentPending(sale)) throw new DomainError('payment_pending');
         const reason = input.reason.trim();
         if (reason.length < 3) throw new DomainError('reason_required');
         const onCredit = sale.method === 'credit';

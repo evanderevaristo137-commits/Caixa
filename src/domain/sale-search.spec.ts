@@ -8,7 +8,7 @@ const sale = (
   daysAgo: number,
   method: PaymentMethod,
   names: string[],
-  extra: { customerId?: string; voidedAt?: string } = {},
+  extra: { customerId?: string; voidedAt?: string; pendingSince?: string; confirmedAt?: string } = {},
 ) => ({
   number,
   createdAt: new Date(2026, 10, 12 - daysAgo, 10 + (number % 5)).toISOString(),
@@ -51,6 +51,16 @@ describe('finding sales', () => {
     // "12": sale number 12, and also a product with 12 in its name.
     expect(searchSales(sales, { ...all, text: '12' }).map((s) => s.number)).toEqual([12]);
     expect(searchSales(sales, { ...all, text: 'nada disto' })).toEqual([]);
+  });
+
+  it('finds the electronic payments still to confirm (not those confirmed, nor voided)', () => {
+    const more = [
+      ...sales,
+      sale(13, 0, 'multicaixa_express', ['Leite em pó'], { pendingSince: 'x' }),
+      sale(14, 1, 'transfer', ['Sabão'], { pendingSince: 'x', confirmedAt: 'y' }),
+      sale(15, 2, 'tpa', ['Sal'], { pendingSince: 'x', voidedAt: 'z' }),
+    ];
+    expect(searchSales(more, { ...all, state: 'pending' }).map((s) => s.number)).toEqual([13]);
   });
 
   it('totals only the valid sales, and says how many were voided', () => {

@@ -30,7 +30,7 @@ Todos os exemplos usam **dados fictícios**.
 
 - **Nunca emitir duas vezes o mesmo documento:** cada pedido tem um `requestId` único (`sale:<id>` para a venda, `void:<id>` para a anulação). Se o mesmo `requestId` chegar duas vezes (por exemplo, após uma falha de rede), devolver o documento já emitido.
 - **Emissão diferida:** as vendas podem ter sido feitas sem rede; a data da venda está em `issueDate`.
-- O tipo de documento é **sugerido** (`FR` quando foi pago na hora, `FT` quando é a crédito). Quem decide é o parceiro.
+- O tipo de documento é **sugerido** (`FR` quando foi pago na hora, `FT` quando é a crédito ou quando o pagamento electrónico ainda está «por confirmar»). Quem decide é o parceiro.
 
 ### Exemplo de pedido de factura
 
@@ -68,6 +68,7 @@ Todos os exemplos usam **dados fictícios**.
 - `taxExemption`: motivo de isenção, quando a taxa é 0.
 - `buyer`: «Consumidor final», ou nome e NIF do cliente quando a loja os tem. **Nunca enviamos telefones de clientes.**
 - `payment.method`: `cash` (numerário), `kwik`, `multicaixa_express`, `unitel_money`, `afrimoney`, `paypay`, `transfer` (transferência bancária), `tpa` (cartão no TPA), `credit` (a crédito, com `dueDate`). Na transferência e no TPA, `reference` é a referência da transferência ou o número do talão do TPA, escritos pela loja (não passam pelo prestador de pagamentos).
+- `payment.awaitingConfirmation: true`: pagamento electrónico «por confirmar» (a loja registou a venda antes de ver o dinheiro entrar). Quando a loja confirma, a venda fica igual; se o dinheiro nunca entrar, a venda é anulada (pedido de nota de crédito) e registada de novo com a forma de pagamento certa (novo pedido de factura).
 
 ### Exemplo de pedido de nota de crédito (venda anulada)
 

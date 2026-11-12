@@ -11,7 +11,9 @@ import { formatQuantity } from '../../domain/quantity';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { returnable } from '../../domain/returns';
+import { isPaymentPending } from '../../domain/types';
 import { ReturnSheet } from './ReturnSheet';
+import { PaymentStatus } from './PaymentStatus';
 
 /** One sale: details, resend the non-fiscal receipt, give goods back (returns), or void it (with a reason). */
 export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => void }) {
@@ -33,7 +35,8 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
 
   if (!data?.sale) return null;
   const { sale, customer, settings, returns } = data;
-  const canReturn = !sale.voidedAt && [...returnable(sale, returns).values()].some((q) => q > 0);
+  // While the money has not arrived there is nothing to give back: confirm it (or record it again) first.
+  const canReturn = !sale.voidedAt && !isPaymentPending(sale) && [...returnable(sale, returns).values()].some((q) => q > 0);
 
   const confirmVoid = async () => {
     if (reason.trim().length < 3) return setError(t.products.reasonRequired);
@@ -85,7 +88,10 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
         </div>
         <div className="flex justify-between">
           <dt className="text-slate-600">{t.sale.method}</dt>
-          <dd className="font-semibold">{methodLabel[sale.method]}</dd>
+          <dd className="font-semibold">
+            {methodLabel[sale.method]}
+            {isPaymentPending(sale) && <span className="ml-1 rounded bg-amber-100 px-1.5 text-amber-900">{t.pending.tag}</span>}
+          </dd>
         </div>
         {customer && (
           <div className="flex justify-between">
@@ -106,6 +112,7 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
           </div>
         )}
       </dl>
+      <PaymentStatus sale={sale} />
 
       {returns.length > 0 && (
         <div className="mt-4 rounded-xl bg-white p-3">

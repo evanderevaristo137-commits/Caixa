@@ -16,7 +16,7 @@ import type {
 } from '../domain/types';
 import { tillPurchasesCents } from './store';
 import { closeResult, drawer, summariseOutflows } from '../domain/cash';
-import { CURRENCY, isProviderMethod } from '../domain/types';
+import { CURRENCY, isElectronic, isProviderMethod } from '../domain/types';
 import { openItems } from '../domain/credit';
 import { addMonths, baseCents, dailyCents, INSS_RULES, monthlyCents, monthOf } from '../domain/inss';
 import { lineTotalFor } from '../domain/quantity';
@@ -131,7 +131,7 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 3;
+export const DEMO_VERSION = 4;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -315,6 +315,13 @@ export function buildDemoData(now: Date): DemoData {
       sale.dueDate = sale === firstSale || sale.dueDate! < target ? target : sale.dueDate;
     }
   });
+
+  // The last electronic payment of today waits for its money, so a visit shows «Pagamentos por confirmar».
+  const lastElectronic = [...sales].reverse().find((s) => toLocalDateString(new Date(s.createdAt)) === today && isElectronic(s.method));
+  if (lastElectronic) {
+    lastElectronic.pendingSince = lastElectronic.createdAt;
+    delete lastElectronic.paymentRef; // the payment provider was never asked
+  }
 
   // Suppliers and purchases: one on credit (due in 2 days, part already paid), two paid from the till.
   const suppliers: Supplier[] = SUPPLIERS.map((name) => ({

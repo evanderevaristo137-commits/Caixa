@@ -1,15 +1,16 @@
 import { addDays, startOfLocalDay } from '../lib/dates';
 import { normalise } from '../lib/text';
 import { compareText } from './ranking';
-import type { Cents, PaymentMethod, Sale } from './types';
+import { isPaymentPending, type Cents, type PaymentMethod, type Sale } from './types';
 
 /**
- * Finding sales: by period, payment method, customer, state (valid or voided) and text (a product
+ * Finding sales: by period, payment method, customer, state (valid, voided, or payment still to
+ * confirm) and text (a product
  * name, the customer's name or the sale number). Newest first.
  */
 export const SALE_PERIODS = ['today', 'yesterday', '7d', '30d'] as const;
 export type SalePeriod = (typeof SALE_PERIODS)[number];
-export type SaleState = 'all' | 'valid' | 'voided';
+export type SaleState = 'all' | 'valid' | 'voided' | 'pending';
 
 export interface SaleFilter {
   period: SalePeriod;
@@ -35,7 +36,10 @@ export function periodRange(period: SalePeriod, now: Date): { from: Date; to: Da
   }
 }
 
-type SaleLike = Pick<Sale, 'number' | 'items' | 'method' | 'customerId' | 'voidedAt' | 'createdAt' | 'totalCents'>;
+type SaleLike = Pick<
+  Sale,
+  'number' | 'items' | 'method' | 'customerId' | 'voidedAt' | 'createdAt' | 'totalCents' | 'pendingSince' | 'confirmedAt'
+>;
 
 /** Does the sale match the filter? `customerName` gives the name of a customer (for the text search). */
 export function matchesSale(sale: SaleLike, filter: SaleFilter, customerName?: (id: string) => string | undefined): boolean {
@@ -43,6 +47,7 @@ export function matchesSale(sale: SaleLike, filter: SaleFilter, customerName?: (
   if (filter.customerId && sale.customerId !== filter.customerId) return false;
   if (filter.state === 'valid' && sale.voidedAt) return false;
   if (filter.state === 'voided' && !sale.voidedAt) return false;
+  if (filter.state === 'pending' && !isPaymentPending(sale)) return false;
   const text = normalise(filter.text ?? '');
   if (!text) return true;
   // "12" or "n.º 12" or "#12": the sale number (a product name with those digits also counts).

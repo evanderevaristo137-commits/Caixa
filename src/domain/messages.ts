@@ -8,7 +8,7 @@ import type { DayView } from './today';
 import { formatMargin, marginBp, type ProfitSummary } from './profit';
 import type { Drawer, OutflowSummary } from './cash';
 import type { CashClose } from './types';
-import { PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
+import { isPaymentPending, PAYMENT_METHODS, type Cents, type Sale, type Settings } from './types';
 
 /** Plain-text, non-fiscal receipt for sharing on WhatsApp. */
 export function receiptText(
@@ -30,7 +30,7 @@ export function receiptText(
   }
   lines.push('');
   lines.push(`*TOTAL: ${formatKz(sale.totalCents)}*`);
-  lines.push(`Pagamento: ${methodLabel[sale.method]}`);
+  lines.push(`Pagamento: ${methodLabel[sale.method]}${isPaymentPending(sale) ? ` (${t.pending.receipt})` : ''}`);
   if (sale.transactionRef) lines.push(`Ref. do pagamento: ${sale.transactionRef}`);
   if (sale.method === 'credit' && customerName) lines.push(`Cliente: ${customerName}`);
   if (sale.method === 'credit' && sale.dueDate) lines.push(`Pagar até: ${formatDateString(sale.dueDate)}`);
@@ -102,11 +102,13 @@ export interface DaySummaryExtras {
   close?: CashClose;
   /** Goods given back that day. */
   returns?: { count: number; totalCents: Cents };
+  /** Electronic payments of the day whose money has not arrived yet. */
+  pending?: { count: number; totalCents: Cents };
 }
 
 export function daySummaryText(storeName: string, dayTitle: string, view: DayView, extras: DaySummaryExtras = {}): string {
   const { day } = view;
-  const { profit, drawer, outflows, close, returns } = extras;
+  const { profit, drawer, outflows, close, returns, pending } = extras;
   const lines = [`*Resumo — ${storeName}*`, dayTitle, ''];
   lines.push(`Vendido: *${formatKz(day.totalCents)}* (${day.count === 1 ? '1 venda' : `${day.count} vendas`})`);
   const margin = profit ? marginBp(profit) : undefined;
@@ -129,6 +131,7 @@ export function daySummaryText(storeName: string, dayTitle: string, view: DayVie
     lines.push('');
     for (const m of methods) lines.push(`• ${methodLabel[m]}: ${formatKz(day.byMethod[m])}`);
   }
+  if (pending && pending.count > 0) lines.push(t.pending.summary(pending.count, formatKz(pending.totalCents)));
   if (view.creditPaidCents > 0) lines.push(`Recebido de clientes: ${formatKz(view.creditPaidCents)}`);
   if (day.voidedCount > 0) lines.push(`Vendas anuladas: ${day.voidedCount} (${formatKz(day.voidedCents)})`);
   if (returns && returns.count > 0) lines.push(`Devoluções: ${returns.count} (−${formatKz(returns.totalCents)})`);

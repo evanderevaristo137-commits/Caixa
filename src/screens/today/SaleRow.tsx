@@ -1,5 +1,5 @@
 import { articleCount } from '../../domain/quantity';
-import type { Sale } from '../../domain/types';
+import { isPaymentPending, type Sale } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { Money } from '../../ui/kit';
 
@@ -39,6 +39,7 @@ export function SaleRow({
           {t.history.number(sale.number)} · {methodLabel[sale.method]}
           {customerName ? ` (${customerName})` : ''} · {t.sell.cartItems(articleCount(sale.items))}
           {voided && <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-800">{t.today.voidedTag}</span>}
+          {isPaymentPending(sale) && <span className="ml-1 rounded bg-amber-100 px-1.5 font-semibold text-amber-900">{t.pending.tag}</span>}
         </span>
       </span>
       <Money cents={sale.totalCents} className={`font-bold ${voided ? 'text-slate-400 line-through' : ''}`} />

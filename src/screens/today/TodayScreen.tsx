@@ -12,7 +12,7 @@ import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
 import { totalPayable } from '../../domain/payables';
 import { tillPurchasesCents } from '../../data/store';
 import { whatsAppLink } from '../../domain/whatsapp';
-import { PAYMENT_METHODS } from '../../domain/types';
+import { isPaymentPending, PAYMENT_METHODS, type PaymentMethod } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { addDays, dayLabel, formatDate, startOfLocalDay, toLocalDateString } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
@@ -27,6 +27,7 @@ import { digitalStatus } from '../../domain/digital-watch';
 import { ReportsSheet } from './ReportsSheet';
 import { SalesHistorySheet } from './SalesHistorySheet';
 import { InssCard } from '../inss/InssCard';
+import { PendingPaymentsCard } from './PendingPaymentsCard';
 
 export default function TodayScreen() {
   const { store } = useApp();
@@ -65,6 +66,13 @@ export default function TodayScreen() {
     const view = summariseDayView(sales, payments, day, now);
     const returns = summariseReturns(dayReturns);
     const profit = summariseProfit(daySales, dayReturns);
+    // Electronic payments of the day whose money has not arrived yet, by method.
+    const pendingByMethod = new Map<PaymentMethod, number>();
+    for (const s of daySales) if (isPaymentPending(s)) pendingByMethod.set(s.method, (pendingByMethod.get(s.method) ?? 0) + s.totalCents);
+    const pending = {
+      count: daySales.filter(isPaymentPending).length,
+      totalCents: [...pendingByMethod.values()].reduce((a, v) => a + v, 0),
+    };
     const outflows = summariseOutflows(dayExpenses);
     const drawer = drawerOf({
       floatCents: lastClose?.floatCents ?? settings.cashFloatCents ?? 0,
@@ -76,7 +84,7 @@ export default function TodayScreen() {
     });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
     const summaryLink = whatsAppLink(
-      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns }),
+      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns, pending }),
     );
     return {
       offset,
@@ -87,6 +95,7 @@ export default function TodayScreen() {
       outflows,
       drawer,
       returns,
+      pendingByMethod,
       lastClose,
       dayExpenses: dayExpenses.sort((a, b) => compareText(b.createdAt, a.createdAt)),
       defaultFloatCents: settings.cashFloatCents ?? 0,
@@ -146,6 +155,7 @@ export default function TodayScreen() {
       {header}
 
       {isToday && <PaymentAlerts alerts={data.alerts} storeName={data.storeName} />}
+      {isToday && <PendingPaymentsCard />}
       {data.digital?.alarm && <DigitalCard status={data.digital} />}
 
       <Card className="bg-brand-700 text-white">
@@ -247,6 +257,11 @@ export default function TodayScreen() {
                   <span>{methodLabel[m]}</span>
                   <Money cents={day.byMethod[m]} className="font-semibold" />
                 </div>
+                {!!data.pendingByMethod.get(m) && (
+                  <p className="text-right text-sm font-semibold text-amber-800">
+                    {t.pending.byMethod(formatKz(data.pendingByMethod.get(m)!))}
+                  </p>
+                )}
                 <div className="mt-1 h-2 rounded-full bg-slate-100">
                   <div
                     className={`h-2 rounded-full ${m === 'credit' ? 'bg-amber-500' : 'bg-brand-600'}`}

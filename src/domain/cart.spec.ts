@@ -3,6 +3,7 @@ import {
   addToCart,
   cartCount,
   cartItems,
+  cartOfSale,
   cartTotal,
   cashSuggestions,
   changeDue,
@@ -58,6 +59,27 @@ describe('cart', () => {
     expect(changeDue(185_000, 200_000)).toBe(15_000);
     expect(changeDue(185_000, 185_000)).toBe(0);
     expect(changeDue(185_000, 100_000)).toBeNull();
+  });
+});
+
+describe('the cart of a recorded sale', () => {
+  it('keeps the prices and totals of the sale, also for weighed goods and amounts asked', () => {
+    const items = [
+      { productId: 'p1', name: 'Arroz 1 kg', unitPriceCents: 120_000, quantity: 2, lineTotalCents: 240_000 },
+      // "500 Kz de feijão": 357 g at 1.400 Kz/kg, exactly 500 Kz.
+      {
+        productId: 'p4',
+        name: 'Feijão a granel',
+        unitPriceCents: 140_000,
+        quantity: 357,
+        soldBy: 'weight' as const,
+        lineTotalCents: 50_000,
+      },
+    ];
+    const cart = cartOfSale({ items });
+    expect(cartTotal(cart)).toBe(290_000);
+    expect(cart[1]).toMatchObject({ quantity: 357, soldBy: 'weight', fixedTotalCents: 50_000 });
+    expect(cart[0]).not.toHaveProperty('soldBy');
   });
 });
 

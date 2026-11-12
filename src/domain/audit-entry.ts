@@ -17,6 +17,8 @@ export function saleLog(s: Sale) {
     ...(s.dueDate ? { dueDate: s.dueDate } : {}),
     ...(s.creditLimitOverride ? { creditLimitOverride: s.creditLimitOverride } : {}),
     ...(s.voidedAt ? { voidedAt: s.voidedAt, voidReason: s.voidReason } : {}),
+    ...(s.pendingSince ? { pendingSince: s.pendingSince } : {}),
+    ...(s.confirmedAt ? { confirmedAt: s.confirmedAt } : {}),
   };
 }
 

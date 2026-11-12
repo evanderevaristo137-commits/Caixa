@@ -82,6 +82,15 @@ describe('invoice request', () => {
     expect(withCustomer.payment.dueDate).toBe('2026-11-21');
   });
 
+  it('a payment still to confirm suggests an invoice (FT), not an invoice-receipt, and says so', () => {
+    const waiting = buildInvoiceRequest({ ...sale, pendingSince: sale.createdAt }, settings);
+    expect(waiting.suggestedDocumentType).toBe('FT');
+    expect(waiting.payment).toMatchObject({ method: 'multicaixa_express', awaitingConfirmation: true });
+    const confirmed = buildInvoiceRequest({ ...sale, pendingSince: sale.createdAt, confirmedAt: sale.createdAt }, settings);
+    expect(confirmed.suggestedDocumentType).toBe('FR');
+    expect(confirmed.payment).not.toHaveProperty('awaitingConfirmation');
+  });
+
   it('a voided sale becomes a credit note that points to the original', () => {
     const voided = {
       ...sale,

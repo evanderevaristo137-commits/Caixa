@@ -105,6 +105,8 @@ export class CaixaDB extends Dexie {
     this.version(7).stores({ safety: 'id' });
     // v8: goods given back by customers (all or part of a sale).
     this.version(8).stores({ returns: 'id, saleId, createdAt' });
+    // v9: electronic payments to confirm later, indexed to find them without reading every sale.
+    this.version(9).stores({ sales: 'id, createdAt, customerId, method, updatedAt, pendingSince' });
   }
 }
 

@@ -77,6 +77,8 @@ export interface NewSale {
   transactionRef?: string;
   /** Credit sales: the shopkeeper confirmed going over the customer's credit limit. */
   allowOverLimit?: boolean;
+  /** Electronic payments: the money has not arrived yet; the shop confirms it later. */
+  pending?: boolean;
 }
 
 /** Why the Store refuses a cart line (the screen must show the cart again). */

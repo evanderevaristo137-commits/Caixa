@@ -81,6 +81,16 @@ describe('fiado receipt', () => {
     expect(text).toContain('Documento não fiscal');
     expect(receiptText(sale, { storeName: 'Loja Exemplo' }, undefined, 5)).not.toContain('dívida');
   });
+
+  it('says when the electronic payment is still to confirm', () => {
+    const mcx = { ...sale, method: 'multicaixa_express' as const, cashReceivedCents: undefined };
+    expect(receiptText({ ...mcx, pendingSince: mcx.createdAt }, { storeName: 'Loja' })).toContain(
+      'Pagamento: Multicaixa Express (por confirmar)\n',
+    );
+    expect(receiptText({ ...mcx, pendingSince: mcx.createdAt, confirmedAt: mcx.createdAt }, { storeName: 'Loja' })).toContain(
+      'Pagamento: Multicaixa Express\n',
+    );
+  });
 });
 
 describe('shoppingListText', () => {
@@ -124,6 +134,14 @@ describe('daySummaryText', () => {
         'Vendas anuladas: 1 (500 Kz)',
       ].join('\n'),
     );
+  });
+
+  it('counts the payments of the day still to confirm', () => {
+    const view = summariseDayView([], [], new Date(2026, 10, 6, 18), new Date(2026, 10, 6, 18));
+    expect(daySummaryText('Loja', 'Hoje', view, { pending: { count: 2, totalCents: 350_000 } })).toContain(
+      'Pagamentos por confirmar: 2 (3.500 Kz)',
+    );
+    expect(daySummaryText('Loja', 'Hoje', view, { pending: { count: 0, totalCents: 0 } })).not.toContain('por confirmar');
   });
 
   it('adds the estimated profit when products have a cost price', () => {

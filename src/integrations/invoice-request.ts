@@ -2,7 +2,7 @@
  * What Caixa will send to an AGT-certified invoicing partner (phase 3).
  * Caixa never issues invoices: it only prepares the data. Formats are documented in docs/INTEGRACOES.md.
  */
-import type { Customer, PaymentMethod, Sale, Settings, VatRegime } from '../domain/types';
+import { isPaymentPending, type Customer, type PaymentMethod, type Sale, type Settings, type VatRegime } from '../domain/types';
 import { compareText } from '../domain/ranking';
 
 export const INVOICE_REQUEST_SCHEMA = 'caixa.invoice-request/1';
@@ -48,9 +48,13 @@ interface DocumentBase {
 
 export interface InvoiceRequest extends DocumentBase {
   kind: 'invoice';
-  /** Only a suggestion (paid now → FR, invoice-receipt; credit → FT, invoice). The certified partner decides. */
+  /**
+   * Only a suggestion (paid now → FR, invoice-receipt; credit, or an electronic payment the shop has
+   * not seen arrive yet → FT, invoice). The certified partner decides.
+   */
   suggestedDocumentType: 'FR' | 'FT';
-  payment: { method: PaymentMethod; dueDate?: string; reference?: string; providerRef?: string };
+  /** `awaitingConfirmation`: the money of this electronic payment had not arrived when the sale was recorded. */
+  payment: { method: PaymentMethod; dueDate?: string; reference?: string; providerRef?: string; awaitingConfirmation?: true };
 }
 
 export interface CreditNoteRequest extends DocumentBase {
@@ -102,8 +106,14 @@ export function buildInvoiceRequest(sale: Sale, settings: Settings, customer?: C
   return {
     ...base(sale, settings, customer, `sale:${sale.id}`, sale.createdAt),
     kind: 'invoice',
-    suggestedDocumentType: sale.method === 'credit' ? 'FT' : 'FR',
-    payment: { method: sale.method, dueDate: sale.dueDate, reference: sale.transactionRef, providerRef: sale.paymentRef },
+    suggestedDocumentType: sale.method === 'credit' || isPaymentPending(sale) ? 'FT' : 'FR',
+    payment: {
+      method: sale.method,
+      dueDate: sale.dueDate,
+      reference: sale.transactionRef,
+      providerRef: sale.paymentRef,
+      ...(isPaymentPending(sale) ? { awaitingConfirmation: true as const } : {}),
+    },
   };
 }
 

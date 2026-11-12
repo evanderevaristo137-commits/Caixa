@@ -118,6 +118,15 @@ export interface Sale extends BaseRecord {
   creditLimitOverride?: { limitCents: Cents; balanceBeforeCents: Cents };
   /** Cash only: amount handed over by the customer, to compute change. */
   cashReceivedCents?: Cents;
+  /**
+   * Electronic payments the money of which had not arrived yet when the sale was recorded ("por
+   * confirmar"): when it was recorded that way, and when the shop confirmed the money arrived.
+   */
+  pendingSince?: IsoDate;
+  confirmedAt?: IsoDate;
+  /** "O pagamento não entrou": the voided sale points to the one recorded in its place, and back. */
+  replacedBySaleId?: string;
+  replacesSaleId?: string;
   /** Credit sales only: the day the customer must pay by ("YYYY-MM-DD", the phone's calendar). */
   dueDate?: string;
   /** Voided sales stay in history but no longer count (totals, stock, fiado). */
@@ -140,6 +149,10 @@ export interface CreditPayment extends BaseRecord {
   returnId?: string;
   deviceId?: string;
 }
+
+/** An electronic payment still waiting for the shop to confirm the money arrived (voided sales never wait). */
+export const isPaymentPending = (s: Pick<Sale, 'pendingSince' | 'confirmedAt' | 'voidedAt'>) =>
+  !!s.pendingSince && !s.confirmedAt && !s.voidedAt;
 
 /** A customer payment that brought money in (not goods returned from a credit sale). */
 export const isMoneyIn = (p: Pick<CreditPayment, 'method'>) => p.method !== 'return';
@@ -342,7 +355,7 @@ export interface AuditEntry extends BaseRecord {
     | 'inss_contribution'
     | 'return';
   entityId: string;
-  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted';
+  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted' | 'confirmed';
   before?: unknown;
   after?: unknown;
 }

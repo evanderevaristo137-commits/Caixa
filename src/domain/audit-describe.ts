@@ -38,10 +38,20 @@ const obj = <T>(v: unknown): Partial<T> => (typeof v === 'object' && v !== null 
 export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
   switch (e.entity) {
     case 'sale': {
-      const s = obj<Sale>(e.after);
+      const s = obj<Sale & { replacedByNumber: number; replacesNumber: number }>(e.after);
       const total = typeof s.totalCents === 'number' ? formatKz(s.totalCents) : '';
+      const method = s.method ? methodLabel[s.method] : '';
+      if (e.action === 'confirmed') return { text: `Pagamento da venda n.º ${s.number} confirmado: ${total} — ${method}`, important: true };
+      if (e.action === 'voided' && s.replacedByNumber)
+        return {
+          text: `Venda n.º ${s.number}: o pagamento (${method}, ${total}) não entrou — registada de novo como venda n.º ${s.replacedByNumber}`,
+          important: true,
+        };
       if (e.action === 'voided')
         return { text: `Venda n.º ${s.number} anulada (${total}). Motivo: ${s.voidReason ?? '—'}`, important: true };
+      const waits = s.pendingSince ? ' (por confirmar)' : '';
+      if (e.action === 'created' && s.replacesNumber)
+        return { text: `Venda n.º ${s.number}: ${total} — ${method}${waits}, em vez da venda n.º ${s.replacesNumber}`, important: true };
       if (e.action === 'created' && s.creditLimitOverride) {
         const o = s.creditLimitOverride;
         return {
@@ -49,8 +59,7 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
           important: true,
         };
       }
-      if (e.action === 'created')
-        return { text: `Venda n.º ${s.number}: ${total} — ${s.method ? methodLabel[s.method] : ''}`, important: false };
+      if (e.action === 'created') return { text: `Venda n.º ${s.number}: ${total} — ${method}${waits}`, important: false };
       return null;
     }
     case 'product': {

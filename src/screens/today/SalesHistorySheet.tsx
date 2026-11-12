@@ -12,7 +12,7 @@ import { SaleSheet } from './SaleSheet';
 
 /** How many sales are drawn at once; "Ver mais" draws the next ones (lists stay light on cheap phones). */
 const PAGE = 50;
-const STATES: SaleState[] = ['all', 'valid', 'voided'];
+const STATES: SaleState[] = ['all', 'valid', 'voided', 'pending'];
 
 const chip = (on: boolean) =>
   `min-h-11 shrink-0 rounded-full border-2 px-3 text-sm font-semibold whitespace-nowrap ${on ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`;
@@ -131,7 +131,7 @@ export function SalesHistorySheet({ onClose }: { onClose: () => void }) {
             </select>
           </div>
         )}
-        <div className="flex gap-2" role="group" aria-label={t.history.stateLabel}>
+        <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.history.stateLabel}>
           {STATES.map((s) => (
             <button
               key={s}

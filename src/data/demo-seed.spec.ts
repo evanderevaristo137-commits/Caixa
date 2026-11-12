@@ -32,6 +32,13 @@ describe('demo data', () => {
     expect(d.sales.every((s) => new Date(s.createdAt) <= now)).toBe(true);
   });
 
+  it('has one electronic payment of today still to confirm', () => {
+    const waiting = d.sales.filter((s) => s.pendingSince);
+    expect(waiting).toHaveLength(1);
+    expect(new Date(waiting[0]!.createdAt).toDateString()).toBe(now.toDateString());
+    expect(waiting[0]!.method).not.toMatch(/^(cash|credit)$/);
+  });
+
   it('keeps money in integers and totals consistent', () => {
     for (const s of d.sales) {
       expect(Number.isInteger(s.totalCents)).toBe(true);

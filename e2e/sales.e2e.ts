@@ -52,7 +52,7 @@ test('a voided sale shows among the voided ones and never counts in the total', 
   const sheet = page.getByRole('dialog', { name: 'Procurar vendas' });
   await sheet.getByRole('button', { name: 'Hoje', exact: true }).click();
   await expect(sheet.getByRole('status')).toContainText('E 1 anulada (não conta no total).');
-  await sheet.getByRole('group', { name: 'Vendas anuladas' }).getByRole('button', { name: 'Anuladas' }).click();
+  await sheet.getByRole('group', { name: 'Estado' }).getByRole('button', { name: 'Anuladas' }).click();
   await expect(sheet.getByRole('listitem')).toHaveCount(1);
   await expect(sheet.getByRole('listitem').first()).toContainText('Anulada');
 });
@@ -152,4 +152,58 @@ test('returning goods bought on credit lowers what the customer owes, and the st
   expect(await owed()).toBe(before - 1850);
   await joana.click();
   await expect(page.getByRole('dialog', { name: 'Joana Mateus' })).toContainText('Devolução');
+});
+
+test('an electronic payment to confirm later stays on Hoje until «Já entrou», or is recorded again when the money never comes', async ({
+  page,
+}) => {
+  await openDemo(page);
+  await nav(page, 'Hoje');
+  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: /por confirmar$/ }) });
+  // The demo shows one, so a visit can explain it.
+  await expect(card.getByRole('heading')).toHaveText('1 pagamento por confirmar');
+
+  // A sale by Multicaixa Express whose money has not arrived yet.
+  await nav(page, 'Vender');
+  await page.getByRole('button', { name: /Óleo vegetal/ }).click();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Multicaixa Express' }).click();
+  await page.getByRole('checkbox', { name: /O dinheiro ainda não entrou/ }).check();
+  await expect(page.getByText('Pagamento simulado')).toHaveCount(0); // the payment provider is not asked
+  await page.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByRole('dialog', { name: 'Venda registada' })).toContainText('Multicaixa Express (por confirmar)');
+  await page.getByRole('button', { name: 'Nova venda' }).click();
+
+  await nav(page, 'Hoje');
+  await expect(card.getByRole('heading')).toHaveText('2 pagamentos por confirmar');
+  await expect(page.getByText('por confirmar: 1.850 Kz', { exact: false }).first()).toBeVisible();
+  // The demo's money arrived: «Já entrou» right on the card (the oldest is first).
+  await card
+    .getByRole('button', { name: /^Já entrou: venda n\.º \d+$/ })
+    .first()
+    .click();
+  await expect(page.getByText('Pagamento confirmado.')).toBeVisible();
+  await expect(card.getByRole('heading')).toHaveText('1 pagamento por confirmar');
+
+  // Ours never came: the customer pays in cash instead.
+  await card.getByRole('button', { name: /Multicaixa Express · 1\.850 Kz/ }).click();
+  const detail = page.getByRole('dialog', { name: /^Venda n\.º \d+$/ });
+  await expect(detail).toContainText('Pagamento por confirmar desde');
+  await expect(detail.getByRole('button', { name: 'Devolver artigos' })).toHaveCount(0);
+  await detail.getByRole('button', { name: 'Não entrou' }).click();
+  const repay = page.getByRole('dialog', { name: 'O dinheiro não entrou: como paga o cliente?' });
+  await expect(repay).toContainText('fica anulada e é registada de novo, com os mesmos artigos e preços');
+  await repay.getByRole('button', { name: 'Numerário' }).click();
+  await repay.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page.getByText(/^Registada de novo como venda n\.º \d+\.$/)).toBeVisible();
+  await expect(detail).toContainText(/O pagamento não entrou: registada de novo como venda n\.º \d+\./);
+  await expect(detail).toContainText('Motivo: O pagamento não entrou');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await expect(card).toHaveCount(0);
+
+  // Nothing left to confirm, and the search says the same.
+  await page.getByRole('button', { name: 'Procurar vendas' }).click();
+  const search = page.getByRole('dialog', { name: 'Procurar vendas' });
+  await search.getByRole('group', { name: 'Estado' }).getByRole('button', { name: 'Por confirmar' }).click();
+  await expect(search).toContainText('Nenhuma venda com estes filtros.');
 });

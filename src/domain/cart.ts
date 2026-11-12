@@ -1,6 +1,6 @@
 import { sumCents } from '../lib/money';
 import { amountFitsWeight, articleCount, lineTotalFor, type SoldBy } from './quantity';
-import type { Cents, Product, SaleItem } from './types';
+import type { Cents, Product, Sale, SaleItem } from './types';
 
 export interface CartLine {
   productId: string;
@@ -45,6 +45,20 @@ export function setWeightLine(
     ...(fixedTotalCents !== undefined ? { fixedTotalCents } : {}),
   };
   return cart.some((l) => l.productId === product.id) ? cart.map((l) => (l.productId === product.id ? line : l)) : [...cart, line];
+}
+
+/**
+ * The cart of a recorded sale, with its prices and line totals (to record it again when its payment
+ * never came). Weighed goods keep exactly what the line cost (rounding, or an amount asked).
+ */
+export function cartOfSale(sale: Pick<Sale, 'items'>): Cart {
+  return sale.items.map((i) => ({
+    productId: i.productId,
+    name: i.name,
+    unitPriceCents: i.unitPriceCents,
+    quantity: i.quantity,
+    ...(i.soldBy === 'weight' ? { soldBy: i.soldBy, fixedTotalCents: i.lineTotalCents } : {}),
+  }));
 }
 
 /** Sets a line's quantity; 0 or less removes the line. */
