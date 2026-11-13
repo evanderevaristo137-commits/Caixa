@@ -12,6 +12,8 @@ import { StockLossesView } from './StockLossesView';
 import { ExpiryList } from './ExpiryList';
 import { expiringStock } from '../../domain/expiry';
 import { toLocalDateString } from '../../lib/dates';
+import { stockDoc } from '../../domain/report-doc';
+import { ReportButton } from '../../ui/ReportPrint';
 
 type View = 'buy' | 'still' | 'losses' | 'expiry';
 
@@ -32,6 +34,7 @@ export function StockInsightsSheet({ onClose, initialView = 'buy' }: { onClose: 
     ]);
     const buy = restockList(products, speeds);
     return {
+      products,
       buy,
       // Only shops that follow expiry dates see that tab.
       tracked: products.some((p) => p.tracksExpiry),
@@ -75,6 +78,12 @@ export function StockInsightsSheet({ onClose, initialView = 'buy' }: { onClose: 
         </div>
       ) : (
         <StillView rows={data.still} />
+      )}
+      {data && (
+        <div className="mt-4 space-y-1">
+          <ReportButton build={(head) => stockDoc({ products: data.products, buy: data.buy, still: data.still }, head)} />
+          <p className="text-center text-sm text-slate-600">{t.reportDoc.stockHint}</p>
+        </div>
       )}
     </Sheet>
   );

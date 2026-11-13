@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../../app/context';
 import { FINANCE_PERIODS, financeRange, financeSummary, type FinancePeriod } from '../../domain/finance';
+import { financeDoc } from '../../domain/report-doc';
 import { t } from '../../i18n/pt-AO';
 import { addDays, formatDate, toLocalDateString } from '../../lib/dates';
 import { Field, Sheet, Skeleton } from '../../ui/kit';
 import { useLoaded } from '../../ui/use-loaded';
+import { ReportButton } from '../../ui/ReportPrint';
 import { MoneyFlowCard, ResultCard, SoldReceivedCard } from './FinanceCards';
 
 const chip = (on: boolean) =>
@@ -40,6 +42,7 @@ export function FinanceSheet({ onClose }: { onClose: () => void }) {
   }, [store, fromIso, toIso]);
 
   const shown = range && data && data.key === `${fromIso}|${toIso}` ? data : undefined;
+  const periodText = range ? t.finance.range(formatDate(range.from.toISOString()), formatDate(addDays(range.to, -1).toISOString())) : '';
   return (
     <Sheet title={t.finance.title} onClose={onClose}>
       <div className="space-y-3">
@@ -62,9 +65,7 @@ export function FinanceSheet({ onClose }: { onClose: () => void }) {
           </p>
         ) : (
           <>
-            <p className="text-center font-semibold text-slate-700">
-              {t.finance.range(formatDate(range.from.toISOString()), formatDate(addDays(range.to, -1).toISOString()))}
-            </p>
+            <p className="text-center font-semibold text-slate-700">{periodText}</p>
             {!shown ? (
               <Skeleton rows={3} />
             ) : shown.empty ? (
@@ -74,6 +75,7 @@ export function FinanceSheet({ onClose }: { onClose: () => void }) {
                 <SoldReceivedCard money={shown.finance.sold} returns={shown.returns} />
                 <MoneyFlowCard flow={shown.finance.flow} />
                 <ResultCard result={shown.finance.result} />
+                <ReportButton build={(head) => financeDoc(shown.finance, shown.returns, { ...head, period: periodText })} />
               </>
             )}
           </>

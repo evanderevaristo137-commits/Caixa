@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useApp } from '../../app/context';
 import { useLoaded } from '../../ui/use-loaded';
-import { formatMargin, marginBp, profitByProduct, type ProductProfit } from '../../domain/profit';
+import { formatMargin, marginBp, profitByProduct } from '../../domain/profit';
 import { formatQuantity } from '../../domain/quantity';
 import {
   buckets,
@@ -12,10 +12,7 @@ import {
   periodSummary,
   shareBp,
   topProducts,
-  type Bucket,
   type PeriodKind,
-  type PeriodSummary,
-  type TopProduct,
 } from '../../domain/reports';
 import { PAYMENT_METHODS } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
@@ -24,9 +21,12 @@ import { ColumnChart } from '../../ui/ColumnChart';
 import { Button, Card, Sheet, Skeleton } from '../../ui/kit';
 import { StoreSheetView } from './StoreSheetView';
 import { CategoryReport } from './CategoryReport';
-import { salesByCategory, type CategorySales } from '../../domain/categories';
-import { soldAndReceived, type SoldReceived } from '../../domain/finance';
+import { salesByCategory } from '../../domain/categories';
+import { soldAndReceived } from '../../domain/finance';
 import { SoldReceivedCard } from './FinanceCards';
+import { salesDoc, type SalesReportData } from '../../domain/report-doc';
+import { ReportButton } from '../../ui/ReportPrint';
+import { addDays, formatDate } from '../../lib/dates';
 
 const KINDS: PeriodKind[] = ['7d', '30d', '12m'];
 const pct = (bp: number) => `${Math.round(bp / 100)}%`;
@@ -50,6 +50,7 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
     const inPeriod = sales.filter((s) => s.createdAt >= fromIso);
     return {
       kind,
+      period: t.finance.range(formatDate(fromIso), formatDate(addDays(to, -1).toISOString())),
       current: periodSummary(sales, payments, expenses, from, to, returns),
       previous: periodSummary(sales, [], [], prevFrom, from, returns),
       money: soldAndReceived(inPeriod, payments),
@@ -82,6 +83,7 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
       ) : (
         <div className={`space-y-3 transition-opacity ${stale ? 'opacity-50' : ''}`}>
           <Body data={data} />
+          {data.current.count > 0 && <ReportButton build={(head) => salesDoc(data, { ...head, period: data.period })} />}
           <Button variant="secondary" className="w-full" onClick={() => setSheet(true)}>
             {t.reports.sheet}
           </Button>
@@ -93,15 +95,9 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface ReportData {
-  kind: PeriodKind;
-  current: PeriodSummary;
-  previous: PeriodSummary;
-  money: SoldReceived;
-  cols: Bucket[];
-  top: TopProduct[];
-  topProfit: ProductProfit[];
-  byCategory: CategorySales[];
+interface ReportData extends SalesReportData {
+  /** "De 07/11/2026 a 13/11/2026" (for the report to keep or send). */
+  period: string;
 }
 
 function Body({ data }: { data: ReportData }) {

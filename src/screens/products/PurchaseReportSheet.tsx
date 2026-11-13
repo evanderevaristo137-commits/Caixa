@@ -3,10 +3,12 @@ import { useApp } from '../../app/context';
 import { purchaseReport } from '../../domain/purchase-report';
 import { formatQuantity } from '../../domain/quantity';
 import { t } from '../../i18n/pt-AO';
-import { addDays, startOfLocalDay } from '../../lib/dates';
+import { addDays, formatDate, startOfLocalDay } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
 import { Card, Sheet, Skeleton } from '../../ui/kit';
 import { useLoaded } from '../../ui/use-loaded';
+import { purchasesDoc } from '../../domain/report-doc';
+import { ReportButton } from '../../ui/ReportPrint';
 
 type Period = '30d' | '90d' | '12m';
 const PERIODS: Period[] = ['30d', '90d', '12m'];
@@ -29,7 +31,12 @@ export function PurchaseReportSheet({ onClose }: { onClose: () => void }) {
       store.purchases.between(from.toISOString(), to.toISOString()),
       store.suppliers.list(),
     ]);
-    return { period, report: purchaseReport(purchases, from, to), names: new Map(suppliers.map((s) => [s.id, s.name])) };
+    return {
+      period,
+      report: purchaseReport(purchases, from, to),
+      names: new Map(suppliers.map((s) => [s.id, s.name])),
+      range: t.finance.range(formatDate(from.toISOString()), formatDate(addDays(to, -1).toISOString())),
+    };
   }, [store, period]);
   const shown = data?.period === period ? data : undefined;
 
@@ -82,6 +89,14 @@ export function PurchaseReportSheet({ onClose }: { onClose: () => void }) {
                 ))}
               </ol>
             </Card>
+            <ReportButton
+              build={(head) =>
+                purchasesDoc(shown.report, (id) => (id ? (shown.names.get(id) ?? '—') : t.buying.noSupplier), {
+                  ...head,
+                  period: shown.range,
+                })
+              }
+            />
           </>
         )}
       </div>

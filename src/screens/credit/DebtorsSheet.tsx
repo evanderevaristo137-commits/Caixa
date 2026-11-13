@@ -6,6 +6,9 @@ import { formatKz } from '../../lib/money';
 import { Money, Sheet, Skeleton } from '../../ui/kit';
 import { useLoaded } from '../../ui/use-loaded';
 import { CustomerSheet } from './CustomerSheet';
+import { useTeam } from '../../app/team';
+import { debtorsDoc } from '../../domain/report-doc';
+import { ReportButton } from '../../ui/ReportPrint';
 
 const BUCKET_CLASS = { current: 'bg-slate-50', d1_7: 'bg-amber-50', d8_30: 'bg-orange-50', d31: 'bg-red-50 text-red-900' } as const;
 const VERDICT_CLASS = { good: 'text-brand-800', fair: 'text-amber-800', poor: 'text-red-700' } as const;
@@ -13,6 +16,8 @@ const VERDICT_CLASS = { good: 'text-brand-800', fair: 'text-amber-800', poor: 't
 /** «Devedores»: everything owed, by how late it is, and each customer who owes, most overdue first. */
 export function DebtorsSheet({ onClose }: { onClose: () => void }) {
   const { store } = useApp();
+  // Everyone who takes payments sees who owes; taking the list out of the phone is for the owner or a manager.
+  const canSend = useTeam().can('numbers');
   const [openId, setOpenId] = useState<string | null>(null);
   // Read again when a customer sheet closes (a payment may have been recorded there).
   const report = useLoaded(async () => {
@@ -74,6 +79,7 @@ export function DebtorsSheet({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
+          {canSend && <ReportButton build={(head) => debtorsDoc(report, head)} />}
         </div>
       )}
       {openId && <CustomerSheet customerId={openId} onClose={() => setOpenId(null)} />}

@@ -1,4 +1,5 @@
 import { creditBook } from '../domain/credit';
+import { kzNumber, toCsv } from '../lib/csv';
 import { formatDate, formatDateString, formatDateTime } from '../lib/dates';
 import { methodLabel, t } from '../i18n/pt-AO';
 import { uuid } from '../lib/ids';
@@ -475,18 +476,8 @@ export async function openSafetyCopy(db: CaixaDB): Promise<Backup | null> {
 
 // ---------- CSV (opens in Excel / Google Sheets) ----------
 
-/** Kz with a decimal comma, no thousands separator, for spreadsheets. */
-const kzNumber = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');
-
-function csvCell(v: string | number): string {
-  const s = String(v);
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-export function toCsv(rows: (string | number)[][]): string {
-  // BOM so Excel opens accents correctly; ';' because Excel in Portuguese uses ',' for decimals.
-  return '﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\r\n') + '\r\n';
-}
+// The CSV helpers live in lib/csv.ts (the printable reports use them too).
+export { toCsv } from '../lib/csv';
 
 export async function salesCsv(db: CaixaDB): Promise<string> {
   const [sales, customers, products] = await Promise.all([
