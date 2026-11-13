@@ -34,6 +34,7 @@ export const t = {
     loading: 'A carregar…',
     required: 'Obrigatório',
     units: 'un.',
+    showMore: (n: number) => `Ver mais ${n}`,
     months: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
   },
   sell: {

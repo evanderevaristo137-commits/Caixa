@@ -6,6 +6,7 @@ import { whatsAppLink } from '../../domain/whatsapp';
 import type { Settings } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { Button, Card, Field, LinkButton } from '../../ui/kit';
+import { useSeen } from '../../ui/use-seen';
 
 /** Pilot: the shop sends its numbers (never customers' names or phones) to whoever runs the pilot. */
 export function PilotCard({ settings }: { settings: Settings }) {
@@ -14,7 +15,9 @@ export function PilotCard({ settings }: { settings: Settings }) {
   useEffect(() => {
     void store.device.id();
   }, [store]);
-  const text = useLiveQuery(() => buildPilotSummary(store, mode), [store, mode]);
+  // The summary reads weeks of sales: only once the card is on the screen, not as soon as «Mais» opens.
+  const [cardRef, seen] = useSeen<HTMLHeadingElement>();
+  const text = useLiveQuery(async () => (seen ? buildPilotSummary(store, mode) : undefined), [store, mode, seen]);
   const [phone, setPhone] = useState(settings.pilotPhone ?? '');
   const changed = phone.trim() !== (settings.pilotPhone ?? '');
   const save = async () => {
@@ -23,7 +26,9 @@ export function PilotCard({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.pilot.title}</h2>
+      <h2 ref={cardRef} className="text-lg font-bold">
+        {t.pilot.title}
+      </h2>
       <p className="text-sm text-slate-600">{t.pilot.hint}</p>
       <Field
         label={t.pilot.phone}

@@ -14,8 +14,12 @@ import { inCategory } from '../../domain/categories';
 import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
 import { StockInsightsSheet } from './StockInsightsSheet';
+import { ShowMore, usePaged } from '../../ui/paged';
 
 type View = 'products' | 'purchases' | 'suppliers';
+
+/** Products drawn at once in the list; «Ver mais» draws the next ones. */
+const PRODUCTS_PAGE = 50;
 
 /** Products, purchases (goods received) and suppliers, one tab each. */
 export default function ProductsScreen() {
@@ -72,6 +76,7 @@ function ProductsList() {
     if (q) return (products ?? []).filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
     return (products ?? []).filter((p) => inCategory(p, shownCategory));
   }, [products, query, shownCategory]);
+  const paged = usePaged(list, PRODUCTS_PAGE, `${query}|${shownCategory}`);
 
   return (
     <div>
@@ -122,7 +127,7 @@ function ProductsList() {
         </Empty>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl bg-white shadow-sm">
-          {list.map((p) => (
+          {paged.visible.map((p) => (
             <li key={p.id}>
               <button
                 type="button"
@@ -146,6 +151,7 @@ function ProductsList() {
           ))}
         </ul>
       )}
+      <ShowMore rest={paged.rest} page={PRODUCTS_PAGE} onClick={paged.more} className="mt-3" />
       {open && <ProductSheet productId={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
       {labels && <LabelsSheet onClose={() => setLabels(false)} />}
       {importing && <ImportProductsSheet onClose={() => setImporting(false)} />}

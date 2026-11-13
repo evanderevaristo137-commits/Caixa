@@ -62,6 +62,8 @@ test('app errors are kept on the phone and only their number goes into the pilot
   await expect(page.getByText('A app registou 1 erro nos últimos 7 dias.')).toBeVisible();
   await page.getByRole('button', { name: 'Ver os erros' }).click();
   await expect(page.getByText(/Acção · Error: Erro de teste/)).toBeVisible();
+  // The pilot summary is prepared when its card comes on the screen.
+  await page.getByRole('heading', { name: 'Piloto' }).scrollIntoViewIfNeeded();
   const link = page.getByRole('link', { name: 'Enviar resumo do piloto por WhatsApp' });
   const text = decodeURIComponent((await link.getAttribute('href'))!.split('text=')[1]!);
   expect(text).toContain('Erros da app (7 dias): 1');

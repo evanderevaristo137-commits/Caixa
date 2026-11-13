@@ -132,11 +132,19 @@ export type MissingInvoiceData = 'seller.nif' | 'seller.address' | 'seller.vatRe
 
 /** What is still missing before certified invoicing can start (phase 3). */
 export function missingInvoiceData(settings: Settings, sales: Pick<Sale, 'items'>[] = []): MissingInvoiceData[] {
+  return missingWith(
+    settings,
+    sales.some((s) => s.items.some((i) => i.taxRateBp === undefined)),
+  );
+}
+
+/** The same, when it is already known whether some sale line has no IVA rate. */
+export function missingWith(settings: Settings, linesWithoutTax: boolean): MissingInvoiceData[] {
   const missing: MissingInvoiceData[] = [];
   if (!settings.nif) missing.push('seller.nif');
   if (!settings.address) missing.push('seller.address');
   if (!settings.vatRegime || settings.vatRegime === 'unknown') missing.push('seller.vatRegime');
-  if (sales.some((s) => s.items.some((i) => i.taxRateBp === undefined))) missing.push('lines.taxRate');
+  if (linesWithoutTax) missing.push('lines.taxRate');
   return missing;
 }
 

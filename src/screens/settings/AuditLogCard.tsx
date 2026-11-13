@@ -5,6 +5,10 @@ import { describeAudit } from '../../domain/audit-describe';
 import { t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Card, Sheet } from '../../ui/kit';
+import { ShowMore, usePaged } from '../../ui/paged';
+
+/** Lines of the activity log drawn at once. */
+const LOG_PAGE = 50;
 
 /** "Registo de alterações": what was done and when, in plain words. */
 export function AuditLogCard() {
@@ -45,6 +49,7 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
     });
   }, [store]);
   const shown = (lines ?? []).filter((l) => all || l.important);
+  const paged = usePaged(shown, LOG_PAGE, all);
 
   return (
     <Sheet title={t.auditLog.title} onClose={onClose}>
@@ -65,7 +70,7 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
         <p className="py-6 text-center text-slate-600">{t.auditLog.empty}</p>
       ) : (
         <ul className="divide-y divide-slate-200 rounded-xl bg-white">
-          {shown.map((l) => (
+          {paged.visible.map((l) => (
             <li key={l.id} className="p-3">
               <p className="text-xs text-slate-600">{formatDateTime(l.at)}</p>
               <p className={l.important ? 'font-semibold' : ''}>{l.text}</p>
@@ -73,6 +78,7 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
       )}
+      <ShowMore rest={paged.rest} page={LOG_PAGE} onClick={paged.more} className="mt-2" />
     </Sheet>
   );
 }

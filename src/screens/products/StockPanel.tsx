@@ -12,6 +12,10 @@ import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
 import { daysLeft, paceOf, speedFromMovements } from '../../domain/stock-insights';
 import { useBusy } from '../../ui/use-busy';
 import { ExpiryPanel } from './ExpiryPanel';
+import { ShowMore, usePaged } from '../../ui/paged';
+
+/** Stock movements drawn at once in the product detail. */
+const MOVEMENTS_PAGE = 50;
 
 const ERRORS: Record<string, string> = {
   not_whole: t.products.invalidNumber,
@@ -47,6 +51,7 @@ export function StockPanel({ product }: { product: Product }) {
   const speed = useMemo(() => (movements ? speedFromMovements(movements, product, new Date()) : undefined), [movements, product]);
   const left = daysLeft(product.stock, speed);
   const pace = speed && paceOf(speed.perDay, product.soldBy);
+  const paged = usePaged(movements ?? [], MOVEMENTS_PAGE);
 
   const save = async () => {
     // Weighed products: kg typed, grams stored.
@@ -163,7 +168,7 @@ export function StockPanel({ product }: { product: Product }) {
 
       <h3 className="mt-5 mb-2 font-bold">{t.products.movements}</h3>
       <ul tabIndex={0} aria-label={t.products.movements} className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl bg-white">
-        {(movements ?? []).slice(0, 50).map((m) => (
+        {paged.visible.map((m) => (
           <li key={m.id} className="flex justify-between gap-2 p-3 text-sm">
             <span className="min-w-0">
               <span className="font-semibold">{MV_LABEL[m.type]}</span>
@@ -177,6 +182,7 @@ export function StockPanel({ product }: { product: Product }) {
           </li>
         ))}
       </ul>
+      <ShowMore rest={paged.rest} page={MOVEMENTS_PAGE} onClick={paged.more} className="mt-2" />
     </div>
   );
 }

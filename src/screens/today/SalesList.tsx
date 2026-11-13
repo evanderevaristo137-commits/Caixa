@@ -4,10 +4,15 @@ import { t } from '../../i18n/pt-AO';
 import { Card } from '../../ui/kit';
 import { SaleRow } from './SaleRow';
 import { SaleSheet } from './SaleSheet';
+import { ShowMore, usePaged } from '../../ui/paged';
+
+/** Sales of the day drawn at once (a busy day has a hundred); «Ver mais» draws the next ones. */
+const DAY_PAGE = 30;
 
 /** The sales of the day shown on "Hoje", newest first. */
 export function SalesList({ sales }: { sales: Sale[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const paged = usePaged(sales, DAY_PAGE);
   if (sales.length === 0) return null;
   return (
     <Card>
@@ -15,12 +20,13 @@ export function SalesList({ sales }: { sales: Sale[] }) {
         {t.today.salesList} ({sales.length})
       </h2>
       <ul className="divide-y divide-slate-100">
-        {sales.map((s) => (
+        {paged.visible.map((s) => (
           <li key={s.id}>
             <SaleRow sale={s} onOpen={() => setOpenId(s.id)} />
           </li>
         ))}
       </ul>
+      <ShowMore rest={paged.rest} page={DAY_PAGE} onClick={paged.more} className="mt-2" />
       {openId && <SaleSheet saleId={openId} onClose={() => setOpenId(null)} />}
     </Card>
   );

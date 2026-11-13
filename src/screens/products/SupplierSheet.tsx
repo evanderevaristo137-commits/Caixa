@@ -14,6 +14,7 @@ import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge } from '../credit/due';
 import { useBusy } from '../../ui/use-busy';
+import { ShowMore, usePaged } from '../../ui/paged';
 
 /** One supplier: contact, what the shop owes, paying it, ordering by WhatsApp and the history. */
 export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
@@ -200,26 +201,47 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
         {history.length > 0 && (
           <div>
             <h3 className="mb-1 font-bold">{t.suppliers.history}</h3>
-            <ul className="divide-y divide-slate-100 rounded-xl bg-white">
-              {history.map((h) => (
-                <li key={h.id} className="flex justify-between gap-2 p-3 text-sm">
-                  <span className={h.voided ? 'text-slate-400 line-through' : ''}>
-                    <span className="font-semibold">{h.label}</span>
-                    {h.credit ? ` · ${t.purchases.onCredit}` : ''}
-                    <span className="block text-slate-600">{formatDateTime(h.at)}</span>
-                  </span>
-                  <span
-                    className={`font-bold tabular-nums ${h.voided ? 'text-slate-400 line-through' : h.cents < 0 ? 'text-brand-700' : ''}`}
-                  >
-                    {h.cents < 0 ? '− ' : ''}
-                    {formatKz(Math.abs(h.cents))}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <SupplierHistory history={history} />
           </div>
         )}
       </div>
     </Sheet>
+  );
+}
+
+interface HistoryLine {
+  id: string;
+  at: string;
+  label: string;
+  cents: number;
+  voided: boolean;
+  credit: boolean;
+}
+
+/** History lines drawn at once. */
+const HISTORY_PAGE = 30;
+
+/** Purchases and payments, newest first, drawn in parts. */
+function SupplierHistory({ history }: { history: HistoryLine[] }) {
+  const paged = usePaged(history, HISTORY_PAGE);
+  return (
+    <>
+      <ul className="divide-y divide-slate-100 rounded-xl bg-white">
+        {paged.visible.map((h) => (
+          <li key={h.id} className="flex justify-between gap-2 p-3 text-sm">
+            <span className={h.voided ? 'text-slate-400 line-through' : ''}>
+              <span className="font-semibold">{h.label}</span>
+              {h.credit ? ` · ${t.purchases.onCredit}` : ''}
+              <span className="block text-slate-600">{formatDateTime(h.at)}</span>
+            </span>
+            <span className={`font-bold tabular-nums ${h.voided ? 'text-slate-400 line-through' : h.cents < 0 ? 'text-brand-700' : ''}`}>
+              {h.cents < 0 ? '− ' : ''}
+              {formatKz(Math.abs(h.cents))}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <ShowMore rest={paged.rest} page={HISTORY_PAGE} onClick={paged.more} className="mt-2" />
+    </>
   );
 }

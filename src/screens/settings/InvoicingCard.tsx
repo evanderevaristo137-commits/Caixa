@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { formatBpAsPercent, parsePercentToBp } from '../../domain/tax';
 import { VAT_REGIMES, type Settings, type VatRegime } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
-import { invoiceExport, missingInvoiceData } from '../../integrations/invoice-request';
+import { invoiceExport, missingWith } from '../../integrations/invoice-request';
+import { useLoaded } from '../../ui/use-loaded';
 import { dateStamp } from '../../lib/download';
 import { shareOrDownload } from '../../lib/share';
 import { Button, Card, Field } from '../../ui/kit';
@@ -16,7 +16,13 @@ export function InvoicingCard({ settings }: { settings: Settings }) {
   const [regime, setRegime] = useState<VatRegime>(settings.vatRegime ?? 'unknown');
   const [rate, setRate] = useState(settings.defaultTaxRateBp === undefined ? '' : formatBpAsPercent(settings.defaultTaxRateBp));
   const [error, setError] = useState<string | null>(null);
-  const missing = useLiveQuery(async () => missingInvoiceData(settings, await store.sales.list()), [store, settings]);
+  // Read only when the section is opened, and stop at the first sale line without a rate: «Mais»
+  // used to read every sale of the shop as soon as it opened.
+  const [open, setOpen] = useState(false);
+  const missing = useLoaded(
+    async () => (open ? missingWith(settings, await store.sales.anyLineWithoutTax()) : undefined),
+    [store, settings, open],
+  );
 
   const save = async () => {
     const bp = parsePercentToBp(rate);
@@ -35,7 +41,7 @@ export function InvoicingCard({ settings }: { settings: Settings }) {
 
   return (
     <Card>
-      <details>
+      <details onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary className="min-h-11 cursor-pointer py-2 text-lg font-bold">{t.invoicing.title}</summary>
         <div className="mt-2 space-y-3">
           <p className="text-sm text-slate-600">{t.invoicing.hint}</p>

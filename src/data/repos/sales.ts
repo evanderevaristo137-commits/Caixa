@@ -22,6 +22,9 @@ export class SalesRepository {
   get = (id: string) => this.c.db.sales.get(id);
   /** Sales with from <= createdAt < to (ISO strings). */
   between = (fromIso: string, toIso: string) => this.c.db.sales.where('createdAt').between(fromIso, toIso, true, false).toArray();
+  /** Is there a sale line without an IVA rate? Stops at the first one (never reads every sale into memory). */
+  anyLineWithoutTax = async (): Promise<boolean> =>
+    !!(await this.c.db.sales.filter((s) => s.items.some((i) => i.taxRateBp === undefined)).first());
   /** How fast each product sells: the last SPEED_DAYS days of sales (see salesSpeed). */
   speeds = async (now = this.c.now()) => {
     const from = addDays(startOfLocalDay(now), -(SPEED_DAYS - 1)).toISOString();

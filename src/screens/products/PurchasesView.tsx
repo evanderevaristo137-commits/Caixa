@@ -9,6 +9,10 @@ import { Button, Empty, Field, Money, Sheet, Skeleton } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { NewPurchaseSheet } from './NewPurchaseSheet';
 import { PurchaseReportSheet } from './PurchaseReportSheet';
+import { ShowMore, usePaged } from '../../ui/paged';
+
+/** Purchases drawn at once; «Ver mais» draws the next ones. */
+const PURCHASES_PAGE = 50;
 
 /** Purchases (goods received), newest first. */
 export function PurchasesView() {
@@ -19,6 +23,7 @@ export function PurchasesView() {
   }, [store]);
   const [adding, setAdding] = useState(false);
   const [report, setReport] = useState(false);
+  const paged = usePaged(data?.purchases ?? [], PURCHASES_PAGE);
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
@@ -37,7 +42,7 @@ export function PurchasesView() {
         <Empty>{t.purchases.empty}</Empty>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl bg-white shadow-sm">
-          {data.purchases.map((p) => (
+          {paged.visible.map((p) => (
             <li key={p.id}>
               <button
                 type="button"
@@ -61,6 +66,7 @@ export function PurchasesView() {
           ))}
         </ul>
       )}
+      <ShowMore rest={paged.rest} page={PURCHASES_PAGE} onClick={paged.more} className="mt-3" />
       {adding && <NewPurchaseSheet onClose={() => setAdding(false)} />}
       {report && <PurchaseReportSheet onClose={() => setReport(false)} />}
       {openId && <PurchaseSheet purchaseId={openId} onClose={() => setOpenId(null)} />}

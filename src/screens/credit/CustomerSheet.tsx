@@ -13,10 +13,13 @@ import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge, reminderLink } from './due';
 import { useBusy } from '../../ui/use-busy';
+import { ShowMore, usePaged } from '../../ui/paged';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
 
 const VERDICT_CLASS = { good: 'text-brand-800', fair: 'text-amber-800', poor: 'text-red-700' } as const;
+/** History lines drawn at once. */
+const HISTORY_PAGE = 30;
 
 const PAY_METHODS: Exclude<CreditPayment['method'], 'return'>[] = [
   'cash',
@@ -255,8 +258,26 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
       )}
 
       <h3 className="mt-5 mb-2 font-bold">{t.credit.history}</h3>
+      <CustomerHistory history={history} />
+    </Sheet>
+  );
+}
+
+interface HistoryLine {
+  at: string;
+  kind: 'buy' | 'pay';
+  voided: boolean;
+  cents: number;
+  label: string;
+}
+
+/** Purchases on credit and payments, newest first, drawn in parts. */
+function CustomerHistory({ history }: { history: HistoryLine[] }) {
+  const paged = usePaged(history, HISTORY_PAGE);
+  return (
+    <>
       <ul className="divide-y divide-slate-200 rounded-xl bg-white">
-        {history.map((h, i) => (
+        {paged.visible.map((h, i) => (
           <li key={i} className="flex items-start justify-between gap-2 p-3">
             <div className="min-w-0">
               <p className="font-semibold">
@@ -273,6 +294,7 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           </li>
         ))}
       </ul>
-    </Sheet>
+      <ShowMore rest={paged.rest} page={HISTORY_PAGE} onClick={paged.more} className="mt-2" />
+    </>
   );
 }

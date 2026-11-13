@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
+import { ShowMore, usePaged } from '../../ui/paged';
 import { addToCart, cartCount, cartTotal, setWeightLine } from '../../domain/cart';
 import { formatKg, formatQuantity } from '../../domain/quantity';
 import { formatKz } from '../../lib/money';
@@ -22,6 +23,9 @@ import { useOpenSale } from './use-open-sale';
 import { Scanner, scannerSupported } from './Scanner';
 import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { inCategory } from '../../domain/categories';
+
+/** Products drawn at once on Vender (300 products drawn at once are slow on a cheap phone). */
+const SELL_PAGE = 60;
 
 export function SellScreen() {
   const { store, mode, setMode, showToast } = useApp();
@@ -54,6 +58,8 @@ export function SellScreen() {
     if (q) return ordered.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
     return ordered.filter((p) => inCategory(p, shownCategory));
   }, [ordered, query, shownCategory]);
+  // The best sellers come first, so a few dozen cover most sales; the rest with «Ver mais».
+  const paged = usePaged(filtered, SELL_PAGE, `${query}|${shownCategory}`);
 
   useEffect(() => {
     if (cart.length === 0 && sheet === 'checkout') setSheet('none');
@@ -221,7 +227,7 @@ export function SellScreen() {
         <Empty>{t.sell.noResults}</Empty>
       ) : (
         <ul className={`grid grid-cols-2 gap-2 px-3 ${count > 0 ? 'pb-24' : 'pb-3'}`}>
-          {filtered.map((p) => {
+          {paged.visible.map((p) => {
             const inCart = qtyIn.get(p.id) ?? 0;
             const low = p.stock <= p.minStock;
             return (
@@ -256,6 +262,11 @@ export function SellScreen() {
               </li>
             );
           })}
+          {paged.rest > 0 && (
+            <li className="col-span-2">
+              <ShowMore rest={paged.rest} page={SELL_PAGE} onClick={paged.more} />
+            </li>
+          )}
         </ul>
       )}
 

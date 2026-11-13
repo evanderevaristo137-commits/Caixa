@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
 import { creditBook, totalOutstanding } from '../../domain/credit';
@@ -11,6 +11,10 @@ import { CustomerPicker } from '../sell/CustomerPicker';
 import { DebtorsSheet } from './DebtorsSheet';
 import { byCustomer, customerPunctuality } from '../../domain/debtors';
 import { toLocalDateString } from '../../lib/dates';
+import { ShowMore, usePaged } from '../../ui/paged';
+
+/** Customers drawn at once; «Ver mais» draws the next ones. */
+const CUSTOMERS_PAGE = 40;
 
 export default function CreditScreen() {
   const { store } = useApp();
@@ -22,33 +26,46 @@ export default function CreditScreen() {
       store.settings.get(),
     ]);
     const now = new Date();
-    const today = toLocalDateString(now);
-    const salesOf = byCustomer(sales);
-    const paymentsOf = byCustomer(payments);
-    return creditBook(customers, sales, payments, now).map((b) => ({
+    const book = creditBook(customers, sales, payments, now).map((b) => ({
       ...b,
       // Quick "Lembrar" only when the payment is late, due today or due soon.
       remind: b.dueState === 'later' ? null : reminderLink(b, b.customer, settings.storeName, now),
-      // Who usually pays late (only said with enough history).
-      poorPayer:
-        b.balanceCents > 0 &&
-        customerPunctuality(salesOf.get(b.customer.id) ?? [], paymentsOf.get(b.customer.id) ?? [], today).verdict === 'poor',
     }));
+    return { book, sales, payments };
   }, [store]);
+  // Who usually pays late (only said with enough history): worked out after the list is shown,
+  // so the list appears as fast as before on a cheap phone.
+  const later = useDeferredValue(data);
+  const poorPayers = useMemo(() => {
+    if (!later) return new Set<string>();
+    const today = toLocalDateString(new Date());
+    const salesOf = byCustomer(later.sales);
+    const paymentsOf = byCustomer(later.payments);
+    return new Set(
+      later.book
+        .filter(
+          (b) =>
+            b.balanceCents > 0 &&
+            customerPunctuality(salesOf.get(b.customer.id) ?? [], paymentsOf.get(b.customer.id) ?? [], today).verdict === 'poor',
+        )
+        .map((b) => b.customer.id),
+    );
+  }, [later]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [report, setReport] = useState(false);
+  const owing = useMemo(() => (data?.book ?? []).filter((b) => b.balanceCents > 0), [data]);
+  const list = useMemo(() => [...owing, ...(data?.book ?? []).filter((b) => b.balanceCents <= 0)], [data, owing]);
+  const paged = usePaged(list, CUSTOMERS_PAGE);
 
   if (!data) return <Skeleton />;
-  const owing = data.filter((b) => b.balanceCents > 0);
-  const settled = data.filter((b) => b.balanceCents <= 0);
 
   return (
     <div className="p-3">
       <Card className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-600">{t.credit.totalOwed}</p>
-          <Money cents={totalOutstanding(data)} className="text-3xl font-extrabold text-amber-800" />
+          <Money cents={totalOutstanding(data.book)} className="text-3xl font-extrabold text-amber-800" />
         </div>
         <Button variant="secondary" onClick={() => setAdding(true)}>
           + {t.credit.newCustomer}
@@ -63,7 +80,7 @@ export default function CreditScreen() {
       {owing.length === 0 && <Empty>{t.credit.empty}</Empty>}
 
       <ul className="space-y-2">
-        {[...owing, ...settled].map((b) => (
+        {paged.visible.map((b) => (
           <li key={b.customer.id} className="flex items-stretch gap-2 rounded-xl bg-white shadow-sm">
             <button
               type="button"
@@ -77,7 +94,9 @@ export default function CreditScreen() {
                     <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-semibold ${dueBadge(b)?.className ?? ''}`}>
                       {dueBadge(b)?.text}
                     </span>
-                    {b.poorPayer && <span className="ml-1 text-sm font-semibold text-red-700">{t.punctuality.verdict.poor}</span>}
+                    {poorPayers.has(b.customer.id) && (
+                      <span className="ml-1 text-sm font-semibold text-red-700">{t.punctuality.verdict.poor}</span>
+                    )}
                   </>
                 ) : b.balanceCents < 0 ? (
                   <span className="text-sm font-semibold text-brand-700">{t.credit.inFavourShort(formatKz(-b.balanceCents))}</span>
@@ -106,6 +125,7 @@ export default function CreditScreen() {
         ))}
       </ul>
 
+      <ShowMore rest={paged.rest} page={CUSTOMERS_PAGE} onClick={paged.more} className="mt-3" />
       {openId && <CustomerSheet customerId={openId} onClose={() => setOpenId(null)} />}
       {report && <DebtorsSheet onClose={() => setReport(false)} />}
       {adding && (
