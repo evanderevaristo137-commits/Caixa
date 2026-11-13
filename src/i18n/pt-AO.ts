@@ -670,6 +670,10 @@ export const t = {
     printHint: 'No ecrã de impressão pode escolher «Guardar como PDF» e enviar o ficheiro para imprimir noutro lado.',
     printAgain: 'Imprimir',
   },
+  syncAudit: {
+    changed: (what: string) => `Mudado noutro telemóvel da loja — ${what}`,
+    plain: 'Mudado noutro telemóvel da loja',
+  },
   demoKinds: {
     title: 'Loja de exemplo',
     hint: 'Escolha a loja parecida com a que vai visitar: os dados de exemplo mudam (produtos, clientes, fornecedores e vendas). Nunca mexe nos dados da loja real.',

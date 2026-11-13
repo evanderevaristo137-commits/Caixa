@@ -197,7 +197,9 @@ export class StoreCore {
     const at = this.stamp();
     const movement: StockMovement = { ...m, id: uuid(), createdAt: at, updatedAt: at };
     await this.db.stockMovements.add(movement);
-    await this.db.products.update(m.productId, { stock: product.stock + m.delta, updatedAt: at });
+    // The stock is worked out from the movements: it is not an edit of the product, so `updatedAt`
+    // (the last change to its own data, which decides between two phones) stays as it is.
+    await this.db.products.update(m.productId, { stock: product.stock + m.delta });
     if (m.type === 'entry' || m.type === 'adjustment') {
       await this.audit({ entity: 'stock_movement', entityId: movement.id, action: 'created', after: movement });
     }

@@ -69,7 +69,7 @@ test('a backup is compressed; restoring it shows what would be lost first, and c
   await expect(review).toContainText(/Na cópia.*1 venda, a última a/);
   await expect(review).toContainText(/Neste telemóvel agora.*2 vendas, a última a/);
   await expect(review.getByRole('alert')).toContainText(
-    /Atenção: este telemóvel tem 1 venda e \d+ outros registos que a cópia não tem .* Se recuperar, perdem-se\./,
+    /Atenção: este telemóvel tem 1 venda e \d+ outros? registos? que a cópia não tem .* Se recuperar, perdem-se\./,
   );
   await review.getByRole('button', { name: 'Recuperar esta cópia' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Cópia recuperada.' })).toBeVisible();

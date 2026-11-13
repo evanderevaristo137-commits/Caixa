@@ -53,9 +53,11 @@ export function checkIntegrity(d: IntegrityData): IntegrityIssue[] {
     if (computed !== p.stock) issues.push({ kind: 'stock_mismatch', productId: p.id, name: p.name, recorded: p.stock, computed });
   }
 
-  const numbers = new Map<number, number>();
+  // Each phone numbers its own sales: the same number on two phones of the shop is fine.
+  const numbers = new Map<string, { number: number; count: number }>();
   for (const s of d.sales) {
-    numbers.set(s.number, (numbers.get(s.number) ?? 0) + 1);
+    const key = `${s.deviceId ?? ''}|${s.number}`;
+    numbers.set(key, { number: s.number, count: (numbers.get(key)?.count ?? 0) + 1 });
     const linesOk = s.items.every((i) =>
       i.soldBy === 'weight'
         ? // rounded to the whole kwanza, or an amount asked by the customer: within 1 Kz + one gram's price
@@ -68,7 +70,7 @@ export function checkIntegrity(d: IntegrityData): IntegrityIssue[] {
       issues.push({ kind: 'credit_without_customer', saleId: s.id, number: s.number });
     }
   }
-  for (const [number, count] of numbers) if (count > 1) issues.push({ kind: 'duplicate_sale_number', number });
+  for (const { number, count } of numbers.values()) if (count > 1) issues.push({ kind: 'duplicate_sale_number', number });
   for (const p of d.payments) if (!customerIds.has(p.customerId)) issues.push({ kind: 'payment_without_customer', paymentId: p.id });
   if (d.accounts) {
     const names = new Map(d.customers.map((c) => [c.id, c.name]));

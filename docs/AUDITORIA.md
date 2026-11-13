@@ -128,6 +128,54 @@ Actualizado à medida que cada passo é publicado.
 - **Ecrãs grandes só testados em simulação** (Chrome com o tamanho de um tablet e de um computador), não num tablet real.
 - **O «Hoje» continua a ser o ecrã mais pesado** com uma loja grande (~0,9 s num telemóvel lento).
 
+## Fase 5: funcionalidades avançadas (concluída a 13/11/2026)
+
+| Passo                                          | O que foi feito                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1 Funcionários                               | Desligados por defeito. Cada funcionário tem nome, papel (vendedor ou gerente) e código próprio; o que não pode fazer pede o código do dono na hora, e quem verifica é o `Store`, não só o ecrã. Cada venda, pagamento, saída e fecho do dia guarda quem o fez.                                                     |
+| 5.2 Sugestões para a loja                      | Um cartão no «Hoje» que só aparece quando os dados chegam e nunca inventa números: produtos abaixo do custo, clientes que deixaram de comprar, dinheiro parado e o dia da semana mais forte.                                                                                                                        |
+| 5.3 Relatórios em PDF e Excel                  | «Guardar ou enviar» em Contas da loja, Semana e mês, Devedores, Análise do stock («Stock da loja») e Relatório de compras, com o nome da loja no topo e «não é documento fiscal» em baixo. O de devedores leva nomes, nunca telefones.                                                                              |
+| 5.4 Conta guardada de cada cliente             | A dívida de cada cliente fica guardada e actualiza-se com cada venda a crédito, pagamento, devolução ou anulação; «Verificar os dados» e uma verificação diária confirmam-na contra os factos. O «Hoje» e os Clientes deixaram de ler todas as vendas.                                                              |
+| Categorias e tipo de loja (pedido do fundador) | A lista da app: 16 categorias com desenho e subcategorias, para qualquer comerciante (telemóveis, peças auto, farmácia…). Escolha com botões grandes ou procura por palavra; filtros por subcategoria em Vender, Produtos e na contagem; relatórios e Excel por subcategoria; «Que tipo de loja tem?» ao começar.   |
+| Demonstrações de outros tipos de loja          | Além da mercearia, «Peças auto» e «Telemóveis», cada uma com os seus produtos, clientes, fornecedores e vendas fictícios; escolhe-se no cartão da demonstração.                                                                                                                                                     |
+| 5.5 Sincronização preparada                    | Sem servidor e sem custos: a lista do que se partilha e do que nunca sai do telemóvel, a fila de alterações (desligada até haver servidor), as regras para juntar dois telemóveis e a aplicação das alterações dos outros, com um teste de dois telemóveis que acabam iguais. Explicado em `docs/SINCRONIZACAO.md`. |
+
+**Problemas encontrados e corrigidos durante a fase:**
+
+- Vender mudava a data de alteração do produto (por causa do stock), e lembrar um cliente mudava a do cliente. Com dois telemóveis, uma venda feita num apagaria o preço novo escrito no outro. Corrigido: o stock e os lembretes deixaram de contar como alteração.
+- «Verificar os dados» acusaria números de venda repetidos entre dois telemóveis da mesma loja: agora só conta repetidos no mesmo telemóvel.
+- Dois testes da app inteira falhavam às vezes: um recarregava a página antes de a escolha ficar gravada, e outro esperava pouco por um aviso numa máquina lenta. Ficaram mais robustos, sem saltar nada.
+- Um teste do registo de alterações dependia da ordem de duas alterações feitas no mesmo milésimo de segundo: deixou de depender.
+- Nomes compridos saíam dos botões («Electrodomésticos») e o nome da categoria aparecia cortado no relatório: corrigidos.
+- «Loja de tudo um pouco» tinha o mesmo desenho da mercearia: cada tipo de loja tem agora o seu.
+
+**Números** (processador 6 vezes mais lento e a loja grande: 300 produtos, 60 clientes, 14.000 vendas):
+
+| Medida                    | Fim da Fase 4              | Fim da Fase 5                                                                         |
+| ------------------------- | -------------------------- | ------------------------------------------------------------------------------------- |
+| Testes                    | 401 de cálculos, 70 da app | 471 de cálculos, 75 da app; todos passam                                              |
+| Abrir o «Hoje»            | ~0,9 s                     | ~0,25 a 0,38 s                                                                        |
+| Abrir os Clientes         | ~0,5 s                     | ~0,14 s                                                                               |
+| Confirmar uma venda       | ~0,25 s                    | ~0,27 a 0,30 s (igual: a diferença está dentro da variação das medições)              |
+| Ficheiro principal da app | 782 KB (226 KB comprimido) | 857 KB (249 KB comprimido): mais 10% (lista de categorias, demonstrações, relatórios) |
+| Base de dados             | versão 11                  | versão 13 (contas dos clientes e fila de alterações), sem perder nada                 |
+
+**Pendentes:**
+
+- **O servidor** (decisão do fundador, com custo mensal): com ele, a sincronização a sério, as contas por loja, a cópia automática na nuvem e o painel do piloto. O que falta decidir está em `docs/SINCRONIZACAO.md`.
+- A caixa por pessoa (cada funcionário fecha a sua parte) e o filtro por pessoa em «Procurar vendas».
+- Vender serviços sem stock (reparações de telemóveis, fotocópias), pedido pelo fundador para depois.
+- O aviso diário com a app fechada ainda não inclui as validades nem os pagamentos por confirmar; impressão directa por Bluetooth.
+- Para a Fase 6: revisão de acessibilidade dos ecrãs novos (funcionários, escolher categoria, tipo de loja, relatórios) e o foco do teclado dentro das janelas.
+- Continuam do fundador: endereço próprio da app (C7) e a revisão dos textos legais e das regras do INSS.
+
+**Riscos:**
+
+- **A sincronização só foi testada entre «telemóveis» simulados.** Com um servidor real aparecem casos novos: rede que cai a meio, relógios errados, a mesma loja em vários telemóveis durante dias sem rede.
+- **Funcionários e código do dono são dissuasão, não segurança a sério:** sem servidor, quem tem o telemóvel pode apagar a app.
+- **Mais escolhas para o dono:** a pergunta do tipo de loja acrescenta um passo ao começar (pode saltar-se), e a lista de categorias é longa (aparece primeiro só a do tipo de loja).
+- **Demonstrações de peças auto e telemóveis com preços fictícios:** convém confirmá-los com comerciantes desses ramos, para parecerem reais nas visitas.
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |

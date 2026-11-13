@@ -90,6 +90,10 @@ Em **Mais → Piloto e ajuda → Termos e condições** estão, para ler sem int
 
 A app **não emite facturas**. Em **Mais → A loja → Dados para facturação (opcional)** pode juntar a morada, o regime de IVA e o IVA habitual da loja; nos produtos, a unidade e o IVA; nos clientes, o NIF. A app mostra o que ainda falta e exporta as vendas e anulações no formato que o parceiro de facturação certificado pela AGT vai receber. Tudo isto está explicado, para os parceiros, em [`docs/INTEGRACOES.md`](docs/INTEGRACOES.md).
 
+## Preparado para vários telemóveis e cópia na nuvem
+
+Hoje cada loja vive só no seu telemóvel. A app já está preparada para, quando houver servidor (Fase 2), juntar vários telemóveis da mesma loja e guardar uma cópia na nuvem: sabe o que partilhar, o que nunca sai do telemóvel (códigos e chaves) e como juntar duas versões sem perder vendas. Enquanto não houver servidor, nada disto envia dados nem custa nada. Está explicado em [`docs/SINCRONIZACAO.md`](docs/SINCRONIZACAO.md).
+
 ## Cópias de segurança
 
 Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Segurança e cópias → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no «Hoje» (em «Para tratar hoje») quando a última cópia tiver mais de 7 dias, e propõe a cópia quando se fecha o dia.

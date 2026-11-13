@@ -37,6 +37,11 @@ const obj = <T>(v: unknown): Partial<T> => (typeof v === 'object' && v !== null 
 
 /** Turns one audit record into a sentence in plain Portuguese (null for internal noise). */
 export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
+  // Another phone of the shop changed it more recently: said as the change it made here.
+  if (e.action === 'sync_overwritten') {
+    const change = describeAudit({ ...e, action: 'updated' }, names);
+    return { text: change ? t.syncAudit.changed(change.text) : t.syncAudit.plain, important: true };
+  }
   switch (e.entity) {
     case 'sale': {
       const s = obj<Sale & { replacedByNumber: number; replacesNumber: number }>(e.after);

@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { creditAccounts, dueDateOf, type CreditAccount } from '../domain/credit';
+import { changeTracking, newSyncState, type ChangeRow } from './sync/outbox';
 import type {
   AuditEntry,
   Batch,
@@ -75,6 +76,9 @@ export class CaixaDB extends Dexie {
   staff!: Table<StaffMember, string>;
   staffPins!: Table<StaffPinRow, string>;
   accounts!: Table<CreditAccount, string>;
+  changes!: Table<ChangeRow, [string, string]>;
+  /** Whether changes are recorded for the server (off until the shop syncs: see sync/outbox.ts). */
+  readonly sync = newSyncState();
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -139,6 +143,18 @@ export class CaixaDB extends Dexie {
         ]);
         await tx.table<CreditAccount, string>('accounts').bulkPut(creditAccounts(sales, payments));
       });
+    // v13: the queue of changes to send to a server (phase 2). Empty and unused until the shop syncs.
+    this.version(13).stores({ changes: '[t+id]' });
+    // Every write to a shared table goes through here: once syncing is on, it is noted in the queue.
+    this.use(changeTracking(this.sync));
+    this.on('ready', (vip) =>
+      vip
+        .table('meta')
+        .get('syncOn')
+        .then((row: MetaRow | undefined) => {
+          this.sync.on = row?.value === 1;
+        }),
+    );
   }
 }
 

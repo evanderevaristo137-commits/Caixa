@@ -26,7 +26,8 @@ export class CustomersRepository {
       const before = await this.c.db.customers.get(id);
       if (!before) throw new DomainError('not_found');
       const at = this.c.stamp();
-      const after: Customer = { ...before, lastRemindedAt: at, updatedAt: at };
+      // A reminder is not an edit of the customer: `updatedAt` stays (see domain/sync-merge.ts).
+      const after: Customer = { ...before, lastRemindedAt: at };
       await this.c.db.customers.put(after);
       await this.c.audit({ entity: 'customer', entityId: id, action: 'updated', ...changedFields(before, after, ['name']) });
     });

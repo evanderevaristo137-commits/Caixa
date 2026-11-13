@@ -390,7 +390,18 @@ export interface AuditEntry extends BaseRecord {
     | 'batch'
     | 'staff';
   entityId: string;
-  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted' | 'confirmed' | 'signed_in';
+  action:
+    | 'created'
+    | 'updated'
+    | 'archived'
+    | 'voided'
+    | 'imported'
+    | 'reset'
+    | 'counted'
+    | 'confirmed'
+    | 'signed_in'
+    /** Another phone's more recent version replaced this one (before: what was here). */
+    | 'sync_overwritten';
   /** Who did it, when the shop has employees ('owner' or the employee's id). */
   by?: string;
   before?: unknown;
