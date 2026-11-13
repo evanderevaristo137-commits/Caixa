@@ -74,16 +74,51 @@ export function dueStateOf(dueDate: string, today: string): DueState {
   return days <= SOON_DAYS ? 'soon' : 'later';
 }
 
-export function creditStatus(customerId: string, sales: CreditSale[], payments: PaymentLike[], now: Date): CreditStatus {
+/**
+ * A customer's credit account: what they bought on credit, what they paid back, and the purchases
+ * not fully paid yet. It only changes with a credit sale, a payment, a return or a void, so the
+ * Store keeps it saved for each customer (table `accounts`) and the screens need not read every sale.
+ */
+export interface CreditAccount {
+  customerId: string;
+  totalCreditCents: Cents;
+  totalPaidCents: Cents;
+  /** The purchases not fully paid yet, oldest first (payments settle the oldest first). */
+  open: OpenItem[];
+}
+
+/** The account of one customer from their sales and payments (the facts). */
+export function creditAccount(customerId: string, sales: CreditSale[], payments: PaymentLike[]): CreditAccount {
   const valid = sales.filter((s) => s.method === 'credit' && s.customerId === customerId && !s.voidedAt);
   const totalCreditCents = valid.reduce((acc, s) => acc + s.totalCents, 0);
   const totalPaidCents = payments.filter((p) => p.customerId === customerId).reduce((acc, p) => acc + p.amountCents, 0);
+  const open = totalCreditCents > totalPaidCents ? openItems(customerId, valid, payments) : [];
+  return { customerId, totalCreditCents, totalPaidCents, open };
+}
+
+/** No credit sale and no payment: nothing to keep. */
+export const isEmptyAccount = (a: CreditAccount) => a.totalCreditCents === 0 && a.totalPaidCents === 0 && a.open.length === 0;
+
+const emptyAccount = (customerId: string): CreditAccount => ({ customerId, totalCreditCents: 0, totalPaidCents: 0, open: [] });
+
+/** The accounts of every customer with a credit sale or a payment, from all the facts (to build or check the saved ones). */
+export function creditAccounts(sales: CreditSale[], payments: PaymentLike[]): CreditAccount[] {
+  const salesBy = groupBy(
+    sales.filter((s) => s.method === 'credit'),
+    (s) => s.customerId,
+  );
+  const paymentsBy = groupBy(payments, (p) => p.customerId);
+  const ids = new Set([...salesBy.keys(), ...paymentsBy.keys()]);
+  return [...ids].map((id) => creditAccount(id, salesBy.get(id) ?? [], paymentsBy.get(id) ?? [])).filter((a) => !isEmptyAccount(a));
+}
+
+/** Balance and payment situation of an account on a given day (due dates move with the calendar). */
+export function accountStatus(account: CreditAccount, now: Date): CreditStatus {
+  const { customerId, totalCreditCents, totalPaidCents, open } = account;
   const balanceCents = totalCreditCents - totalPaidCents;
   const today = toLocalDateString(now);
-  const open = balanceCents > 0 ? openItems(customerId, sales, payments) : [];
-
   const base: CreditStatus = { customerId, balanceCents, totalCreditCents, totalPaidCents, dueNowCents: 0, reminderAmountCents: 0 };
-  if (open.length === 0) return base;
+  if (balanceCents <= 0 || open.length === 0) return base;
 
   const oldest = open[0]!;
   const nextDueDate = open.reduce((min, i) => (i.dueDate < min ? i.dueDate : min), oldest.dueDate);
@@ -106,27 +141,37 @@ export function creditStatus(customerId: string, sales: CreditSale[], payments: 
   };
 }
 
+export function creditStatus(customerId: string, sales: CreditSale[], payments: PaymentLike[], now: Date): CreditStatus {
+  return accountStatus(creditAccount(customerId, sales, payments), now);
+}
+
 export interface CustomerWithCredit extends CreditStatus {
   customer: Customer;
 }
 
 const URGENCY: Record<DueState, number> = { overdue: 0, today: 1, soon: 2, later: 3 };
 
-/** All customers with their balance: overdue first (longest first), then due today, soon, later, then settled. */
-export function creditBook(customers: Customer[], sales: CreditSale[], payments: PaymentLike[], now: Date): CustomerWithCredit[] {
+/** All customers with their balance, from their accounts: overdue first (longest first), then due today, soon, later, then settled. */
+export function bookOf(customers: Customer[], accounts: ReadonlyMap<string, CreditAccount>, now: Date): CustomerWithCredit[] {
   const rank = (c: CreditStatus) => (c.balanceCents > 0 && c.dueState ? URGENCY[c.dueState] : 4);
-  // Sales and payments grouped by customer once: each customer then only looks at their own
-  // (not at every sale of the shop again, which is slow with months of sales).
-  const salesBy = groupBy(sales, (s) => s.customerId);
-  const paymentsBy = groupBy(payments, (p) => p.customerId);
   return customers
-    .map((customer) => ({ customer, ...creditStatus(customer.id, salesBy.get(customer.id) ?? [], paymentsBy.get(customer.id) ?? [], now) }))
+    .map((customer) => ({ customer, ...accountStatus(accounts.get(customer.id) ?? emptyAccount(customer.id), now) }))
     .sort((a, b) => {
       const r = rank(a) - rank(b);
       if (r !== 0) return r;
       if (a.dueState === 'overdue' && b.dueState === 'overdue') return (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0);
       return (a.daysUntilDue ?? 0) - (b.daysUntilDue ?? 0) || b.balanceCents - a.balanceCents;
     });
+}
+
+/** All customers with their balance, from the facts: the same as `bookOf` with accounts worked out from the sales and payments. */
+export function creditBook(customers: Customer[], sales: CreditSale[], payments: PaymentLike[], now: Date): CustomerWithCredit[] {
+  // Sales and payments grouped by customer once: each customer then only looks at their own
+  // (not at every sale of the shop again, which is slow with months of sales).
+  const salesBy = groupBy(sales, (s) => s.customerId);
+  const paymentsBy = groupBy(payments, (p) => p.customerId);
+  const accounts = new Map(customers.map((c) => [c.id, creditAccount(c.id, salesBy.get(c.id) ?? [], paymentsBy.get(c.id) ?? [])]));
+  return bookOf(customers, accounts, now);
 }
 
 function groupBy<T>(items: T[], key: (item: T) => string | undefined): Map<string, T[]> {

@@ -1,4 +1,5 @@
 import { lineTotal } from '../lib/money';
+import { creditAccounts, type CreditAccount } from './credit';
 import type { CreditPayment, Customer, Product, Sale, StockMovement } from './types';
 
 export type IntegrityIssue =
@@ -7,7 +8,8 @@ export type IntegrityIssue =
   | { kind: 'credit_without_customer'; saleId: string; number: number }
   | { kind: 'payment_without_customer'; paymentId: string }
   | { kind: 'movement_without_product'; movementId: string }
-  | { kind: 'duplicate_sale_number'; number: number };
+  | { kind: 'duplicate_sale_number'; number: number }
+  | { kind: 'account_mismatch'; customerId: string; name: string };
 
 export interface IntegrityData {
   products: Product[];
@@ -15,6 +17,21 @@ export interface IntegrityData {
   sales: Sale[];
   customers: Customer[];
   payments: CreditPayment[];
+  /** The customers' saved accounts (checked against the sales and payments). */
+  accounts?: CreditAccount[];
+}
+
+/** An account as a plain text, to compare a saved one with one worked out from the facts. */
+const accountKey = (a: CreditAccount | undefined) =>
+  a
+    ? JSON.stringify([a.totalCreditCents, a.totalPaidCents, a.open.map((i) => [i.saleId ?? '', i.createdAt, i.dueDate, i.remainingCents])])
+    : '';
+
+/** The customers whose saved account differs from the one their sales and payments give (ids). */
+export function accountDifferences(saved: CreditAccount[], fromFacts: CreditAccount[]): string[] {
+  const savedBy = new Map(saved.map((a) => [a.customerId, a]));
+  const factsBy = new Map(fromFacts.map((a) => [a.customerId, a]));
+  return [...new Set([...savedBy.keys(), ...factsBy.keys()])].filter((id) => accountKey(savedBy.get(id)) !== accountKey(factsBy.get(id)));
 }
 
 /**
@@ -53,5 +70,11 @@ export function checkIntegrity(d: IntegrityData): IntegrityIssue[] {
   }
   for (const [number, count] of numbers) if (count > 1) issues.push({ kind: 'duplicate_sale_number', number });
   for (const p of d.payments) if (!customerIds.has(p.customerId)) issues.push({ kind: 'payment_without_customer', paymentId: p.id });
+  if (d.accounts) {
+    const names = new Map(d.customers.map((c) => [c.id, c.name]));
+    for (const customerId of accountDifferences(d.accounts, creditAccounts(d.sales, d.payments))) {
+      issues.push({ kind: 'account_mismatch', customerId, name: names.get(customerId) ?? '—' });
+    }
+  }
   return issues;
 }

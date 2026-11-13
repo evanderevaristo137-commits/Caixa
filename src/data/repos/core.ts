@@ -7,6 +7,7 @@ import { savedCents } from '../../domain/inss';
 import { summariseReturns } from '../../domain/returns';
 import type { AuditEntry, Batch, SaleItem, StockMovement } from '../../domain/types';
 import { can, personId, type Permission, type Person } from '../../domain/staff';
+import { creditAccount, isEmptyAccount } from '../../domain/credit';
 import { uuid } from '../../lib/ids';
 import { CaixaDB } from '../db';
 import type { Store } from '../store';
@@ -64,6 +65,20 @@ export class StoreCore {
     ]);
     const bought = sales.filter((x) => x.method === 'credit' && !x.voidedAt).reduce((a, x) => a + x.totalCents, 0);
     return bought - payments.reduce((a, p) => a + p.amountCents, 0);
+  }
+
+  /**
+   * Keeps the customer's saved credit account in step with the facts, after a credit sale, a payment,
+   * a return or a void: call inside that transaction (with sales, creditPayments and accounts).
+   */
+  async refreshAccount(customerId: string): Promise<void> {
+    const [sales, payments] = await Promise.all([
+      this.db.sales.where('customerId').equals(customerId).toArray(),
+      this.db.creditPayments.where('customerId').equals(customerId).toArray(),
+    ]);
+    const account = creditAccount(customerId, sales, payments);
+    if (isEmptyAccount(account)) await this.db.accounts.delete(customerId);
+    else await this.db.accounts.put(account);
   }
 
   /**

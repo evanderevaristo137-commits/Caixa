@@ -1,5 +1,4 @@
 import type { BackgroundAlertItem, DigitalAlertInfo, DueItem } from '../domain/alerts';
-import { creditBook } from '../domain/credit';
 import { digitalStatus } from '../domain/digital-watch';
 import { inssAlertItem, type InssAlertItem } from '../domain/inss';
 import { addDays, startOfLocalDay, toLocalDateString } from '../lib/dates';
@@ -18,16 +17,9 @@ export const ALERT_KEYS = {
 
 /** Customers who owe and suppliers the shop owes, with the date of the next payment. */
 export async function dueItems(store: Store, now: Date): Promise<{ credit: BackgroundAlertItem[]; suppliers: DueItem[] }> {
-  const [customers, sales, payments, payables] = await Promise.all([
-    store.customers.list(),
-    store.sales.onCredit(),
-    store.credit.payments(),
-    store.payables.book(now),
-  ]);
+  const [book, payables] = await Promise.all([store.credit.book(now), store.payables.book(now)]);
   return {
-    credit: creditBook(customers, sales, payments, now)
-      .filter((b) => b.balanceCents > 0 && b.nextDueDate)
-      .map((b) => ({ name: b.customer.name, dueDate: b.nextDueDate! })),
+    credit: book.filter((b) => b.balanceCents > 0 && b.nextDueDate).map((b) => ({ name: b.customer.name, dueDate: b.nextDueDate! })),
     suppliers: payables.filter((s) => s.balanceCents > 0 && s.nextDueDate).map((s) => ({ dueDate: s.nextDueDate! })),
   };
 }

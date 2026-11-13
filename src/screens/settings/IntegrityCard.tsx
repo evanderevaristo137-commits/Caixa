@@ -20,6 +20,8 @@ function describe(issue: IntegrityIssue): string {
       return t.integrity.movementNoProduct;
     case 'duplicate_sale_number':
       return t.integrity.duplicateNumber(issue.number);
+    case 'account_mismatch':
+      return t.integrity.account(issue.name);
   }
 }
 
@@ -59,6 +61,19 @@ export function IntegrityCard() {
             {result.issues.map((issue, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-red-900">
                 <span className="flex-1">{describe(issue)}</span>
+                {issue.kind === 'account_mismatch' && i === result.issues.findIndex((x) => x.kind === 'account_mismatch') && (
+                  <Button
+                    className="min-h-11 text-sm"
+                    onClick={() =>
+                      void (async () => {
+                        await store.integrity.reconcileAccounts();
+                        await run();
+                      })()
+                    }
+                  >
+                    {t.integrity.fix}
+                  </Button>
+                )}
                 {issue.kind === 'stock_mismatch' && (
                   <Button
                     className="min-h-11 text-sm"

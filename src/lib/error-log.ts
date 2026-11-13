@@ -5,8 +5,11 @@
  */
 export interface AppError {
   at: string;
-  /** Where it was caught: the page, a promise nobody handled, a screen, or saving a sale. */
-  where: 'page' | 'promise' | 'screen' | 'sale';
+  /**
+   * Where it was caught: the page, a promise nobody handled, a screen, saving a sale, or the daily
+   * check that found a customer's saved account out of step (and rebuilt it).
+   */
+  where: 'page' | 'promise' | 'screen' | 'sale' | 'accounts';
   message: string;
 }
 
@@ -14,7 +17,7 @@ const KEY = 'caixa.errors';
 /** The most recent errors kept (the oldest are dropped). */
 export const MAX_ERRORS = 50;
 
-const WHERE: readonly AppError['where'][] = ['page', 'promise', 'screen', 'sale'];
+const WHERE: readonly AppError['where'][] = ['page', 'promise', 'screen', 'sale', 'accounts'];
 
 function describe(error: unknown): string {
   if (error instanceof Error) return `${error.name}: ${error.message}`;

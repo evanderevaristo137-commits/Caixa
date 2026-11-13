@@ -23,6 +23,7 @@ import { addMonths, baseCents, dailyCents, INSS_RULES, monthlyCents, monthOf } f
 import { lineTotalFor } from '../domain/quantity';
 import { addDays, addDaysToDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import { uuid } from '../lib/ids';
+import { rebuildAccounts } from './accounts';
 import type { CaixaDB } from './db';
 import { SETTINGS_ID } from './store';
 
@@ -555,6 +556,7 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.customers.bulkAdd(data.customers);
     await db.sales.bulkAdd(data.sales);
     await db.creditPayments.bulkAdd(data.payments);
+    await rebuildAccounts(db);
     await db.stockMovements.bulkAdd(data.movements);
     await db.expenses.bulkAdd(data.expenses);
     await db.cashCloses.bulkAdd(data.closes);

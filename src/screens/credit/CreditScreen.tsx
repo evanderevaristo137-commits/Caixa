@@ -1,7 +1,7 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { creditBook, totalOutstanding } from '../../domain/credit';
+import { totalOutstanding } from '../../domain/credit';
 import { t } from '../../i18n/pt-AO';
 import { formatKz } from '../../lib/money';
 import { Button, Card, Empty, Money, Sheet, Skeleton } from '../../ui/kit';
@@ -18,31 +18,32 @@ const CUSTOMERS_PAGE = 40;
 
 export default function CreditScreen() {
   const { store } = useApp();
+  // The list comes from the customers' saved accounts (one short row each): it shows at once.
   const data = useLiveQuery(async () => {
-    const [customers, sales, payments, settings] = await Promise.all([
-      store.customers.list(),
-      store.sales.onCredit(),
-      store.credit.payments(),
-      store.settings.get(),
-    ]);
     const now = new Date();
-    const book = creditBook(customers, sales, payments, now).map((b) => ({
-      ...b,
-      // Quick "Lembrar" only when the payment is late, due today or due soon.
-      remind: b.dueState === 'later' ? null : reminderLink(b, b.customer, settings.storeName, now),
-    }));
-    return { book, sales, payments };
+    const [book, settings] = await Promise.all([store.credit.book(now), store.settings.get()]);
+    return {
+      book: book.map((b) => ({
+        ...b,
+        // Quick "Lembrar" only when the payment is late, due today or due soon.
+        remind: b.dueState === 'later' ? null : reminderLink(b, b.customer, settings.storeName, now),
+      })),
+    };
   }, [store]);
-  // Who usually pays late (only said with enough history): worked out after the list is shown,
-  // so the list appears as fast as before on a cheap phone.
-  const later = useDeferredValue(data);
+  // Who usually pays late (only said with enough history) needs every credit sale and payment:
+  // read once the list is on the screen, so the list appears as fast as it can on a cheap phone.
+  const listed = data !== undefined;
+  const history = useLiveQuery(
+    async () => (listed ? { sales: await store.sales.onCredit(), payments: await store.credit.payments() } : undefined),
+    [store, listed],
+  );
   const poorPayers = useMemo(() => {
-    if (!later) return new Set<string>();
+    if (!data || !history) return new Set<string>();
     const today = toLocalDateString(new Date());
-    const salesOf = byCustomer(later.sales);
-    const paymentsOf = byCustomer(later.payments);
+    const salesOf = byCustomer(history.sales);
+    const paymentsOf = byCustomer(history.payments);
     return new Set(
-      later.book
+      data.book
         .filter(
           (b) =>
             b.balanceCents > 0 &&
@@ -50,7 +51,7 @@ export default function CreditScreen() {
         )
         .map((b) => b.customer.id),
     );
-  }, [later]);
+  }, [data, history]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [report, setReport] = useState(false);

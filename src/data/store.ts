@@ -15,6 +15,7 @@ import { StaffRepository } from './repos/staff';
 
 // The Store's types, constants and helpers (the same names as before the split).
 export {
+  ACCOUNTS_CHECKED_KEY,
   BACKUP_LOCK_KEY,
   BACKUP_PASSWORD_MIN,
   DEFAULT_STORE_NAME,

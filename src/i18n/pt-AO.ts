@@ -1401,11 +1401,14 @@ export const t = {
     hint: 'Os erros ficam só neste telemóvel. No resumo do piloto vai apenas quantos foram.',
     show: 'Ver os erros',
     hide: 'Esconder os erros',
-    where: { page: 'Página', promise: 'Acção', screen: 'Ecrã', sale: 'Venda' } as Record<'page' | 'promise' | 'screen' | 'sale', string>,
+    where: { page: 'Página', promise: 'Acção', screen: 'Ecrã', sale: 'Venda', accounts: 'Contas dos clientes (refeitas)' } as Record<
+      'page' | 'promise' | 'screen' | 'sale' | 'accounts',
+      string
+    >,
   },
   integrity: {
     title: 'Verificar os dados',
-    hint: 'Confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos.',
+    hint: 'Confirma que o stock bate com as entradas e saídas, que o total de cada venda bate com os artigos e que o que cada cliente deve bate com as vendas e os pagamentos.',
     run: 'Verificar agora',
     ok: (sales: number, products: number) => `Tudo certo: ${sales} vendas e ${products} produtos verificados.`,
     found: (n: number) => (n === 1 ? '1 problema encontrado:' : `${n} problemas encontrados:`),
@@ -1417,6 +1420,7 @@ export const t = {
     paymentNoCustomer: 'Pagamento de um cliente que já não existe.',
     movementNoProduct: 'Movimento de stock de um produto que já não existe.',
     duplicateNumber: (n: number) => `Há mais do que uma venda com o n.º ${n}.`,
+    account: (name: string) => `${name}: o que a app guardou como dívida não bate com as vendas a crédito e os pagamentos.`,
   },
   auditLog: {
     title: 'Registo de alterações',

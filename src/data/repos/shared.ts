@@ -120,7 +120,9 @@ export interface BackupLock {
 }
 
 /** Rows of `meta` that belong to this phone: never in a backup, kept when a backup is restored. */
-export const PHONE_ONLY_KEYS = [...PIN_KEYS, BACKUP_LOCK_KEY] as const;
+/** When the customers' saved accounts were last checked (see use-background-alerts). */
+export const ACCOUNTS_CHECKED_KEY = 'accountsCheckedOn';
+export const PHONE_ONLY_KEYS = [...PIN_KEYS, BACKUP_LOCK_KEY, ACCOUNTS_CHECKED_KEY] as const;
 
 /** Shortest password accepted for the backups (after spaces around it are dropped). */
 export const BACKUP_PASSWORD_MIN = 8;

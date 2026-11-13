@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { dueDateOf } from '../domain/credit';
+import { creditAccounts, dueDateOf, type CreditAccount } from '../domain/credit';
 import type {
   AuditEntry,
   Batch,
@@ -74,6 +74,7 @@ export class CaixaDB extends Dexie {
   batches!: Table<Batch, string>;
   staff!: Table<StaffMember, string>;
   staffPins!: Table<StaffPinRow, string>;
+  accounts!: Table<CreditAccount, string>;
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -125,6 +126,19 @@ export class CaixaDB extends Dexie {
     this.version(10).stores({ batches: 'id, productId, createdAt' });
     // v11: employees on the shop's phone (off by default), and their codes, kept only on the phone.
     this.version(11).stores({ staff: 'id, name', staffPins: 'id' });
+    // v12: each customer's credit account (bought, paid, purchases still open), kept up to date with
+    // each credit sale, payment, return or void, so the screens need not read every sale. Worked out
+    // from the facts, so it never goes in a backup: built here from what the phone already has, and
+    // again after a restore or a new demo (see rebuildAccounts).
+    this.version(12)
+      .stores({ accounts: 'customerId' })
+      .upgrade(async (tx) => {
+        const [sales, payments] = await Promise.all([
+          tx.table<Sale, string>('sales').where('method').equals('credit').toArray(),
+          tx.table<CreditPayment, string>('creditPayments').toArray(),
+        ]);
+        await tx.table<CreditAccount, string>('accounts').bulkPut(creditAccounts(sales, payments));
+      });
   }
 }
 

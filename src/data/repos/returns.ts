@@ -41,6 +41,7 @@ export class ReturnsRepository {
         this.c.db.creditPayments,
         this.c.db.audit,
         this.c.db.meta,
+        this.c.db.accounts,
       ],
       async () => {
         await this.c.store.security.requireOwner();
@@ -103,6 +104,7 @@ export class ReturnsRepository {
             updatedAt: at,
           };
           await this.c.db.creditPayments.add(lower);
+          await this.c.refreshAccount(sale.customerId);
         }
         await this.c.audit({ entity: 'return', entityId: ret.id, action: 'created', after: returnLog(ret) });
         return ret;

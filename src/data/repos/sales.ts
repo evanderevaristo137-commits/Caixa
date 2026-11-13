@@ -1,4 +1,4 @@
-import { checkCreditLimit, creditBook, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../../domain/credit';
+import { checkCreditLimit, bookOf, DEFAULT_TERM_DAYS, dueDateFromTerm, totalOutstanding } from '../../domain/credit';
 import { isValidDateString, toLocalDateString } from '../../lib/dates';
 import { MAX_GRAMS } from '../../domain/quantity';
 import type { CreditPayment, Sale, SaleItem } from '../../domain/types';
@@ -69,6 +69,7 @@ export class SalesRepository {
       const at = this.c.stamp();
       const voided: Sale = { ...before, voidedAt: at, voidReason: reason.trim(), replacedBySaleId: sale.id, updatedAt: at };
       await this.c.db.sales.put(voided);
+      if (before.method === 'credit' && before.customerId) await this.c.refreshAccount(before.customerId);
       await this.c.audit({ entity: 'sale', entityId: id, action: 'voided', after: { ...saleLog(voided), replacedByNumber: sale.number } });
       for (const item of before.items) {
         await this.c.addMovement({ productId: item.productId, type: 'void', delta: item.quantity, reason: reason.trim(), saleId: id });
@@ -82,7 +83,16 @@ export class SalesRepository {
   void = (id: string, reason: string): Promise<Sale> =>
     this.c.db.transaction(
       'rw',
-      [this.c.db.sales, this.c.db.returns, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta],
+      [
+        this.c.db.sales,
+        this.c.db.returns,
+        this.c.db.products,
+        this.c.db.stockMovements,
+        this.c.db.audit,
+        this.c.db.meta,
+        this.c.db.creditPayments,
+        this.c.db.accounts,
+      ],
       async () => {
         await this.c.store.security.requireOwner();
         const before = await this.c.db.sales.get(id);
@@ -94,6 +104,7 @@ export class SalesRepository {
         const at = this.c.stamp();
         const after: Sale = { ...before, voidedAt: at, voidReason: reason.trim(), updatedAt: at };
         await this.c.db.sales.put(after);
+        if (before.method === 'credit' && before.customerId) await this.c.refreshAccount(before.customerId);
         await this.c.audit({ entity: 'sale', entityId: id, action: 'voided', after: saleLog(after) });
         for (const item of before.items) {
           await this.c.addMovement({ productId: item.productId, type: 'void', delta: item.quantity, reason: reason.trim(), saleId: id });
@@ -116,7 +127,7 @@ export class SalesRepository {
 
   private saleTables() {
     const db = this.c.db;
-    return [db.sales, db.products, db.stockMovements, db.audit, db.meta, db.customers, db.settings, db.creditPayments];
+    return [db.sales, db.products, db.stockMovements, db.audit, db.meta, db.customers, db.settings, db.creditPayments, db.accounts];
   }
 
   private checkMethod(method: string) {
@@ -194,6 +205,7 @@ export class SalesRepository {
       updatedAt: at,
     };
     await this.c.db.sales.add(sale);
+    if (sale.method === 'credit' && sale.customerId) await this.c.refreshAccount(sale.customerId);
     await this.c.audit({
       entity: 'sale',
       entityId: sale.id,
@@ -214,10 +226,13 @@ export class CreditRepository {
   payments = () => this.c.db.creditPayments.orderBy('createdAt').toArray();
   paymentsBetween = (fromIso: string, toIso: string) =>
     this.c.db.creditPayments.where('createdAt').between(fromIso, toIso, true, false).toArray();
-  /** Every customer with balance and payment situation, most urgent first. */
+  /**
+   * Every customer with balance and payment situation, most urgent first. From the saved accounts
+   * (one short row per customer), not from every sale: a cash sale does not even touch them.
+   */
   book = async (now = new Date()) => {
-    const [customers, sales, payments] = await Promise.all([this.c.store.customers.list(), this.c.store.sales.onCredit(), this.payments()]);
-    return creditBook(customers, sales, payments, now);
+    const [customers, accounts] = await Promise.all([this.c.store.customers.list(), this.c.db.accounts.toArray()]);
+    return bookOf(customers, new Map(accounts.map((a) => [a.customerId, a])), now);
   };
   /** Total owed by all customers right now. */
   totalOwed = async (now = new Date()) => totalOutstanding(await this.book(now));
@@ -228,28 +243,33 @@ export class CreditRepository {
     method: Exclude<CreditPayment['method'], 'return'>,
     transactionRef?: string,
   ): Promise<CreditPayment> =>
-    this.c.db.transaction('rw', [this.c.db.creditPayments, this.c.db.sales, this.c.db.audit, this.c.db.meta], async () => {
-      // Money only: goods returned lower the debt through a return (returns.create).
-      if (!(PAYMENT_METHODS as readonly string[]).includes(method) || method === ('credit' as string))
-        throw new DomainError('invalid_method');
-      if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
-      const owed = await this.c.customerBalance(customerId);
-      if (amountCents > owed) throw new DomainError('too_much');
-      const at = this.c.stamp();
-      const by = this.c.by();
-      const payment: CreditPayment = {
-        id: uuid(),
-        ...(by ? { by } : {}),
-        customerId,
-        amountCents,
-        method,
-        transactionRef: method === 'cash' ? undefined : cleanReference(transactionRef),
-        deviceId: await this.c.deviceId(),
-        createdAt: at,
-        updatedAt: at,
-      };
-      await this.c.db.creditPayments.add(payment);
-      await this.c.audit({ entity: 'credit_payment', entityId: payment.id, action: 'created', after: payment });
-      return payment;
-    });
+    this.c.db.transaction(
+      'rw',
+      [this.c.db.creditPayments, this.c.db.sales, this.c.db.audit, this.c.db.meta, this.c.db.accounts],
+      async () => {
+        // Money only: goods returned lower the debt through a return (returns.create).
+        if (!(PAYMENT_METHODS as readonly string[]).includes(method) || method === ('credit' as string))
+          throw new DomainError('invalid_method');
+        if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
+        const owed = await this.c.customerBalance(customerId);
+        if (amountCents > owed) throw new DomainError('too_much');
+        const at = this.c.stamp();
+        const by = this.c.by();
+        const payment: CreditPayment = {
+          id: uuid(),
+          ...(by ? { by } : {}),
+          customerId,
+          amountCents,
+          method,
+          transactionRef: method === 'cash' ? undefined : cleanReference(transactionRef),
+          deviceId: await this.c.deviceId(),
+          createdAt: at,
+          updatedAt: at,
+        };
+        await this.c.db.creditPayments.add(payment);
+        await this.c.refreshAccount(customerId);
+        await this.c.audit({ entity: 'credit_payment', entityId: payment.id, action: 'created', after: payment });
+        return payment;
+      },
+    );
 }

@@ -9,6 +9,7 @@ import { TEMPLATE_HEADER } from '../domain/import-products';
 import { lineCostCents } from '../domain/profit';
 import { payablesBook } from '../domain/payables';
 import { decrypt, deriveKey, encrypt, exportRawKey, fromBase64, gunzip, gzip, importRawKey, toBase64 } from '../lib/pack';
+import { rebuildAccounts } from './accounts';
 import { DB_NAMES, LATER_TABLES, TABLES, type CaixaDB, type SafetyInfo, type TableName } from './db';
 import { BACKUP_LOCK_KEY, PHONE_ONLY_KEYS, type BackupLock, type Store } from './store';
 
@@ -416,6 +417,8 @@ export async function importBackup(
       }
       if (kept.length) await db.meta.bulkPut(kept);
       if (restores.length) await db.audit.bulkPut(restores);
+      // The customers' accounts are worked out from the facts, never copied: built again from the restored ones.
+      await rebuildAccounts(db);
       const adopt = options.lock && !kept.some((r) => r.key === BACKUP_LOCK_KEY);
       if (adopt) await db.meta.put({ key: BACKUP_LOCK_KEY, value: JSON.stringify(options.lock) });
       await db.safety.bulkPut([
