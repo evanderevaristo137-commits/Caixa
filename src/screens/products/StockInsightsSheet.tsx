@@ -19,9 +19,9 @@ type View = 'buy' | 'still' | 'losses' | 'expiry';
  * «Análise do stock»: what to buy by the speed of sale, products standing still (money on the
  * shelf) and the losses. Read once when it opens: a month of sales is thousands of records.
  */
-export function StockInsightsSheet({ onClose }: { onClose: () => void }) {
+export function StockInsightsSheet({ onClose, initialView = 'buy' }: { onClose: () => void; initialView?: View }) {
   const { store } = useApp();
-  const [view, setView] = useState<View>('buy');
+  const [view, setView] = useState<View>(initialView);
   const data = useLoaded(async () => {
     const now = new Date();
     const [products, speeds, settings, batches] = await Promise.all([

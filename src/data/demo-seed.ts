@@ -45,6 +45,10 @@ function demoBarcode(i: number): string {
   return body + String((10 - (sum % 10)) % 10);
 }
 
+/** The demo product whose cost went above its price (see seedDemo). */
+const SUGAR_BELOW_COST = 'Açúcar 1 kg';
+const SUGAR_NEW_COST_CENTS = 115_000;
+
 // [name, price in Kz, cost price in Kz (both per kg when sold by weight), minimum stock, final stock target, sold by weight]
 // Stock for weighed products is in grams. Prices and costs are fictitious but plausible.
 const PRODUCTS: [string, number, number, number, number, boolean?][] = [
@@ -132,7 +136,7 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 5;
+export const DEMO_VERSION = 6;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -544,7 +548,10 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
   const at = now.toISOString();
   await db.transaction('rw', db.tables, async () => {
     await Promise.all(db.tables.map((t) => t.clear()));
-    await db.products.bulkAdd(data.products);
+    // The sugar supplier raised the price and the shop did not change it yet: the cost price is now
+    // above the selling price (the sales already made keep the cost of their day). The «Hoje»
+    // suggestions show it, so a visit can explain them.
+    await db.products.bulkAdd(data.products.map((p) => (p.name === SUGAR_BELOW_COST ? { ...p, costCents: SUGAR_NEW_COST_CENTS } : p)));
     await db.customers.bulkAdd(data.customers);
     await db.sales.bulkAdd(data.sales);
     await db.creditPayments.bulkAdd(data.payments);

@@ -29,6 +29,8 @@ import { ReportsMenu } from './ReportsMenu';
 import { DaySheet } from './DaySheet';
 import { StockInsightsSheet } from '../products/StockInsightsSheet';
 import { goToSuppliers } from './go-suppliers';
+import { SuggestionsCard } from './SuggestionsCard';
+import { belowCost } from '../../domain/suggestions';
 import { useTeam } from '../../app/team';
 
 /** The cash card is where expenses are recorded and the day is closed: the panel scrolls to it. */
@@ -118,6 +120,7 @@ export default function TodayScreen() {
       shop: isToday
         ? {
             lowStock: lowStockProducts(products).length,
+            belowCost: belowCost(products),
             owed: totalOutstanding(book),
             alerts: creditAlerts(book),
             payable: totalPayable(payables),
@@ -232,6 +235,8 @@ export default function TodayScreen() {
           {data.shop && (
             <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} numbers={numbers} />
           )}
+
+          {numbers && data.shop && <SuggestionsCard below={data.shop.belowCost} />}
 
           {numbers && <ReportsMenu />}
 
