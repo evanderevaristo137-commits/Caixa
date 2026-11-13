@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUSINESS_TYPES, CATALOG } from './catalog';
 import {
+  ALL_CATEGORIES,
   canonicalCategory,
   catalogCategory,
   catalogFor,
@@ -10,10 +11,12 @@ import {
   categoryTree,
   cleanCategory,
   inCategory,
+  inFilter,
   NO_CATEGORY,
   salesByCategory,
   searchCategories,
   subsFor,
+  type CategoryFilter,
 } from './categories';
 
 describe('categories', () => {
@@ -119,5 +122,23 @@ describe("the app's list of categories", () => {
     expect(subs.filter((x) => x === 'Cerveja')).toHaveLength(1);
     expect(subsFor('Peças Toyota', tree)).toEqual([]);
     expect(categoryLabel('Bebidas', 'Cerveja')).toBe('Bebidas › Cerveja');
+  });
+});
+
+describe('showing one category, and one subcategory inside it', () => {
+  it('filters by category, then by subcategory (or the ones without)', () => {
+    const products = [
+      { name: 'Capa', category: 'Telemóveis e electrónica', subcategory: 'Capas e películas' },
+      { name: 'Cabo', category: 'Telemóveis e electrónica', subcategory: 'Carregadores e cabos' },
+      { name: 'Rádio', category: 'Telemóveis e electrónica' },
+      { name: 'Pneu', category: 'Peças e acessórios auto', subcategory: 'Pneus' },
+      { name: 'Vela' },
+    ];
+    const names = (f: CategoryFilter) => products.filter((p) => inFilter(p, f)).map((p) => p.name);
+    expect(names(ALL_CATEGORIES)).toHaveLength(5);
+    expect(names({ category: 'Telemóveis e electrónica', sub: null })).toEqual(['Capa', 'Cabo', 'Rádio']);
+    expect(names({ category: 'Telemóveis e electrónica', sub: 'Capas e películas' })).toEqual(['Capa']);
+    expect(names({ category: 'Telemóveis e electrónica', sub: NO_CATEGORY })).toEqual(['Rádio']);
+    expect(names({ category: NO_CATEGORY, sub: null })).toEqual(['Vela']);
   });
 });

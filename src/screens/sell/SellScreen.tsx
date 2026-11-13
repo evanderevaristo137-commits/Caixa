@@ -21,8 +21,8 @@ import { CheckoutSheet } from './CheckoutSheet';
 import { ReceiptSheet } from './ReceiptSheet';
 import { useOpenSale } from './use-open-sale';
 import { Scanner, scannerSupported } from './Scanner';
-import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
-import { inCategory } from '../../domain/categories';
+import { activeFilter, CategoryChips } from '../../ui/CategoryChips';
+import { ALL_CATEGORIES, inFilter, type CategoryFilter } from '../../domain/categories';
 import { useTeam } from '../../app/team';
 
 /** Products drawn at once on Vender (300 products drawn at once are slow on a cheap phone). */
@@ -51,17 +51,17 @@ export function SellScreen() {
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [creatingCode, setCreatingCode] = useState<string | null>(null);
 
-  const [category, setCategory] = useState<string | null>(null);
-  const shownCategory = products ? activeCategory(products, category) : null;
+  const [filter, setFilter] = useState<CategoryFilter>(ALL_CATEGORIES);
+  const shown = products ? activeFilter(products, filter) : ALL_CATEGORIES;
   const filtered = useMemo(() => {
     if (!ordered) return [];
     const q = normalise(query);
     // A search looks in every category.
     if (q) return ordered.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-    return ordered.filter((p) => inCategory(p, shownCategory));
-  }, [ordered, query, shownCategory]);
+    return ordered.filter((p) => inFilter(p, shown));
+  }, [ordered, query, shown]);
   // The best sellers come first, so a few dozen cover most sales; the rest with «Ver mais».
-  const paged = usePaged(filtered, SELL_PAGE, `${query}|${shownCategory}`);
+  const paged = usePaged(filtered, SELL_PAGE, `${query}|${shown.category}|${shown.sub}`);
 
   useEffect(() => {
     if (cart.length === 0 && sheet === 'checkout') setSheet('none');
@@ -198,7 +198,7 @@ export function SellScreen() {
       )}
 
       {products && products.length > 0 && !query.trim() && (
-        <CategoryChips products={products} value={shownCategory} onChange={setCategory} className="px-3 pb-2" />
+        <CategoryChips products={products} value={shown} onChange={setFilter} className="px-3 pb-2" />
       )}
 
       {!products || !ordered ? (

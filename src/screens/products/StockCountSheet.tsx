@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { inCategory } from '../../domain/categories';
+import { ALL_CATEGORIES, inFilter, type CategoryFilter } from '../../domain/categories';
 import { formatKg, formatQuantity, parseWeight } from '../../domain/quantity';
 import { countLines, emptyCount, parseCountDraft, setCount, summariseCount, type CountDraft } from '../../domain/stock-count';
 import type { Product } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
-import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
+import { activeFilter, CategoryChips } from '../../ui/CategoryChips';
 import { Button, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { useConfirm } from '../../ui/confirm';
@@ -42,7 +42,7 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState<CountDraft>(() => loadDraft(mode) ?? emptyCount(new Date()));
   // What is typed in each field (maybe half-typed); the draft keeps only valid counts.
   const [texts, setTexts] = useState<Record<string, string>>({});
-  const [category, setCategory] = useState<string | null>(null);
+  const [filter, setFilter] = useState<CategoryFilter>(ALL_CATEGORIES);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [scanning, setScanning] = useState(false);
@@ -58,12 +58,12 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
     }
   }, [draft, mode]);
 
-  const shown = products ? activeCategory(products, category) : null;
+  const shown = products ? activeFilter(products, filter) : ALL_CATEGORIES;
   const list = useMemo(() => {
     if (!products) return [];
     const q = normalise(query);
     if (q) return products.filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-    return products.filter((p) => inCategory(p, shown));
+    return products.filter((p) => inFilter(p, shown));
   }, [products, query, shown]);
   const summary = useMemo(() => (products ? summariseCount(draft, products) : null), [draft, products]);
 
@@ -142,7 +142,7 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
               </Button>
             )}
           </div>
-          {!query.trim() && <CategoryChips products={products} value={shown} onChange={setCategory} className="-mx-4 px-4" />}
+          {!query.trim() && <CategoryChips products={products} value={shown} onChange={setFilter} className="-mx-4 px-4" />}
           {list.length === 0 ? (
             <p className="rounded-xl bg-white p-3 text-slate-600">{sc.noneFound}</p>
           ) : (

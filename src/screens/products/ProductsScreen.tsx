@@ -9,8 +9,8 @@ import { ProductSheet } from './ProductSheet';
 import { LabelsSheet } from './LabelsSheet';
 import { ImportProductsSheet } from './ImportProductsSheet';
 import { countedSoFar, StockCountSheet } from './StockCountSheet';
-import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
-import { inCategory } from '../../domain/categories';
+import { activeFilter, CategoryChips } from '../../ui/CategoryChips';
+import { ALL_CATEGORIES, inFilter, type CategoryFilter } from '../../domain/categories';
 import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
 import { StockInsightsSheet } from './StockInsightsSheet';
@@ -78,15 +78,15 @@ function ProductsList({ readOnly = false }: { readOnly?: boolean }) {
   // An unfinished count is shown on its button (read again when the count sheet closes).
   const inCount = useMemo(() => (counting ? 0 : countedSoFar(mode)), [counting, mode]);
 
-  const [category, setCategory] = useState<string | null>(null);
-  const shownCategory = products ? activeCategory(products, category) : null;
+  const [filter, setFilter] = useState<CategoryFilter>(ALL_CATEGORIES);
+  const shown = products ? activeFilter(products, filter) : ALL_CATEGORIES;
   const list = useMemo(() => {
     const q = normalise(query);
     // A search looks in every category.
     if (q) return (products ?? []).filter((p) => normalise(p.name).includes(q) || (p.barcode ?? '').startsWith(q));
-    return (products ?? []).filter((p) => inCategory(p, shownCategory));
-  }, [products, query, shownCategory]);
-  const paged = usePaged(list, PRODUCTS_PAGE, `${query}|${shownCategory}`);
+    return (products ?? []).filter((p) => inFilter(p, shown));
+  }, [products, query, shown]);
+  const paged = usePaged(list, PRODUCTS_PAGE, `${query}|${shown.category}|${shown.sub}`);
 
   return (
     <div>
@@ -119,7 +119,7 @@ function ProductsList({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       )}
       {products && products.length > 0 && !query.trim() && (
-        <CategoryChips products={products} value={shownCategory} onChange={setCategory} className="-mx-3 mb-3 px-3" />
+        <CategoryChips products={products} value={shown} onChange={setFilter} className="-mx-3 mb-3 px-3" />
       )}
       {!products ? (
         <Skeleton />

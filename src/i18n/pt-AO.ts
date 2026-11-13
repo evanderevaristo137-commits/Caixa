@@ -696,6 +696,9 @@ export const t = {
   categories: {
     label: 'Categoria (opcional)',
     filter: 'Mostrar só uma categoria',
+    filterSub: 'Mostrar só uma subcategoria',
+    allSubs: 'Todas desta categoria',
+    noSub: 'Sem subcategoria',
     all: 'Todas',
     none: 'Sem categoria',
     title: 'Vendas por categoria',

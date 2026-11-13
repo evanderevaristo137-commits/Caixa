@@ -149,6 +149,20 @@ export function inCategory(p: Pick<Product, 'category'>, filter: string | null):
   return filter === NO_CATEGORY ? !p.category : p.category === filter;
 }
 
+/** What a list shows: a category (null = all) and, inside it, a subcategory (null = all; NO_CATEGORY = the ones without). */
+export interface CategoryFilter {
+  category: string | null;
+  sub: string | null;
+}
+
+export const ALL_CATEGORIES: CategoryFilter = { category: null, sub: null };
+
+export function inFilter(p: Pick<Product, 'category' | 'subcategory'>, f: CategoryFilter): boolean {
+  if (!inCategory(p, f.category)) return false;
+  if (f.sub === null || f.category === null || f.category === NO_CATEGORY) return true;
+  return f.sub === NO_CATEGORY ? !p.subcategory : p.subcategory === f.sub;
+}
+
 type SaleLike = Pick<Sale, 'voidedAt'> & {
   items: Pick<SaleItem, 'productId' | 'quantity' | 'soldBy' | 'lineTotalCents' | 'unitCostCents'>[];
 };

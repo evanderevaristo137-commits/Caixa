@@ -997,6 +997,15 @@ test('categories: show one category when selling, pick one in the product form, 
   await form.getByRole('button', { name: 'Guardar' }).click();
   await chips.getByRole('button', { name: 'Bebidas' }).click();
   await expect(page.getByRole('button', { name: /Sumo de múcua 1 L.*Refrigerantes e sumos/ })).toBeVisible();
+  // Inside a category, a second row shows its subcategories.
+  const subs = page.getByRole('group', { name: 'Mostrar só uma subcategoria' });
+  await subs.getByRole('button', { name: 'Refrigerantes e sumos' }).click();
+  await expect(page.getByRole('button', { name: /Sumo de múcua 1 L/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cerveja 330 ml/ })).toHaveCount(0);
+  await subs.getByRole('button', { name: 'Sem subcategoria' }).click();
+  await expect(page.getByRole('button', { name: /Cerveja 330 ml/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sumo de múcua 1 L/ })).toHaveCount(0);
+  await subs.getByRole('button', { name: 'Todas desta categoria' }).click();
   await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
 
   await nav(page, 'Hoje');
