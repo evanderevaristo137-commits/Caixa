@@ -11,6 +11,7 @@ import { SecurityRepository } from './repos/security';
 import { AuditLogRepository, IntegrityRepository } from './repos/checks';
 import { ReturnsRepository } from './repos/returns';
 import { BatchesRepository } from './repos/batches';
+import { StaffRepository } from './repos/staff';
 
 // The Store's types, constants and helpers (the same names as before the split).
 export {
@@ -56,6 +57,7 @@ export class Store {
   readonly security: SecurityRepository;
   readonly integrity: IntegrityRepository;
   readonly auditLog: AuditLogRepository;
+  readonly staff: StaffRepository;
 
   constructor(db: CaixaDB, now: () => Date = () => new Date()) {
     this.db = db;
@@ -78,6 +80,7 @@ export class Store {
     this.device = new DeviceRepository(core);
     this.security = new SecurityRepository(core);
     this.integrity = new IntegrityRepository(core);
+    this.staff = new StaffRepository(core);
     this.auditLog = new AuditLogRepository(core);
   }
 }

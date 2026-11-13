@@ -32,9 +32,11 @@ export class CustomersRepository {
     });
   /** Updates only the fields given. */
   update = (id: string, changes: { name?: string; phone?: string; nif?: string; creditLimitCents?: number | null }): Promise<Customer> =>
-    this.c.db.transaction('rw', [this.c.db.customers, this.c.db.audit], async () => {
+    this.c.db.transaction('rw', [this.c.db.customers, this.c.db.audit, this.c.db.meta], async () => {
       const before = await this.c.db.customers.get(id);
       if (!before) throw new DomainError('not_found');
+      if ('creditLimitCents' in changes && (changes.creditLimitCents ?? undefined) !== before.creditLimitCents)
+        await this.c.allow('settings');
       const after: Customer = { ...before, updatedAt: this.c.stamp() };
       if ('name' in changes) {
         if (!changes.name?.trim()) throw new DomainError('name_required');

@@ -27,6 +27,7 @@ export class ProductsRepository {
       'rw',
       [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.batches, this.c.db.meta],
       async () => {
+        await this.c.allow('stock');
         await this.c.assertProduct(input);
         if (!Number.isInteger(initialStock) || initialStock < 0) throw new DomainError('invalid_stock');
         if (initialExpiresOn !== undefined && !isExpiryDate(initialExpiresOn)) throw new DomainError('invalid_date');
@@ -62,6 +63,7 @@ export class ProductsRepository {
     );
   update = (id: string, input: ProductInput): Promise<Product> =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       const before = await this.c.db.products.get(id);
       if (!before) throw new DomainError('not_found');
       // A new price needs the owner code (when there is one).
@@ -98,6 +100,7 @@ export class ProductsRepository {
     });
   archive = (id: string) =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       await this.c.store.security.requireOwner();
       const before = await this.c.db.products.get(id);
       if (!before) throw new DomainError('not_found');
@@ -112,6 +115,7 @@ export class ProductsRepository {
       'rw',
       [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.batches, this.c.db.meta],
       async () => {
+        await this.c.allow('stock');
         const err = validateEntry(quantity);
         if (err) throw new DomainError(err);
         if (expiresOn !== undefined && !isExpiryDate(expiresOn)) throw new DomainError('invalid_date');
@@ -124,6 +128,7 @@ export class ProductsRepository {
     );
   adjust = (id: string, countedQuantity: number, reason: string) =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       await this.c.store.security.requireOwner();
       const product = await this.c.db.products.get(id);
       if (!product) throw new DomainError('not_found');
@@ -141,6 +146,7 @@ export class ProductsRepository {
    */
   applyCount = (lines: { productId: string; counted: number; expected: number }[]): Promise<{ counted: number; adjusted: number }> =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       // Adjusting the stock needs the owner code; a count where everything matches does not.
       if (lines.some((l) => l.counted !== l.expected)) await this.c.store.security.requireOwner();
       let adjusted = 0;
@@ -171,6 +177,7 @@ export class ProductsRepository {
   /** Gives an in-store barcode to each of these products that has none. Audited. Returns how many got one. */
   assignInternalBarcodes = (ids: string[]): Promise<number> =>
     this.c.db.transaction('rw', [this.c.db.products, this.c.db.meta, this.c.db.audit], async () => {
+      await this.c.allow('stock');
       let count = 0;
       for (const id of ids) {
         const before = await this.c.db.products.get(id);
@@ -191,6 +198,7 @@ export class ProductsRepository {
       'rw',
       [this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta, this.c.db.batches],
       async () => {
+        await this.c.allow('stock');
         let created = 0;
         let updated = 0;
         for (const row of rows) {

@@ -23,6 +23,7 @@ import { useOpenSale } from './use-open-sale';
 import { Scanner, scannerSupported } from './Scanner';
 import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { inCategory } from '../../domain/categories';
+import { useTeam } from '../../app/team';
 
 /** Products drawn at once on Vender (300 products drawn at once are slow on a cheap phone). */
 const SELL_PAGE = 60;
@@ -42,6 +43,7 @@ export function SellScreen() {
     mode,
     products,
   );
+  const team = useTeam();
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<'none' | 'cart' | 'checkout' | 'scan'>('none');
   // The sale just recorded, while its receipt is on the screen.
@@ -205,9 +207,11 @@ export function SellScreen() {
         <Empty
           action={
             <div className="space-y-2">
-              <Button className="w-full" onClick={() => setCreatingCode('')}>
-                + {t.sell.firstProduct}
-              </Button>
+              {team.can('stock') && (
+                <Button className="w-full" onClick={() => setCreatingCode('')}>
+                  + {t.sell.firstProduct}
+                </Button>
+              )}
               {mode === 'store' && (
                 <Button variant="secondary" className="w-full" onClick={() => void setMode('demo')}>
                   {t.settings.demoOn}
@@ -297,16 +301,18 @@ export function SellScreen() {
         <Sheet title={t.scanner.notFoundTitle} onClose={() => setUnknownCode(null)}>
           <p className="text-lg font-semibold">{t.scanner.notFound(unknownCode)}</p>
           <p className="mt-1 text-slate-600">{t.scanner.notFoundHint}</p>
-          <Button
-            big
-            className="mt-4 w-full"
-            onClick={() => {
-              setCreatingCode(unknownCode);
-              setUnknownCode(null);
-            }}
-          >
-            {t.scanner.createProduct}
-          </Button>
+          {team.can('stock') && (
+            <Button
+              big
+              className="mt-4 w-full"
+              onClick={() => {
+                setCreatingCode(unknownCode);
+                setUnknownCode(null);
+              }}
+            >
+              {t.scanner.createProduct}
+            </Button>
+          )}
         </Sheet>
       )}
       {creatingCode !== null && (

@@ -89,6 +89,7 @@ export class SecurityRepository {
   };
   removePin = async (currentPin: string): Promise<void> => {
     await this.c.ownerCode(currentPin);
+    if (this.c.team.on) throw new DomainError('staff_need_owner_code');
     await this.c.db.transaction('rw', [this.c.db.meta, this.c.db.audit], async () => {
       await this.c.db.meta.bulkDelete([...PIN_KEYS]);
       await this.c.audit({ entity: 'settings', entityId: 'owner_pin', action: 'updated', after: { pin: 'removed' } });

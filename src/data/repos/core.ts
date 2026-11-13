@@ -6,6 +6,7 @@ import { canonicalCategory } from '../../domain/categories';
 import { savedCents } from '../../domain/inss';
 import { summariseReturns } from '../../domain/returns';
 import type { AuditEntry, Batch, SaleItem, StockMovement } from '../../domain/types';
+import { can, personId, type Permission, type Person } from '../../domain/staff';
 import { uuid } from '../../lib/ids';
 import { CaixaDB } from '../db';
 import type { Store } from '../store';
@@ -29,6 +30,27 @@ export class StoreCore {
 
   /** Until when (ms, on the Store's clock) a typed owner code allows sensitive actions. */
   ownerGrantUntil = 0;
+
+  /**
+   * Employees (off by default). `on`: the shop has at least one; `person`: who is using the app
+   * (null until someone is chosen). Kept in memory, so checks never read the database mid-transaction.
+   */
+  team: { on: boolean; person: Person | null } = { on: false, person: null };
+
+  /**
+   * With employees, what the person may not do needs the owner code, typed on the spot (the owner
+   * authorises it): 'owner_code_required' until then. Without employees nothing changes. Call before
+   * the transaction, or inside one that includes `meta`.
+   */
+  async allow(permission: Permission): Promise<void> {
+    if (!this.team.on || can(this.team.person, permission)) return;
+    await this.store.security.requireOwner();
+  }
+
+  /** Who is recording something ('owner' or the employee's id); undefined in a shop without employees. */
+  by(): string | undefined {
+    return this.team.on && this.team.person ? personId(this.team.person) : undefined;
+  }
 
   stamp() {
     return this.now().toISOString();
@@ -85,7 +107,8 @@ export class StoreCore {
 
   audit(entry: Omit<AuditEntry, 'id' | 'createdAt' | 'updatedAt'>) {
     const at = this.stamp();
-    return this.db.audit.add({ ...entry, id: uuid(), createdAt: at, updatedAt: at });
+    const by = this.by();
+    return this.db.audit.add({ ...entry, ...(by ? { by } : {}), id: uuid(), createdAt: at, updatedAt: at });
   }
 
   /** The category as the shop already writes it ("bebidas" → "Bebidas"). Call inside a transaction with products. */

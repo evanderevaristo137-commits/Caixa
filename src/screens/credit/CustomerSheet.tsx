@@ -16,6 +16,7 @@ import { useBusy } from '../../ui/use-busy';
 import { ShowMore, usePaged } from '../../ui/paged';
 import { statementText } from '../../domain/statement';
 import { whatsAppLink } from '../../domain/whatsapp';
+import { useTeam } from '../../app/team';
 
 const VERDICT_CLASS = { good: 'text-brand-800', fair: 'text-amber-800', poor: 'text-red-700' } as const;
 /** History lines drawn at once. */
@@ -34,6 +35,8 @@ const PAY_METHODS: Exclude<CreditPayment['method'], 'return'>[] = [
 
 export function CustomerSheet({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { store, showToast } = useApp();
+  // A customer's own credit limit is the owner's decision (the Store checks it too).
+  const ownerOnly = !useTeam().can('settings');
   const data = useLiveQuery(async () => {
     const [customer, sales, payments, settings] = await Promise.all([
       store.customers.get(customerId),
@@ -234,13 +237,15 @@ export function CustomerSheet({ customerId, onClose }: { customerId: string; onC
           hint={t.settings.nifHint}
           error={nifError}
         />
-        <Field
-          label={t.credit.ownLimit}
-          value={ownLimit ?? (customer.creditLimitCents ? formatKz(customer.creditLimitCents).replace(' Kz', '') : '')}
-          onChange={(e) => setOwnLimit(e.target.value)}
-          inputMode="numeric"
-          error={limitError}
-        />
+        {!ownerOnly && (
+          <Field
+            label={t.credit.ownLimit}
+            value={ownLimit ?? (customer.creditLimitCents ? formatKz(customer.creditLimitCents).replace(' Kz', '') : '')}
+            onChange={(e) => setOwnLimit(e.target.value)}
+            inputMode="numeric"
+            error={limitError}
+          />
+        )}
         {(phone !== null || name !== null || nif !== null || ownLimit !== null) && (
           <Button className="w-full" onClick={() => void saveDetails()}>
             {t.common.save}

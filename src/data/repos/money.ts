@@ -17,9 +17,12 @@ export class ExpensesRepository {
     this.c.db.transaction('rw', [this.c.db.expenses, this.c.db.audit, this.c.db.meta], async () => {
       if (!(EXPENSE_CATEGORIES as readonly string[]).includes(input.category)) throw new DomainError('invalid_category');
       if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new DomainError('invalid_amount');
+      if (input.category === 'withdrawal' || input.category === 'inss') await this.c.allow('settings');
       const at = this.c.stamp();
+      const by = this.c.by();
       const expense: Expense = {
         id: uuid(),
+        ...(by ? { by } : {}),
         category: input.category,
         amountCents: input.amountCents,
         fromCash: input.fromCash,
@@ -82,8 +85,10 @@ export class CashRepository {
         const day = input.day ?? this.c.now();
         const d = await this.c.drawerOn(day, input.floatCents);
         const at = this.c.stamp();
+        const by = this.c.by();
         const close: CashClose = {
           id: uuid(),
+          ...(by ? { by } : {}),
           day: toLocalDateString(day),
           floatCents: input.floatCents,
           expectedCents: d.expectedCents,

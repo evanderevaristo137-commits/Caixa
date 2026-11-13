@@ -19,7 +19,8 @@ export class SuppliersRepository {
   list = async (): Promise<Supplier[]> => (await this.c.db.suppliers.toArray()).sort(byName);
   get = (id: string) => this.c.db.suppliers.get(id);
   create = (name: string, phone?: string): Promise<Supplier> =>
-    this.c.db.transaction('rw', [this.c.db.suppliers, this.c.db.audit], async () => {
+    this.c.db.transaction('rw', [this.c.db.suppliers, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       if (!name.trim()) throw new DomainError('name_required');
       const at = this.c.stamp();
       const supplier: Supplier = { id: uuid(), name: name.trim(), phone: clean(phone), createdAt: at, updatedAt: at };
@@ -28,7 +29,8 @@ export class SuppliersRepository {
       return supplier;
     });
   update = (id: string, changes: { name?: string; phone?: string }): Promise<Supplier> =>
-    this.c.db.transaction('rw', [this.c.db.suppliers, this.c.db.audit], async () => {
+    this.c.db.transaction('rw', [this.c.db.suppliers, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       const before = await this.c.db.suppliers.get(id);
       if (!before) throw new DomainError('not_found');
       const after: Supplier = { ...before, updatedAt: this.c.stamp() };
@@ -68,6 +70,7 @@ export class PurchasesRepository {
         this.c.db.settings,
       ],
       async () => {
+        await this.c.allow('stock');
         if (input.lines.length === 0) throw new DomainError('empty_purchase');
         if (!(PURCHASE_PAYMENTS as readonly string[]).includes(input.payment)) throw new DomainError('invalid_payment');
         if (input.supplierId && !(await this.c.db.suppliers.get(input.supplierId))) throw new DomainError('supplier_required');
@@ -158,6 +161,7 @@ export class PurchasesRepository {
       'rw',
       [this.c.db.purchases, this.c.db.products, this.c.db.stockMovements, this.c.db.audit, this.c.db.meta, this.c.db.batches],
       async () => {
+        await this.c.allow('stock');
         await this.c.store.security.requireOwner();
         const before = await this.c.db.purchases.get(id);
         if (!before) throw new DomainError('not_found');
@@ -199,6 +203,7 @@ export class SupplierPaymentsRepository {
       'rw',
       [this.c.db.supplierPayments, this.c.db.purchases, this.c.db.suppliers, this.c.db.audit, this.c.db.meta],
       async () => {
+        await this.c.allow('stock');
         if (!(await this.c.db.suppliers.get(supplierId))) throw new DomainError('not_found');
         if (!Number.isInteger(amountCents) || amountCents <= 0) throw new DomainError('zero');
         const [purchases, payments] = await Promise.all([

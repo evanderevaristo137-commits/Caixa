@@ -29,6 +29,8 @@ export interface IndicatorValues {
   marginText?: string;
   profitUnknownLines: number;
   cashCents: number;
+  /** False for an employee who may not see the shop's numbers: no profit, no debts to suppliers. */
+  numbers: boolean;
   /** Today only: what customers owe, what the shop owes, low stock. */
   shop?: { owed: number; overdueCustomers: number; payable: number; payableUrgent: number; lowStock: number };
 }
@@ -71,29 +73,39 @@ export function Indicators({ v, onOpen }: { v: IndicatorValues; onOpen: (kind: I
       <Tile label={v.isToday ? t.panel.expenses : t.panel.expensesOf} cents={v.expensesCents} onClick={() => onOpen('expenses')}>
         {v.withdrawalsCents > 0 && t.panel.notesWithdrawals(formatKz(v.withdrawalsCents))}
       </Tile>
-      <Tile
-        label={t.panel.profit}
-        cents={v.profitCents}
-        tone={v.profitCents !== undefined && v.profitCents < 0 ? 'bad' : undefined}
-        onClick={() => onOpen('profit')}
-      >
-        {v.profitCents === undefined
-          ? // No sale yet: nothing to ask for. Sales without any cost price: ask for the cost prices.
-            v.salesCount > 0 && t.panel.profitMissing
-          : v.profitUnknownLines > 0
-            ? t.panel.profitPartial(v.profitUnknownLines)
-            : v.marginText && t.panel.profitMargin(v.marginText)}
-      </Tile>
+      {v.numbers && (
+        <Tile
+          label={t.panel.profit}
+          cents={v.profitCents}
+          tone={v.profitCents !== undefined && v.profitCents < 0 ? 'bad' : undefined}
+          onClick={() => onOpen('profit')}
+        >
+          {v.profitCents === undefined
+            ? // No sale yet: nothing to ask for. Sales without any cost price: ask for the cost prices.
+              v.salesCount > 0 && t.panel.profitMissing
+            : v.profitUnknownLines > 0
+              ? t.panel.profitPartial(v.profitUnknownLines)
+              : v.marginText && t.panel.profitMargin(v.marginText)}
+        </Tile>
+      )}
       <Tile label={t.panel.cash} cents={v.cashCents} onClick={() => onOpen('cash')}>
         {t.panel.cashNote}
       </Tile>
-      {v.shop && <ShopTiles shop={v.shop} onOpen={onOpen} />}
+      {v.shop && <ShopTiles shop={v.shop} numbers={v.numbers} onOpen={onOpen} />}
     </section>
   );
 }
 
 /** What customers owe, what the shop owes and how many products are low (today only). */
-function ShopTiles({ shop, onOpen }: { shop: NonNullable<IndicatorValues['shop']>; onOpen: (kind: IndicatorKind) => void }) {
+function ShopTiles({
+  shop,
+  numbers,
+  onOpen,
+}: {
+  shop: NonNullable<IndicatorValues['shop']>;
+  numbers: boolean;
+  onOpen: (kind: IndicatorKind) => void;
+}) {
   return (
     <>
       <Tile
@@ -104,9 +116,11 @@ function ShopTiles({ shop, onOpen }: { shop: NonNullable<IndicatorValues['shop']
       >
         {shop.overdueCustomers > 0 && t.panel.overdue(shop.overdueCustomers)}
       </Tile>
-      <Tile label={t.panel.toPay} cents={shop.payable} onClick={() => onOpen('toPay')} tone={shop.payableUrgent > 0 ? 'warn' : undefined}>
-        {shop.payableUrgent > 0 && t.panel.urgent(shop.payableUrgent)}
-      </Tile>
+      {numbers && (
+        <Tile label={t.panel.toPay} cents={shop.payable} onClick={() => onOpen('toPay')} tone={shop.payableUrgent > 0 ? 'warn' : undefined}>
+          {shop.payableUrgent > 0 && t.panel.urgent(shop.payableUrgent)}
+        </Tile>
+      )}
       <button
         type="button"
         onClick={() => onOpen('lowStock')}

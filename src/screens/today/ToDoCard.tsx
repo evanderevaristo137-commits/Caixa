@@ -35,7 +35,18 @@ interface Row {
  * remind, payments to confirm, suppliers to pay, expiry dates, the digital payments alarm, the INSS,
  * the backup). Each line opens its detail. Nothing to do: no card.
  */
-export function ToDoCard({ alerts, storeName, urgentPayables }: { alerts: CreditAlerts; storeName: string; urgentPayables: number }) {
+export function ToDoCard({
+  alerts,
+  storeName,
+  urgentPayables,
+  numbers = true,
+}: {
+  alerts: CreditAlerts;
+  storeName: string;
+  urgentPayables: number;
+  /** False for an employee: what the shop owes, the owner's INSS and the backups are the owner's. */
+  numbers?: boolean;
+}) {
   const { store, mode, showToast } = useApp();
   const inss = useInss();
   const [open, setOpen] = useState<Open>(null);
@@ -86,7 +97,7 @@ export function ToDoCard({ alerts, storeName, urgentPayables }: { alerts: Credit
       onClick: () => setOpen('pending'),
     });
   }
-  if (urgentPayables > 0) {
+  if (numbers && urgentPayables > 0) {
     rows.push({
       key: 'suppliers',
       label: t.todo.suppliers,
@@ -103,7 +114,7 @@ export function ToDoCard({ alerts, storeName, urgentPayables }: { alerts: Credit
       onClick: () => setOpen('expiry'),
     });
   }
-  if (inssDue && inssItem) {
+  if (numbers && inssDue && inssItem) {
     rows.push({
       key: 'inss',
       label: t.todo.inss(inssItem.label, formatDateString(inssItem.dueDate)),
@@ -112,7 +123,7 @@ export function ToDoCard({ alerts, storeName, urgentPayables }: { alerts: Credit
     });
   }
 
-  if (info?.backupDays !== null && info?.backupDays !== undefined) {
+  if (numbers && info?.backupDays !== null && info?.backupDays !== undefined) {
     rows.push({
       key: 'backup',
       label: t.todo.backup,

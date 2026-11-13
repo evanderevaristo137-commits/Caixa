@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { useTeam } from './app/team';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from './app/context';
 import { creditAlerts } from './domain/credit';
@@ -33,6 +34,7 @@ function readTab(): Tab {
 
 export function App() {
   const { mode, toast, store } = useApp();
+  const team = useTeam();
   // Red number on "Clientes": customers who are late or must pay today.
   const urgent = useLiveQuery(async () => creditAlerts(await store.credit.book()).urgentCount, [store]) ?? 0;
   const [tab, setTab] = useState<Tab>(readTab);
@@ -52,8 +54,21 @@ export function App() {
     <div
       className={`mx-auto flex min-h-dvh max-w-lg flex-col ${tab === 'sell' || tab === 'today' ? 'md:max-w-3xl lg:max-w-5xl' : 'md:max-w-2xl'}`}
     >
-      {mode === 'demo' && (
-        <header className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</header>
+      {(mode === 'demo' || (team.on && team.person)) && (
+        <header className="sticky top-0 z-30">
+          {mode === 'demo' && <div className="bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>}
+          {/* With employees: who is using the app, always in sight, and «Trocar». */}
+          {team.on && team.person && (
+            <div className="flex items-center justify-between gap-2 bg-slate-800 px-4 text-sm text-white">
+              <span>
+                {t.team.using} <strong>{team.person.kind === 'owner' ? t.team.owner : team.person.member.name}</strong>
+              </span>
+              <button type="button" onClick={team.choose} className="min-h-10 px-2 font-semibold underline underline-offset-2">
+                {t.team.switch}
+              </button>
+            </div>
+          )}
+        </header>
       )}
       <UpdateBanner />
       <ClockWarning />

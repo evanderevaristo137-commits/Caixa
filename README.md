@@ -55,12 +55,19 @@ Também funciona num **tablet** ou num **computador** (no Chrome): em «Vender»
 - **Mais:** quatro secções que abrem com um toque (ficam abertas enquanto a app estiver aberta), e o modo demonstração sempre à vista.
   - **A loja:** nome da loja, telefone, NIF (aceita letras e números), dados para facturação (opcional) e o preço de custo depois de uma compra.
   - **Dinheiro e clientes:** prazo habitual para os clientes pagarem, limite de crédito, **avisos** (um aviso por dia, mesmo com a app fechada: pagamentos de clientes e a fornecedores 2 dias antes, no próprio dia e quando atrasam, e o alarme dos pagamentos digitais do crédito para stock), **fundo de caixa** (o troco com que a caixa começa o dia), o mínimo de pagamentos digitais e **A minha reforma (INSS)**.
-  - **Segurança e cópias:** código do dono, cópias de segurança (comprimidas e, se quiser, com palavra-passe), exportação para Excel (CSV), verificar os dados e o registo de alterações.
+  - **Segurança e cópias:** código do dono, **funcionários**, cópias de segurança (comprimidas e, se quiser, com palavra-passe), exportação para Excel (CSV), verificar os dados e o registo de alterações.
   - **Piloto e ajuda:** «Enviar resumo do piloto por WhatsApp» manda a quem acompanha o piloto os números da loja (dias com vendas, vendas, o que se usa na app), nunca nomes nem telefones de clientes; e os termos de uso e a privacidade.
 
 ## Controlo e segurança
 
 - **Referência do pagamento:** nos pagamentos electrónicos (KWiK, Multicaixa Express, Unitel Money, Afrimoney, PayPay) pode escrever o código que aparece no telemóvel do cliente. Fica na venda, no talão e no Excel, para confirmar depois com o banco.
+- **Funcionários (opcional):** em **Mais → Segurança e cópias → Funcionários** (primeiro defina o código do dono). Junte cada pessoa com o nome, o que pode fazer e um código só dela:
+  - **Vendedor:** vende, recebe o que os clientes pagam, regista saídas e fecha o dia. Vender a crédito só se marcar «Pode vender a crédito».
+  - **Gerente:** também produtos, preços, stock, compras e os números da loja.
+  - O que a pessoa não pode fazer pede o **código do dono** na hora. As definições da loja são só do dono.
+  - Em cima aparece quem está a usar a app; para mudar, toque em **Trocar** e escreva o código. A app guarda quem fez cada venda: veja **Vendas por pessoa** tocando em «Vendas de hoje», e «por …» no registo de alterações.
+  - Quem deixa de trabalhar na loja: toque no nome e em **Já não trabalha aqui** (as vendas antigas continuam a dizer quem as fez).
+  - Os códigos ficam só neste telemóvel: depois de recuperar uma cópia noutro telemóvel, dê-lhes um código novo.
 - **Código do dono (opcional):** em **Mais → Segurança e cópias → Código do dono**. Com código, a app pede-o para anular vendas, mudar preços, acertar stock, arquivar produtos, vender a crédito acima do limite e recuperar cópias de segurança. Depois de 3 códigos errados, a app faz esperar (30 segundos, e mais a cada novo erro). Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.
 - **Verificar os dados:** em **Mais → Segurança e cópias**, confirma que o stock bate com as entradas e saídas e que o total de cada venda bate com os artigos; se o stock de algum produto não bater, um toque corrige-o.
 - **Devoluções:** em **Hoje**, toque na venda e em **Devolver artigos**. Escolha quanto volta de cada artigo, se volta para a prateleira e como devolve o dinheiro (da caixa ou de outra forma; numa venda a crédito, abate na dívida do cliente). A app calcula o valor e pede o motivo.

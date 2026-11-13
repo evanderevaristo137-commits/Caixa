@@ -89,11 +89,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Opening the app in demo mode on a new day renews the example data.
   useEffect(() => {
     if (mode !== 'demo') return;
-    void ensureFreshDemo(storeFor('demo').db);
+    // A new day's demo starts again from the sample data (employees included): read them again.
+    void ensureFreshDemo(storeFor('demo').db).then(() => storeFor('demo').staff.load());
   }, [mode]);
 
   const resetDemo = useCallback(async () => {
     await seedDemo(storeFor('demo').db);
+    await storeFor('demo').staff.load();
   }, []);
 
   const value = useMemo(

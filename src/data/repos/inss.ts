@@ -23,7 +23,8 @@ export class InssRepository {
   savePlan = (
     input: (Pick<InssPlan, 'wages' | 'modality'> & Partial<Pick<InssPlan, 'birthYear' | 'monthsBefore' | 'number'>>) | null,
   ): Promise<Settings> =>
-    this.c.db.transaction('rw', [this.c.db.settings, this.c.db.audit], async () => {
+    this.c.db.transaction('rw', [this.c.db.settings, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('settings');
       const before = await this.c.db.settings.get(SETTINGS_ID);
       const at = this.c.stamp();
       const after: Settings = { storeName: DEFAULT_STORE_NAME, createdAt: at, ...before, id: SETTINGS_ID, updatedAt: at };
@@ -63,6 +64,7 @@ export class InssRepository {
       'rw',
       [this.c.db.inssContributions, this.c.db.expenses, this.c.db.settings, this.c.db.audit, this.c.db.meta],
       async () => {
+        await this.c.allow('settings');
         const plan = (await this.c.db.settings.get(SETTINGS_ID))?.inss;
         if (!plan) throw new DomainError('no_plan');
         const today = toLocalDateString(this.c.now());
@@ -118,6 +120,7 @@ export class InssRepository {
   /** A mistake stays in the history, marked as voided. The money it used goes back to what is set aside. */
   void = (id: string, reason: string): Promise<InssContribution> =>
     this.c.db.transaction('rw', [this.c.db.inssContributions, this.c.db.expenses, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('settings');
       await this.c.store.security.requireOwner();
       const before = await this.c.db.inssContributions.get(id);
       if (!before) throw new DomainError('not_found');

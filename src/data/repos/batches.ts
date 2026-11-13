@@ -21,6 +21,7 @@ export class BatchesRepository {
    */
   addShelf = (productId: string, quantity: number, expiresOn: string): Promise<Batch> =>
     this.c.db.transaction('rw', [this.c.db.batches, this.c.db.products, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       const product = await this.c.db.products.get(productId);
       if (!product || product.archivedAt) throw new DomainError('not_found');
       if (!product.tracksExpiry) throw new DomainError('not_tracked');
@@ -38,7 +39,8 @@ export class BatchesRepository {
 
   /** A date given by mistake: the batch stops counting (never deleted). Audited. */
   remove = (id: string): Promise<void> =>
-    this.c.db.transaction('rw', [this.c.db.batches, this.c.db.products, this.c.db.audit], async () => {
+    this.c.db.transaction('rw', [this.c.db.batches, this.c.db.products, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('stock');
       const before = await this.c.db.batches.get(id);
       if (!before || before.voidedAt) throw new DomainError('not_found');
       const at = this.c.stamp();

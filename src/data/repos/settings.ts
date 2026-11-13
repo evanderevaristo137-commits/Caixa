@@ -35,6 +35,7 @@ export class SettingsRepository {
     >,
   ): Promise<Settings> =>
     this.c.db.transaction('rw', [this.c.db.settings, this.c.db.audit, this.c.db.meta], async () => {
+      await this.c.allow('settings');
       const before = await this.c.db.settings.get(SETTINGS_ID);
       // The contract minimum of digital payments (credit for stock) needs the owner code to change.
       if ('digitalMinShareBp' in input && (input.digitalMinShareBp || undefined) !== before?.digitalMinShareBp) {

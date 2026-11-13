@@ -15,6 +15,7 @@ import { PurchasesView } from './PurchasesView';
 import { SuppliersView } from './SuppliersView';
 import { StockInsightsSheet } from './StockInsightsSheet';
 import { ShowMore, usePaged } from '../../ui/paged';
+import { useTeam } from '../../app/team';
 
 type View = 'products' | 'purchases' | 'suppliers';
 
@@ -23,6 +24,7 @@ const PRODUCTS_PAGE = 50;
 
 /** Products, purchases (goods received) and suppliers, one tab each. */
 export default function ProductsScreen() {
+  const team = useTeam();
   // "A pagar a fornecedores" on Today opens the suppliers directly.
   const [view, setView] = useState<View>(() => {
     try {
@@ -33,6 +35,14 @@ export default function ProductsScreen() {
       return 'products';
     }
   });
+  // A seller sees the products, their prices and stock; changing them is for the owner or a manager.
+  if (!team.can('stock')) {
+    return (
+      <div className="p-3">
+        <ProductsList readOnly />
+      </div>
+    );
+  }
   return (
     <div className="p-3">
       <div role="tablist" aria-label={t.products.title} className="mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1">
@@ -56,7 +66,7 @@ export default function ProductsScreen() {
   );
 }
 
-function ProductsList() {
+function ProductsList({ readOnly = false }: { readOnly?: boolean }) {
   const { store, mode } = useApp();
   const products = useLiveQuery(() => store.products.list(), [store]);
   const [query, setQuery] = useState('');
@@ -89,9 +99,10 @@ function ProductsList() {
           aria-label={t.common.search}
           className="min-h-12 flex-1 rounded-xl border-2 border-slate-300 bg-white px-3 text-lg"
         />
-        <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
+        {!readOnly && <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>}
       </div>
-      {products && products.length > 0 && (
+      {readOnly && <p className="mb-3 text-sm text-slate-600">{t.team.productsReadOnly}</p>}
+      {!readOnly && products && products.length > 0 && (
         <div className="mb-3 grid grid-cols-2 gap-2">
           <Button variant="secondary" className="px-2 text-sm leading-tight" onClick={() => setInsights(true)}>
             {t.stockInsights.open}
@@ -115,12 +126,14 @@ function ProductsList() {
       ) : products.length === 0 ? (
         <Empty
           action={
-            <div className="flex flex-col gap-2">
-              <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
-              <Button variant="secondary" onClick={() => setImporting(true)}>
-                {t.importProducts.open}
-              </Button>
-            </div>
+            readOnly ? undefined : (
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => setOpen('new')}>+ {t.products.add}</Button>
+                <Button variant="secondary" onClick={() => setImporting(true)}>
+                  {t.importProducts.open}
+                </Button>
+              </div>
+            )
           }
         >
           {t.products.empty}
@@ -131,8 +144,9 @@ function ProductsList() {
             <li key={p.id}>
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => setOpen(p.id)}
-                className="flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-50"
+                className="flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-50 disabled:active:bg-transparent"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold">{p.name}</p>

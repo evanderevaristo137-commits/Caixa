@@ -6,6 +6,7 @@ import { t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Card, Sheet } from '../../ui/kit';
 import { ShowMore, usePaged } from '../../ui/paged';
+import { useTeam } from '../../app/team';
 
 /** Lines of the activity log drawn at once. */
 const LOG_PAGE = 50;
@@ -45,9 +46,10 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
     };
     return entries.flatMap((e) => {
       const line = describeAudit(e, names);
-      return line ? [{ id: e.id, at: e.createdAt, ...line }] : [];
+      return line ? [{ id: e.id, at: e.createdAt, by: e.by, ...line }] : [];
     });
   }, [store]);
+  const team = useTeam();
   const shown = (lines ?? []).filter((l) => all || l.important);
   const paged = usePaged(shown, LOG_PAGE, all);
 
@@ -72,7 +74,11 @@ function AuditLogSheet({ onClose }: { onClose: () => void }) {
         <ul className="divide-y divide-slate-200 rounded-xl bg-white">
           {paged.visible.map((l) => (
             <li key={l.id} className="p-3">
-              <p className="text-xs text-slate-600">{formatDateTime(l.at)}</p>
+              <p className="text-xs text-slate-600">
+                {formatDateTime(l.at)}
+                {/* With employees: who did it. */}
+                {l.by && team.nameOf(l.by) && ` · ${t.team.by(team.nameOf(l.by)!)}`}
+              </p>
               <p className={l.important ? 'font-semibold' : ''}>{l.text}</p>
             </li>
           ))}

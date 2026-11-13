@@ -100,6 +100,8 @@ export interface SaleItem {
 }
 
 export interface Sale extends BaseRecord {
+  /** Who sold it, when the shop has employees: 'owner' or the employee's id (see StaffMember). */
+  by?: string;
   /** Sequential per device, only for humans ("Venda n.º 12"). */
   number: number;
   items: SaleItem[];
@@ -142,6 +144,8 @@ export interface Sale extends BaseRecord {
  * came back (no money moves: see SaleReturn). Sums of money received leave returns out (`isMoneyIn`).
  */
 export interface CreditPayment extends BaseRecord {
+  /** Who received it, when the shop has employees ('owner' or the employee's id). */
+  by?: string;
   customerId: string;
   amountCents: Cents;
   method: Exclude<PaymentMethod, 'credit'> | 'return';
@@ -293,6 +297,8 @@ export const EXPENSE_CATEGORIES = [
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export interface Expense extends BaseRecord {
+  /** Who recorded it, when the shop has employees ('owner' or the employee's id). */
+  by?: string;
   category: ExpenseCategory;
   amountCents: Cents;
   /** True when the money came out of the till. */
@@ -348,6 +354,8 @@ export interface InssContribution extends BaseRecord {
 
 /** End-of-day count: the cash the till should have against the cash counted. */
 export interface CashClose extends BaseRecord {
+  /** Who counted the till, when the shop has employees ('owner' or the employee's id). */
+  by?: string;
   /** The local day that was closed, "YYYY-MM-DD". */
   day: string;
   /** Opening float: the change the till started the day with (0 = none). */
@@ -377,9 +385,12 @@ export interface AuditEntry extends BaseRecord {
     | 'supplier_payment'
     | 'inss_contribution'
     | 'return'
-    | 'batch';
+    | 'batch'
+    | 'staff';
   entityId: string;
-  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted' | 'confirmed';
+  action: 'created' | 'updated' | 'archived' | 'voided' | 'imported' | 'reset' | 'counted' | 'confirmed' | 'signed_in';
+  /** Who did it, when the shop has employees ('owner' or the employee's id). */
+  by?: string;
   before?: unknown;
   after?: unknown;
 }
@@ -428,3 +439,19 @@ export interface Settings extends BaseRecord {
   /** Usual IVA rate in basis points (1400 = 14%), used for products without their own rate. */
   defaultTaxRateBp?: number;
 }
+
+/**
+ * An employee who uses the shop's phone (off by default: a shop without employees never sees this).
+ * Their code is kept apart, only on the phone (table `staffPins`), never in a backup.
+ */
+export interface StaffMember extends BaseRecord {
+  name: string;
+  /** 'seller': sells and receives payments. 'manager': also products, stock, purchases and the shop's numbers. */
+  role: StaffRole;
+  /** A seller may sell on credit (a manager always may). */
+  canCredit: boolean;
+  /** No longer works in the shop: kept, so old sales still say who made them. */
+  archivedAt?: IsoDate;
+}
+
+export type StaffRole = 'seller' | 'manager';

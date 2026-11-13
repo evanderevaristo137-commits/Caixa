@@ -457,6 +457,8 @@ export async function restoreBackup(
 ): Promise<void> {
   await store.security.requireOwner();
   await importBackup(store.db, backup, now, options);
+  // The backup may bring (or drop) employees: who can use the app is read again.
+  await store.staff.load();
 }
 
 /** When and what the phone held before the last restore, if a safety copy exists. */

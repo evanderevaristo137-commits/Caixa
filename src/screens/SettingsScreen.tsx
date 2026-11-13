@@ -18,6 +18,8 @@ import { IntegrityCard } from './settings/IntegrityCard';
 import { DataCard } from './settings/DataCard';
 import { AuditLogCard } from './settings/AuditLogCard';
 import { MoreSection, useOpenSections } from './settings/MoreSection';
+import { StaffCard } from './settings/StaffCard';
+import { useTeam } from '../app/team';
 import { DEFAULT_STORE_NAME } from '../data/repos/shared';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 import { ICON } from '../ui/icons';
@@ -36,9 +38,26 @@ export default function SettingsScreen() {
  */
 function Sections({ settings }: { settings: Settings }) {
   const { mode } = useApp();
+  const team = useTeam();
   // A real shop still without its name: the shop's section starts open, to fill it in.
   const [open, toggle] = useOpenSections(mode === 'store' && settings.storeName === DEFAULT_STORE_NAME ? ['store'] : []);
   const s = t.moreSections;
+  // An employee: the shop's settings are the owner's (the Store checks it too).
+  if (!team.can('settings')) {
+    return (
+      <div className="space-y-3 p-3">
+        <InstallCard />
+        <Card className="space-y-3">
+          <p className="text-slate-700">{t.team.ownerOnly}</p>
+          <Button variant="secondary" className="w-full" onClick={team.choose}>
+            {t.team.switch}
+          </Button>
+        </Card>
+        <LegalCard />
+        <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-3 p-3">
       <InstallCard />
@@ -55,6 +74,7 @@ function Sections({ settings }: { settings: Settings }) {
       </MoreSection>
       <MoreSection icon={ICON.shield} title={s.safety} hint={s.safetyHint} open={open.has('safety')} onToggle={() => toggle('safety')}>
         <OwnerPinCard />
+        <StaffCard />
         <DataCard />
         <IntegrityCard />
         <AuditLogCard />

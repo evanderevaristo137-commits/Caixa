@@ -1,10 +1,13 @@
 import type { SoldReceived } from '../../domain/finance';
 import type { DayView } from '../../domain/today';
+import type { Sale } from '../../domain/types';
 import { PAYMENT_METHODS, type PaymentMethod } from '../../domain/types';
 import { methodLabel, t } from '../../i18n/pt-AO';
 import { formatKz } from '../../lib/money';
 import { Card, LinkButton, Money, Sheet } from '../../ui/kit';
 import { DayCard } from './DayCard';
+import { salesByPerson } from '../../domain/staff';
+import { useTeam } from '../../app/team';
 
 /**
  * The detail behind «Vendas de hoje» and «Dinheiro recebido»: sold and received, the comparison,
@@ -18,6 +21,7 @@ export function DaySheet({
   pendingByMethod,
   summaryLink,
   isToday,
+  sales,
   onClose,
 }: {
   title: string;
@@ -27,10 +31,14 @@ export function DaySheet({
   pendingByMethod: Map<PaymentMethod, number>;
   summaryLink: string;
   isToday: boolean;
+  /** The day's sales, to add them up by person (with employees). */
+  sales: Sale[];
   onClose: () => void;
 }) {
   const { day } = view;
   const max = Math.max(1, ...PAYMENT_METHODS.map((m) => day.byMethod[m]));
+  const team = useTeam();
+  const byPerson = salesByPerson(sales);
   return (
     <Sheet title={title} onClose={onClose}>
       <div className="space-y-3">
@@ -63,6 +71,21 @@ export function DaySheet({
             </ul>
           )}
         </Card>
+        {byPerson.length > 0 && (
+          <Card>
+            <h2 className="mb-2 font-bold">{t.team.byPerson}</h2>
+            <ul className="space-y-1">
+              {byPerson.map((r) => (
+                <li key={r.by} className="flex justify-between gap-2">
+                  <span>
+                    {team.nameOf(r.by) ?? '—'} <span className="text-sm text-slate-600">· {t.today.sales(r.count)}</span>
+                  </span>
+                  <Money cents={r.totalCents} className="font-semibold" />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         {(day.count > 0 || day.voidedCount > 0 || returns.count > 0) && <LinkButton href={summaryLink}>{t.today.sendSummary}</LinkButton>}
       </div>
     </Sheet>

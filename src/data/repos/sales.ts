@@ -63,6 +63,7 @@ export class SalesRepository {
       if ((await this.c.db.returns.where('saleId').equals(id).count()) > 0) throw new DomainError('has_returns');
       if (reason.trim().length < 3) throw new DomainError('reason_required');
       this.checkMethod(input.method);
+      if (input.method === 'credit') await this.c.allow('credit');
       await this.checkId(input.id);
       const sale = await this.record(before.items, input, before);
       const at = this.c.stamp();
@@ -104,6 +105,7 @@ export class SalesRepository {
   create = (input: NewSale): Promise<Sale> =>
     this.c.db.transaction('rw', this.saleTables(), async () => {
       this.checkMethod(input.method);
+      if (input.method === 'credit') await this.c.allow('credit');
       if (input.cart.length === 0) throw new DomainError('empty_cart');
       if (input.cart.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0 || l.quantity > MAX_GRAMS)) {
         throw new DomainError('invalid_quantity');
@@ -169,8 +171,10 @@ export class SalesRepository {
     const number = (typeof counter?.value === 'number' ? counter.value : 0) + 1;
     await this.c.db.meta.put({ key: 'saleNumber', value: number });
     const at = this.c.stamp();
+    const by = this.c.by();
     const sale: Sale = {
       id: input.id ?? uuid(),
+      ...(by ? { by } : {}),
       number,
       items,
       totalCents,
@@ -232,8 +236,10 @@ export class CreditRepository {
       const owed = await this.c.customerBalance(customerId);
       if (amountCents > owed) throw new DomainError('too_much');
       const at = this.c.stamp();
+      const by = this.c.by();
       const payment: CreditPayment = {
         id: uuid(),
+        ...(by ? { by } : {}),
         customerId,
         amountCents,
         method,

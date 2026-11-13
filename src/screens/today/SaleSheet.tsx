@@ -15,11 +15,13 @@ import { isPaymentPending } from '../../domain/types';
 import { ReturnSheet } from './ReturnSheet';
 import { ReceiptPrint } from '../sell/ReceiptPrint';
 import { PaymentStatus } from './PaymentStatus';
+import { useTeam } from '../../app/team';
 
 /** One sale: details, resend the non-fiscal receipt, give goods back (returns), or void it (with a reason). */
 export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => void }) {
   const { store, showToast } = useApp();
   const guard = usePinGuard();
+  const team = useTeam();
   const data = useLiveQuery(async () => {
     const sale = await store.sales.get(saleId);
     const [customer, settings, returns] = await Promise.all([
@@ -61,7 +63,10 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
 
   return (
     <Sheet title={t.sale.title(sale.number)} onClose={onClose}>
-      <p className="text-slate-600">{formatDateTime(sale.createdAt)}</p>
+      <p className="text-slate-600">
+        {formatDateTime(sale.createdAt)}
+        {sale.by && team.nameOf(sale.by) && ` · ${t.team.soldBy(team.nameOf(sale.by)!)}`}
+      </p>
       <ul className="my-3 divide-y divide-slate-200 rounded-xl bg-white">
         {sale.items.map((i) => (
           <li key={i.productId} className="flex justify-between gap-2 p-3">

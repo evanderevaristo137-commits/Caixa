@@ -228,6 +228,27 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         important: true,
       };
     }
+    case 'staff': {
+      const s = obj<{ name: string; role: string; canCredit: boolean; pin: string }>(e.after);
+      const before = obj<{ name: string; role: string; canCredit: boolean }>(e.before);
+      const who = s.name === 'owner' ? t.team.owner : (s.name ?? '');
+      if (e.action === 'signed_in') return { text: `${who} começou a usar a app`, important: false };
+      if (e.action === 'archived') return { text: `${who} deixou de trabalhar na loja`, important: true };
+      if (e.action === 'created') {
+        const credit = s.role === 'seller' && s.canCredit ? ', pode vender a crédito' : '';
+        return { text: `Funcionário juntado: ${who} (${(s.role && t.team.roles[s.role]) ?? ''}${credit})`, important: true };
+      }
+      if (e.action === 'updated' && s.pin) return { text: `${who}: código novo`, important: true };
+      if (e.action === 'updated') {
+        const changes = [
+          before.name !== undefined && `antes ${before.name}`,
+          s.role !== undefined && `agora ${t.team.roles[s.role] ?? String(s.role)}`,
+          s.canCredit !== undefined && `vender a crédito: ${s.canCredit ? 'sim' : 'não'}`,
+        ].filter(Boolean);
+        return { text: `Funcionário ${who} alterado: ${changes.join(', ')}`, important: true };
+      }
+      return null;
+    }
     case 'data':
       if (e.action === 'counted' && e.entityId === 'stock_count') {
         const r = obj<{ counted: number; adjusted: number }>(e.after);

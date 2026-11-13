@@ -16,6 +16,7 @@ import type {
   StockMovement,
   Supplier,
   SupplierPayment,
+  StaffMember,
 } from '../domain/types';
 
 export type DataMode = 'store' | 'demo';
@@ -44,6 +45,15 @@ export interface SafetyInfo {
  */
 export type SafetyRow = SafetyInfo | { id: 'data'; bytes: Uint8Array<ArrayBuffer> };
 
+/** An employee's code (salted PBKDF2 hash) and wrong tries. Only on the phone: never in a backup. */
+export interface StaffPinRow {
+  id: string;
+  salt: string;
+  hash: string;
+  fails?: number;
+  waitUntil?: number;
+}
+
 export class CaixaDB extends Dexie {
   products!: Table<Product, string>;
   customers!: Table<Customer, string>;
@@ -62,6 +72,8 @@ export class CaixaDB extends Dexie {
   safety!: Table<SafetyRow, string>;
   returns!: Table<SaleReturn, string>;
   batches!: Table<Batch, string>;
+  staff!: Table<StaffMember, string>;
+  staffPins!: Table<StaffPinRow, string>;
 
   constructor(name: string) {
     // No query cache: it copies and tracks every record a live screen reads (thousands of sales),
@@ -111,6 +123,8 @@ export class CaixaDB extends Dexie {
     this.version(9).stores({ sales: 'id, createdAt, customerId, method, updatedAt, pendingSince' });
     // v10: expiry dates of the stock of products that follow them (optional).
     this.version(10).stores({ batches: 'id, productId, createdAt' });
+    // v11: employees on the shop's phone (off by default), and their codes, kept only on the phone.
+    this.version(11).stores({ staff: 'id, name', staffPins: 'id' });
   }
 }
 
@@ -131,6 +145,7 @@ export const TABLES = [
   'inssContributions',
   'returns',
   'batches',
+  'staff',
 ] as const;
 /** Tables added after the first version: older backups do not have them (read as empty). */
 export const LATER_TABLES: readonly TableName[] = [
@@ -142,5 +157,6 @@ export const LATER_TABLES: readonly TableName[] = [
   'inssContributions',
   'returns',
   'batches',
+  'staff',
 ];
 export type TableName = (typeof TABLES)[number];

@@ -29,6 +29,7 @@ import { ReportsMenu } from './ReportsMenu';
 import { DaySheet } from './DaySheet';
 import { StockInsightsSheet } from '../products/StockInsightsSheet';
 import { goToSuppliers } from './go-suppliers';
+import { useTeam } from '../../app/team';
 
 /** The cash card is where expenses are recorded and the day is closed: the panel scrolls to it. */
 const CASH_ID = 'caixa';
@@ -39,6 +40,8 @@ const CASH_ID = 'caixa';
  */
 export default function TodayScreen() {
   const { store } = useApp();
+  // An employee who may not see the shop's numbers: no profit, reports, debts to suppliers or INSS.
+  const numbers = useTeam().can('numbers');
   const [offset, setOffset] = useState(0);
   const [open, setOpen] = useState<'day' | 'profit' | 'stock' | null>(null);
   // One read for the whole top of the screen, so it appears complete at once. Measured on a slow
@@ -178,7 +181,7 @@ export default function TodayScreen() {
 
   const onOpen = (kind: IndicatorKind) => {
     if (kind === 'sales' || kind === 'received') return setOpen('day');
-    if (kind === 'profit') return setOpen('profit');
+    if (kind === 'profit') return numbers && setOpen('profit');
     if (kind === 'lowStock') return setOpen('stock');
     if (kind === 'toReceive') {
       window.location.hash = '#/credit';
@@ -195,7 +198,7 @@ export default function TodayScreen() {
       {header}
 
       {/* Credit for stock: the alarm stays at the top, where the owner cannot miss it. */}
-      {data.isToday && digital?.alarm && <DigitalCard status={digital} />}
+      {numbers && data.isToday && digital?.alarm && <DigitalCard status={digital} />}
 
       <Indicators
         onOpen={onOpen}
@@ -218,6 +221,7 @@ export default function TodayScreen() {
           marginText: margin === undefined ? undefined : formatMargin(margin),
           profitUnknownLines: data.profit.unknownLines,
           cashCents: data.drawer.expectedCents,
+          numbers,
           shop: data.shop ? { ...data.shop, overdueCustomers: data.shop.alerts.overdue.length } : undefined,
         }}
       />
@@ -225,9 +229,11 @@ export default function TodayScreen() {
       {/* A tablet or a computer: what to do and the till on the left, the day's sales on the right. */}
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
         <div className="space-y-3">
-          {data.shop && <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} />}
+          {data.shop && (
+            <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} numbers={numbers} />
+          )}
 
-          <ReportsMenu />
+          {numbers && <ReportsMenu />}
 
           <div id={CASH_ID} className="scroll-mt-3">
             <CashCard
@@ -240,7 +246,7 @@ export default function TodayScreen() {
             />
           </div>
 
-          {digital && !digital.alarm && digital.minShareBp !== undefined && <DigitalCard status={digital} />}
+          {numbers && digital && !digital.alarm && digital.minShareBp !== undefined && <DigitalCard status={digital} />}
 
           {(day.count > 0 || day.voidedCount > 0 || data.returns.count > 0) && (
             <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>
@@ -249,7 +255,7 @@ export default function TodayScreen() {
         <div className="space-y-3">
           <SalesList sales={data.daySales} isToday={data.isToday} />
 
-          {data.isToday && <InssCard />}
+          {numbers && data.isToday && <InssCard />}
         </div>
       </div>
 
@@ -262,6 +268,7 @@ export default function TodayScreen() {
           pendingByMethod={data.pendingByMethod}
           summaryLink={data.summaryLink}
           isToday={data.isToday}
+          sales={data.daySales}
           onClose={() => setOpen(null)}
         />
       )}

@@ -12,7 +12,7 @@ const pinError = (e: unknown) =>
     ? t.pin.locked(e.detail ?? 30)
     : e instanceof DomainError && e.code === 'wrong_pin'
       ? t.pin.wrong
-      : t.errors.saveFailed;
+      : (e instanceof DomainError && t.team.errors[e.code]) || t.errors.saveFailed;
 
 type Mode = 'idle' | 'set' | 'remove';
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6);

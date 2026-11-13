@@ -14,6 +14,7 @@ import { CustomerPicker } from './CustomerPicker';
 import { TermPicker } from './TermPicker';
 import { usePinGuard } from '../../ui/pin';
 import { recordError } from '../../lib/error-log';
+import { useTeam } from '../../app/team';
 
 /**
  * Choosing how the customer pays and recording the sale. The receipt is shown by ReceiptSheet.
@@ -42,6 +43,7 @@ export function CheckoutSheet({
 }) {
   const { store, payments, showToast } = useApp();
   const guard = usePinGuard();
+  const team = useTeam();
   const settings = useLiveQuery(() => store.settings.get(), [store]);
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -266,8 +268,8 @@ export function CheckoutSheet({
           big
           className="mt-4 w-full"
           disabled={!canConfirm}
-          // Recording again voids the first sale: the owner code, when there is one.
-          onClick={() => void (replaces ? guard(() => confirm()) : confirm())}
+          // Recording again voids the first sale, and an employee without credit needs the owner: the owner code.
+          onClick={() => void (replaces || (method === 'credit' && !team.can('credit')) ? guard(() => confirm()) : confirm())}
         >
           {t.sell.confirmSale}
         </Button>
