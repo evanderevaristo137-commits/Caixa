@@ -87,6 +87,47 @@ Actualizado à medida que cada passo é publicado.
 - **Ficheiro 10% maior:** a primeira visita em 3G lento demora um pouco mais (antes ~5 s).
 - **Validades e custo médio** são opcionais e regras novas: confirmar no piloto com uma farmácia antes de os recomendar.
 
+## Fase 4: modernização visual (concluída a 13/11/2026)
+
+| Passo                        | O que foi feito                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1 «Hoje»                   | No topo, os 8 números do plano (vendas, dinheiro recebido, despesas, lucro bruto estimado, saldo de caixa, contas a receber, contas a pagar, stock baixo); cada um abre o seu detalhe. Os avisos juntam-se em «Para tratar hoje» (só aparece quando há alguma coisa, os urgentes primeiro); os três relatórios ficam atrás de «Relatórios»; o alarme dos pagamentos digitais continua no topo. |
+| 4.2 «Mais»                   | Quatro secções que abrem com um toque: «A loja», «Dinheiro e clientes», «Segurança e cópias», «Piloto e ajuda»; o modo demonstração sempre à vista.                                                                                                                                                                                                                                            |
+| 4.3 Confirmações e mensagens | As perguntas «tem a certeza?» são da própria app (botões grandes, «Cancelar» com o foco, o «voltar» cancela), em vez das do navegador; «A carregar…», «Fechar» e os botões do carrinho vêm dos textos da app; as caixas que abrem e fecham têm todas a mesma seta.                                                                                                                             |
+| 4.4 Ecrãs grandes            | Num tablet ou computador, «Vender» mostra 3 a 5 produtos por linha, o «Hoje» divide-se em duas colunas e as janelas abrem no meio do ecrã; no telemóvel nada muda.                                                                                                                                                                                                                             |
+| 4.5 Revisão                  | Verificação automática de acessibilidade (axe-core, regras WCAG 2.1 A e AA e boas práticas) em 12 ecrãs e janelas: 0 problemas. Cada aba passou a ter um título principal para leitores de ecrã e o aviso «MODO DEMONSTRAÇÃO» ficou numa área própria da página.                                                                                                                               |
+
+**Problemas encontrados e corrigidos durante a fase:**
+
+- A comparação do dia dizia «mais que ontem» mesmo ao ver um dia passado (devia ser «que no dia anterior») e repetia «ontem»: corrigido no quadro das vendas e no detalhe do dia.
+- As linhas das vendas anuladas e das devoluções, em amarelo sobre o verde, tinham contraste 4,4:1 (abaixo dos 4,5:1 pedidos): passaram a um amarelo mais claro (4,9:1).
+- Numa primeira versão, o alarme dos pagamentos digitais ficava escondido numa linha de «Para tratar hoje», contra a decisão de o mostrar no topo (é dissuasão). Um teste apanhou-o antes de publicar; voltou ao topo.
+- Separar a leitura das dívidas dos clientes mostrava os primeiros números do «Hoje» mais cedo, mas o ecrã completo mais tarde e com números a aparecer depois: medido, desfeito, e o «Hoje» continua a aparecer completo de uma vez.
+- Textos escritos directamente no código («Fechar», «A carregar», «Menos», «Mais») passaram para o ficheiro dos textos.
+
+**Números** (processador 6 vezes mais lento e a loja grande: 300 produtos, 60 clientes, 14.000 vendas; as duas versões medidas alternadamente, nas mesmas condições):
+
+| Medida                          | Fim da Fase 3               | Fim da Fase 4                                              |
+| ------------------------------- | --------------------------- | ---------------------------------------------------------- |
+| Testes                          | 401 de cálculos, 68 da app  | 401 de cálculos, 70 da app; todos passam                   |
+| Abrir o «Hoje»                  | ~1,4 s                      | ~0,9 s (noutra medição, ~1,2 s → ~0,66 s)                  |
+| Altura do «Hoje» (demonstração) | 8.972 px (cerca de 5 ecrãs) | 5.834 px: 35% mais curto, e os 8 números no primeiro ecrã  |
+| Abrir o «Mais»                  | ~150 ms                     | ~150 ms (igual: já era rápido; a mudança foi de arrumação) |
+| Ficheiro principal da app       | 770 KB (223 KB comprimido)  | 782 KB (226 KB comprimido): mais 1,5%                      |
+| Acessibilidade (axe-core)       | não medida                  | 0 problemas em 12 ecrãs e janelas                          |
+
+**Pendentes:**
+
+- O que ainda pesa no «Hoje» (e em Clientes) é ler todas as vendas a crédito para calcular as dívidas (~0,3 s com a loja grande). A solução a sério é guardar o saldo de cada cliente quando se regista uma venda ou um pagamento: uma mudança na base de dados, a propor numa fase seguinte.
+- Nas janelas, o leitor de ecrã fica dentro delas, mas com um teclado físico a tecla Tab ainda chega ao que está por trás (só importa num computador).
+- Continuam da Fase 3: o aviso diário com a app fechada ainda não inclui as validades nem os pagamentos por confirmar; impressão por Bluetooth; e as decisões do fundador (servidor, endereço próprio, funcionários, revisão legal e do INSS).
+
+**Riscos:**
+
+- **As coisas mudaram de sítio:** os relatórios estão atrás de «Relatórios» e as cópias de segurança em «Mais → Segurança e cópias». Quem já usava a app tem de as reencontrar; o README foi actualizado e os testes cobrem os caminhos novos.
+- **Ecrãs grandes só testados em simulação** (Chrome com o tamanho de um tablet e de um computador), não num tablet real.
+- **O «Hoje» continua a ser o ecrã mais pesado** com uma loja grande (~0,9 s num telemóvel lento).
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |

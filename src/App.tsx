@@ -53,11 +53,13 @@ export function App() {
       className={`mx-auto flex min-h-dvh max-w-lg flex-col ${tab === 'sell' || tab === 'today' ? 'md:max-w-3xl lg:max-w-5xl' : 'md:max-w-2xl'}`}
     >
       {mode === 'demo' && (
-        <div className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>
+        <header className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</header>
       )}
       <UpdateBanner />
       <ClockWarning />
       <main className="flex-1 pb-24">
+        {/* Every tab has a main title for screen readers; «Hoje» shows its own (the day). */}
+        {tab !== 'today' && <h1 className="sr-only">{t.tabs[tab]}</h1>}
         <Fragment key={mode}>
           {tab === 'sell' && <SellScreen />}
           {tab === 'credit' && <CreditScreen />}
