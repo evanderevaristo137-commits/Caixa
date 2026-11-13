@@ -6,7 +6,7 @@ import { Sheet } from '../../ui/kit';
 /** One legal text, readable without internet. */
 export function LegalDocSheet({ id, onClose }: { id: LegalDocId; onClose: () => void }) {
   return (
-    <Sheet title={t.legal.docs[id]!} onClose={onClose}>
+    <Sheet title={t.legal.docs[id]!} onClose={onClose} textOnly>
       <Markdown source={legalDoc(id).body} />
     </Sheet>
   );

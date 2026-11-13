@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import type { Locator } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { inDays, luandaTime, nav, openStore } from './helpers';
+import { inDays, luandaTime, nav, openDemo, openStore } from './helpers';
 
 // «Pronto quando» (CLAUDE.md), one by one, in a real shop that starts from nothing, as the shops of
 // the pilot will. The same points in the demo: app.e2e.ts. «Os testes passam»: the CI publishes only
@@ -123,4 +124,11 @@ test('a real shop from nothing: a day without internet, a sale of 3 products in 
   const reminder = await row.getByRole('link', { name: /Lembrar/ }).getAttribute('href');
   expect(reminder).toMatch(/^https:\/\/wa\.me\/244955502264\?text=/);
   expect(decodeURIComponent(reminder!)).toContain(`o pagamento de 1.850 Kz venceu a ${inDays(15)}`);
+});
+
+test('«Mais» says which version of the app this is (also sent in the pilot summary)', async ({ page }) => {
+  const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
+  await openDemo(page);
+  await nav(page, 'Mais');
+  await expect(page.getByText(new RegExp(`^Versão ${version.replace(/\./g, '\\.')} · \\d{2}/\\d{2}/\\d{4}`))).toBeVisible();
 });

@@ -76,6 +76,12 @@ describe('pilot summary', () => {
     expect(pilotText({ ...base, appErrors: 0 })).toContain('Erros da app (7 dias): 0');
   });
 
+  it('says which version of the app sent it', () => {
+    expect(pilotText({ ...base, appErrors: 0, appVersion: '1.0.0 · 13/11/2026 · e2b0f37' })).toContain(
+      'Erros da app (7 dias): 0\nVersão da app: 1.0.0 · 13/11/2026 · e2b0f37\n',
+    );
+  });
+
   it('counts the returns of the last 30 days (only how many)', () => {
     expect(pilotText({ ...base, returns: 2 })).toContain('Vendas anuladas (30 dias): 1\nDevoluções (30 dias): 2\n');
   });

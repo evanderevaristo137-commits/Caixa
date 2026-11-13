@@ -94,7 +94,18 @@ export function Money({ cents, className = '' }: { cents: number; className?: st
 }
 
 /** Bottom sheet: slides over the screen, easy to reach with one thumb. */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({
+  title,
+  onClose,
+  children,
+  textOnly = false,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  /** Only text to read, no buttons inside (the legal documents): the text takes the keyboard focus, so the arrows scroll it. */
+  textOnly?: boolean;
+}) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -124,7 +135,12 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
             ×
           </button>
         </div>
-        <div className="overflow-y-auto px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
+        <div
+          className="overflow-y-auto px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-700"
+          {...(textOnly ? { role: 'region', 'aria-label': title, tabIndex: 0 } : {})}
+        >
+          {children}
+        </div>
       </Modal>
     </div>
   );

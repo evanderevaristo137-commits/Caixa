@@ -204,6 +204,11 @@ function Review({
         <Button big variant="dangerSolid" className="w-full" disabled={!phone || busy} onClick={() => void confirm()}>
           {busy ? t.backups.restoring : source === 'safety' ? t.backups.undoAction : t.backups.confirmRestore}
         </Button>
+        {busy && (
+          <p role="status" className="text-center text-sm text-slate-700">
+            {t.backups.restoringHint}
+          </p>
+        )}
         <Button variant="secondary" className="w-full" disabled={busy} onClick={onClose}>
           {t.common.cancel}
         </Button>

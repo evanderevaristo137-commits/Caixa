@@ -136,6 +136,11 @@ test.describe('automatic accessibility check (axe-core) of the newer screens', (
 
     for (const section of ['A loja', 'Dinheiro e clientes', 'Segurança e cópias', 'Piloto e ajuda'] as const) await openMore(page, section);
     await noProblems(page, 'Mais, com tudo aberto');
+    // A window with text only (no buttons inside): the text takes the keyboard focus, to scroll it.
+    await page.getByRole('button', { name: 'Termos de uso', exact: true }).click();
+    const terms = page.getByRole('dialog', { name: 'Termos de uso' });
+    await expect(terms.getByRole('region', { name: 'Termos de uso' })).toHaveAttribute('tabindex', '0');
+    await noProblems(page, 'Termos de uso');
   });
 
   test('real shop: the Terms, the kind of shop, employees and «Quem está a usar a app?»', async ({ page }) => {

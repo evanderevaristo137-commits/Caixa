@@ -94,6 +94,8 @@ A app **não emite facturas**. Em **Mais → A loja → Dados para facturação 
 
 Hoje cada loja vive só no seu telemóvel. A app já está preparada para, quando houver servidor (Fase 2), juntar vários telemóveis da mesma loja e guardar uma cópia na nuvem: sabe o que partilhar, o que nunca sai do telemóvel (códigos e chaves) e como juntar duas versões sem perder vendas. Enquanto não houver servidor, nada disto envia dados nem custa nada. Está explicado em [`docs/SINCRONIZACAO.md`](docs/SINCRONIZACAO.md).
 
+O que comprar para o servidor (serviço, região onde ficam os dados, endereço próprio da app), com os preços vistos a 13/11/2026: [`docs/SERVIDOR.md`](docs/SERVIDOR.md).
+
 ## Cópias de segurança
 
 Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apagada, perdem-se. Em **Mais → Segurança e cópias → Enviar cópia de segurança** escolha WhatsApp, e-mail ou Drive para guardar a cópia fora do telemóvel. A app lembra no «Hoje» (em «Para tratar hoje») quando a última cópia tiver mais de 7 dias, e propõe a cópia quando se fecha o dia.
@@ -102,6 +104,11 @@ Os dados vivem só neste telemóvel. Se o telemóvel se perder ou a app for apag
 - **Palavra-passe (opcional):** em **Mais → Segurança e cópias → Proteger as cópias com palavra-passe**. Quem receber o ficheiro não o consegue abrir sem ela. **Se a esquecer, as cópias não se abrem** (ninguém a consegue recuperar): escreva-a num papel e guarde-o em casa.
 - **Recuperar:** **Mais → Segurança e cópias → Recuperar uma cópia de segurança** e escolha o ficheiro. Antes de substituir, a app mostra o que a cópia tem, o que o telemóvel tem e o que se perderia. Guarda também o que estava no telemóvel: se for engano, **Desfazer** (ou «Voltar a esses dados», em **Mais**) traz tudo de volta.
 - As cópias antigas (anteriores a Novembro de 2026) continuam a recuperar-se. A cópia da demonstração nunca entra na loja, e a da loja nunca entra na demonstração.
+
+## Versão e verificação num telemóvel
+
+- **Que versão tenho?** No fundo do ecrã **Mais** (por exemplo «Versão 1.0.0 · 13/11/2026»). O resumo do piloto também a leva, para se saber que versão tem cada loja.
+- Antes das lojas reais, faça a volta de 20 minutos num Android barato: [`docs/VERIFICAR-NO-TELEMOVEL.md`](docs/VERIFICAR-NO-TELEMOVEL.md).
 
 ## Pagamentos
 
@@ -115,6 +122,7 @@ Nesta fase os pagamentos electrónicos (QR KWiK, Multicaixa Express, Unitel Mone
 npm install
 npm run dev        # abre em http://localhost:5173
 npm test           # testes dos cálculos (totais, stock, clientes e prazos, demonstração, cópias)
+npm run e2e        # a app inteira num Android simulado (inclui a revisão de acessibilidade e «Pronto quando»)
 npm run typecheck
 npm run build
 ```

@@ -37,6 +37,8 @@ export interface PilotInput {
   appErrors?: number;
   /** Returns of the last 30 days (only how many). */
   returns?: number;
+  /** The app's version on this phone ("1.0.0 · 13/11/2026"), to know which version each shop has. */
+  appVersion?: string;
 }
 
 export interface DigitalLine {
@@ -101,6 +103,7 @@ export function pilotText(p: PilotInput): string {
   );
   out.push(`Última cópia de segurança: ${p.lastBackupAt ? formatDate(p.lastBackupAt) : 'nenhuma'}`);
   if (p.appErrors !== undefined) out.push(`Erros da app (7 dias): ${p.appErrors}`);
+  if (p.appVersion) out.push(`Versão da app: ${p.appVersion}`);
   out.push('', 'Só números da loja: nenhum nome nem telefone de clientes.');
   return out.join('\n');
 }

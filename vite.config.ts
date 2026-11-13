@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -6,6 +7,15 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // On GitHub Pages the app lives under /<repo-name>/; the CI sets BASE_PATH.
 const base = process.env.BASE_PATH ?? '/';
+
+// Which version a shop has (shown in «Mais» and in the pilot summary): the number in package.json,
+// the day it was built and, on the CI, the commit.
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+const APP_DEFINES = {
+  __APP_VERSION__: JSON.stringify(version),
+  __APP_BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  __APP_COMMIT__: JSON.stringify((process.env.GITHUB_SHA ?? '').slice(0, 7)),
+};
 
 /**
  * Content Security Policy of the published app: the browser itself refuses to load code from
@@ -44,6 +54,7 @@ function contentSecurityPolicy(): Plugin {
 
 export default defineConfig({
   base,
+  define: APP_DEFINES,
   plugins: [
     contentSecurityPolicy(),
     react(),

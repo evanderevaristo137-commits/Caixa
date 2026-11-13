@@ -27,6 +27,8 @@ import { DEFAULT_STORE_NAME } from '../data/repos/shared';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 import { ICON } from '../ui/icons';
 import { useConfirm } from '../ui/confirm';
+import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../app-version';
+import { formatDate } from '../lib/dates';
 
 export default function SettingsScreen() {
   const { store } = useApp();
@@ -57,7 +59,7 @@ function Sections({ settings }: { settings: Settings }) {
           </Button>
         </Card>
         <LegalCard />
-        <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
+        <AboutApp />
       </div>
     );
   }
@@ -88,7 +90,7 @@ function Sections({ settings }: { settings: Settings }) {
         <LegalCard />
       </MoreSection>
       <DemoCard />
-      <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
+      <AboutApp />
     </div>
   );
 }
@@ -220,5 +222,15 @@ function DemoCard() {
       )}
       {dialog}
     </Card>
+  );
+}
+
+/** What the app is not (no invoices), and which version this is (for the pilot: which version each shop has). */
+function AboutApp() {
+  return (
+    <div className="px-2 pb-4 text-center text-sm text-slate-600">
+      <p>{t.settings.about}</p>
+      <p className="mt-1 text-xs">{t.settings.version(APP_VERSION, formatDate(APP_BUILT), APP_COMMIT)}</p>
+    </div>
   );
 }

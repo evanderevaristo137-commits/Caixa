@@ -221,6 +221,7 @@ export const t = {
     safetyNote: 'Antes de recuperar, a app guarda o que está agora no telemóvel: se for engano, pode desfazer.',
     confirmRestore: 'Recuperar esta cópia',
     restoring: 'A recuperar…',
+    restoringHint: 'Numa loja grande pode demorar até meio minuto. Não feche a app.',
     restored: 'Cópia recuperada.',
     restoredHint: 'Se foi engano, pode desfazer: o que estava no telemóvel ficou guardado.',
     undo: 'Desfazer',
@@ -1075,8 +1076,10 @@ export const t = {
     body: 'Os seus dados estão guardados no telemóvel. Toque em «Recarregar» para continuar.',
     reload: 'Recarregar',
     saveFailed: 'Não foi possível guardar. Tente outra vez.',
-    noSpace: 'O telemóvel está sem espaço livre e nada foi guardado. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
-    noSpaceSale: 'O telemóvel está sem espaço livre: a venda não foi guardada, mas o carrinho continua aqui. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
+    noSpace:
+      'O telemóvel está sem espaço livre e nada foi guardado. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
+    noSpaceSale:
+      'O telemóvel está sem espaço livre: a venda não foi guardada, mas o carrinho continua aqui. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
     generic: 'Algo correu mal. Tente outra vez.',
   },
   weight: {
@@ -1535,6 +1538,7 @@ export const t = {
     demoResetYes: 'Repor',
     demoResetOk: 'Demonstração reposta.',
     about: 'Esta app não emite facturas. Os talões são documentos não fiscais.',
+    version: (version: string, day: string, commit: string) => `Versão ${version} · ${day}${commit ? ` · ${commit}` : ''}`,
   },
 } as const;
 

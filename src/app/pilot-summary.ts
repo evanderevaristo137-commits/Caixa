@@ -3,9 +3,10 @@ import type { DataMode } from '../data/db';
 import type { Store } from '../data/store';
 import { creditAlerts, totalOutstanding } from '../domain/credit';
 import { pilotText } from '../domain/pilot';
-import { addDays, startOfLocalDay } from '../lib/dates';
+import { addDays, formatDate, startOfLocalDay } from '../lib/dates';
 import { digitalStatus } from '../domain/digital-watch';
 import { errorsSince, readErrors } from '../lib/error-log';
+import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../app-version';
 
 /**
  * Gathers the shop's numbers for the pilot summary (no names, no phones) and writes the message.
@@ -57,5 +58,6 @@ export async function buildPilotSummary(store: Store, mode: DataMode, now = new 
     inssMonths: settings.inss ? inss.filter((c) => !c.voidedAt).length : undefined,
     appErrors: errorsSince(readErrors(), addDays(now, -7)),
     returns: returns.length,
+    appVersion: `${APP_VERSION} · ${formatDate(APP_BUILT)}${APP_COMMIT ? ` · ${APP_COMMIT}` : ''}`,
   });
 }

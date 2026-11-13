@@ -176,6 +176,60 @@ Actualizado à medida que cada passo é publicado.
 - **Mais escolhas para o dono:** a pergunta do tipo de loja acrescenta um passo ao começar (pode saltar-se), e a lista de categorias é longa (aparece primeiro só a do tipo de loja).
 - **Demonstrações de peças auto e telemóveis com preços fictícios:** convém confirmá-los com comerciantes desses ramos, para parecerem reais nas visitas.
 
+## Fase 6: testes finais e preparação (concluída a 13/11/2026)
+
+| Passo                          | O que foi feito                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1 Janelas acessíveis         | Ao abrir uma janela, o foco do leitor de ecrã e do teclado entra nela (lê-se o título); o Tab não sai dela; ao fechar, volta ao botão de onde saiu. Uma só peça para as 9 janelas (`src/ui/modal.tsx`). A revisão automática de acessibilidade (axe-core) corre agora em cada publicação, nos ecrãs da Fase 5 (escolher categoria, sugestões, relatórios, «Mais», tipo de loja, funcionários, «Quem está a usar a app?»). Uma revisão alargada, só desta vez, abriu uma a uma as janelas da demonstração a partir do «Hoje», dos Clientes, dos Fornecedores e do «Mais» (o «Vender» já tinha sido revisto na Fase 4 e está nos testes). |
+| 6.2 Actualizar sem perder nada | Uma loja completa em cada uma das 12 versões antigas da base de dados actualiza-se para a de hoje sem perder um registo, com as contas dos clientes certas e a app a vender como antes.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 6.3 «Pronto quando»            | Um teste numa loja real que começa do zero: instalar, sem internet, uma venda de 3 produtos em 6 toques, uma venda a crédito, o «Hoje» certo e, 20 dias depois, o cliente em atraso com o lembrete certo. Todos os testes da app falham se ela tentar falar com um servidor de fora.                                                                                                                                                                                                                                                                                                                                                    |
+| 6.4 Telemóvel barato           | Sem espaço livre, a app diz-o e o que fazer (a venda não se perde e o carrinho fica). Medições finais numa loja de 6 meses (em baixo). Ao recuperar uma cópia, a app avisa que pode demorar e para não a fechar.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 6.5 Preparar o piloto          | Versão 1.0.0, à vista no fundo de «Mais» e no resumo do piloto. Lista de verificação num telemóvel real (`docs/VERIFICAR-NO-TELEMOVEL.md`). Lista do que comprar para o servidor, com os preços de 13/11/2026 (`docs/SERVIDOR.md`). README actualizado.                                                                                                                                                                                                                                                                                                                                                                                 |
+
+**Problemas encontrados e corrigidos:**
+
+- **As janelas não levavam o foco.** Quem usa o leitor de ecrã (TalkBack) ficava no botão de trás, sem saber que uma janela tinha aberto. Com o teclado, o Tab ia parar aos botões escondidos atrás.
+- **Contas da loja:** a lista dos totais tinha uma caixa a mais e o leitor de ecrã lia-a mal.
+- **Relatório para guardar ou enviar:** as tabelas largas deslizavam para o lado, mas não com o teclado.
+- **Janelas só com texto** (Termos de uso, Política de privacidade e as condições): não deslizavam com o teclado. Agora a zona do texto recebe o foco.
+- **Telemóvel cheio:** a mensagem era «Não foi possível guardar. Tente outra vez.», e tentar outra vez falhava igual.
+- **Corrigir o stock** em «Verificar os dados» marcava o produto como alterado. Com dois telemóveis, isso podia fazer ganhar uma versão antiga do nome ou do preço.
+
+**Números** (processador 6 vezes mais lento e uma loja de 6 meses: 300 produtos, 60 clientes, 14.480 vendas; a mediana de 3 medições, que variam até cerca de 30% entre si):
+
+| Medida                                      | Fim da Fase 5              | Fim da Fase 6                                                                                               |
+| ------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Testes                                      | 471 de cálculos, 75 da app | 486 de cálculos, 83 da app (com a revisão de acessibilidade e a verificação de rede em todos); todos passam |
+| Primeira visita em 3G (1,4 Mbit/s)          | —                          | 3,9 s                                                                                                       |
+| Abrir o «Hoje»                              | ~0,25 a 0,38 s             | ~0,39 s                                                                                                     |
+| Abrir os Clientes                           | ~0,14 s                    | ~0,19 s                                                                                                     |
+| Abrir os Produtos                           | —                          | ~0,21 s                                                                                                     |
+| Voltar a Vender                             | —                          | ~0,26 s                                                                                                     |
+| Confirmar uma venda                         | ~0,27 a 0,30 s             | ~0,30 s                                                                                                     |
+| Relatório de 12 meses (do toque ao gráfico) | —                          | 1,4 s                                                                                                       |
+| Verificar os dados                          | —                          | 1,8 s                                                                                                       |
+| Cópia de segurança                          | —                          | 6,4 s; ficheiro de 5,3 MB; 56 MB de memória no máximo                                                       |
+| Recuperar essa cópia                        | —                          | 2,5 s para mostrar o que tem; 21 s para recuperar; 68 MB de memória no máximo                               |
+| Ficheiro principal da app                   | 857 KB (249 KB comprimido) | 859 KB (249 KB comprimido)                                                                                  |
+
+**Pendentes:**
+
+- **Do fundador:** o servidor e o endereço próprio da app (a lista está em `docs/SERVIDOR.md`), e a revisão dos textos legais e das regras do INSS com o advogado e com o INSS.
+- **«Dar a minha opinião»** (a loja envia uma nota e um comentário por WhatsApp): à espera da decisão do fundador.
+- **Testar num Android barato a sério** (`docs/VERIFICAR-NO-TELEMOVEL.md`): os testes automáticos usam um Android simulado.
+- **Continuam da Fase 5:**
+  - a caixa por funcionário e o filtro por pessoa em «Procurar vendas»;
+  - os serviços sem stock;
+  - as validades e os pagamentos por confirmar no aviso diário;
+  - a impressão por Bluetooth.
+
+**Riscos:**
+
+- **Telemóveis reais:** a câmara, as impressoras e os avisos com a app fechada mudam de marca para marca. Só a volta num telemóvel real o confirma.
+- **Recuperar uma cópia numa loja grande** demora (21 s no telemóvel lento) e usa até 68 MB de memória. Num telemóvel com pouca memória livre, convém fechar as outras apps antes.
+- **A cópia de uma loja de 6 meses tem 5,3 MB:** enviá-la por WhatsApp gasta dados. Com o servidor, a cópia passa a ser automática.
+- **O endereço:** mudar de endereço depois das lojas reais obriga a reinstalar, e os dados ficam no endereço antigo. Tem de ser escolhido antes.
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |
