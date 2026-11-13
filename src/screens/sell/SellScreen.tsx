@@ -226,7 +226,7 @@ export function SellScreen() {
       ) : filtered.length === 0 ? (
         <Empty>{t.sell.noResults}</Empty>
       ) : (
-        <ul className={`grid grid-cols-2 gap-2 px-3 ${count > 0 ? 'pb-24' : 'pb-3'}`}>
+        <ul className={`grid grid-cols-2 gap-2 px-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 ${count > 0 ? 'pb-24' : 'pb-3'}`}>
           {paged.visible.map((p) => {
             const inCart = qtyIn.get(p.id) ?? 0;
             const low = p.stock <= p.minStock;
@@ -272,7 +272,7 @@ export function SellScreen() {
 
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-16 z-20 mb-[env(safe-area-inset-bottom)] px-3 pb-2">
-          <div className="mx-auto flex max-w-lg gap-2 rounded-2xl bg-slate-900 p-2 shadow-xl">
+          <div className="mx-auto flex max-w-lg gap-2 rounded-2xl bg-slate-900 p-2 shadow-xl md:max-w-xl">
             <button
               type="button"
               onClick={() => setSheet('cart')}

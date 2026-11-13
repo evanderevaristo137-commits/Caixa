@@ -40,7 +40,7 @@ export interface IndicatorValues {
  */
 export function Indicators({ v, onOpen }: { v: IndicatorValues; onOpen: (kind: IndicatorKind) => void }) {
   return (
-    <section aria-label={t.panel.title} className="grid grid-cols-2 gap-2">
+    <section aria-label={t.panel.title} className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <button
         type="button"
         onClick={() => onOpen('sales')}
@@ -110,7 +110,7 @@ function ShopTiles({ shop, onOpen }: { shop: NonNullable<IndicatorValues['shop']
       <button
         type="button"
         onClick={() => onOpen('lowStock')}
-        className="col-span-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 text-left shadow-sm active:bg-slate-50"
+        className="col-span-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 text-left shadow-sm active:bg-slate-50 lg:col-span-4"
       >
         <span>
           <span className="block text-sm font-semibold text-slate-600">{t.panel.lowStock}</span>

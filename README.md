@@ -11,6 +11,8 @@ App para pequenos negócios em Angola: registar vendas, receber por vários meio
 3. A partir daí abre pelo ícone «Caixa», mesmo sem internet.
 4. Na primeira vez, a app mostra os **Termos de uso** e a **Política de privacidade**: toque em «Aceitar e começar» para usar com os dados da sua loja, ou em «Ver só a demonstração».
 
+Também funciona num **tablet** ou num **computador** (no Chrome): em «Vender» aparecem mais produtos por linha, o «Hoje» divide-se em duas colunas (o que tratar e a caixa à esquerda, as vendas do dia à direita) e as janelas abrem no meio do ecrã.
+
 ## Mostrar a um comerciante (modo demonstração)
 
 - Separador **Mais** → **Entrar no modo demonstração**. Aparece a «Mercearia da Dona Teresa» com 30 produtos, 5 clientes com compras a crédito e duas semanas de vendas. Todos os clientes da demonstração usam o número de testes 955 502 264, para os lembretes e talões enviados por WhatsApp chegarem a esse telefone.

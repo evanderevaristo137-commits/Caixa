@@ -49,7 +49,9 @@ export function App() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+    <div
+      className={`mx-auto flex min-h-dvh max-w-lg flex-col ${tab === 'sell' || tab === 'today' ? 'md:max-w-3xl lg:max-w-5xl' : 'md:max-w-2xl'}`}
+    >
       {mode === 'demo' && (
         <div className="sticky top-0 z-30 bg-amber-400 px-4 py-1.5 text-center text-sm font-bold text-amber-950">{t.demoBanner}</div>
       )}

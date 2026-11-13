@@ -222,30 +222,36 @@ export default function TodayScreen() {
         }}
       />
 
-      {data.shop && <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} />}
+      {/* A tablet or a computer: what to do and the till on the left, the day's sales on the right. */}
+      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
+        <div className="space-y-3">
+          {data.shop && <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} />}
 
-      <ReportsMenu />
+          <ReportsMenu />
 
-      <div id={CASH_ID} className="scroll-mt-3">
-        <CashCard
-          drawer={data.drawer}
-          expenses={data.dayExpenses}
-          lastClose={data.lastClose}
-          creditPaidCents={view.creditPaidCents}
-          isToday={data.isToday}
-          defaultFloatCents={data.defaultFloatCents}
-        />
+          <div id={CASH_ID} className="scroll-mt-3">
+            <CashCard
+              drawer={data.drawer}
+              expenses={data.dayExpenses}
+              lastClose={data.lastClose}
+              creditPaidCents={view.creditPaidCents}
+              isToday={data.isToday}
+              defaultFloatCents={data.defaultFloatCents}
+            />
+          </div>
+
+          {digital && !digital.alarm && digital.minShareBp !== undefined && <DigitalCard status={digital} />}
+
+          {(day.count > 0 || day.voidedCount > 0 || data.returns.count > 0) && (
+            <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>
+          )}
+        </div>
+        <div className="space-y-3">
+          <SalesList sales={data.daySales} isToday={data.isToday} />
+
+          {data.isToday && <InssCard />}
+        </div>
       </div>
-
-      {digital && !digital.alarm && digital.minShareBp !== undefined && <DigitalCard status={digital} />}
-
-      {(day.count > 0 || day.voidedCount > 0 || data.returns.count > 0) && (
-        <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>
-      )}
-
-      <SalesList sales={data.daySales} isToday={data.isToday} />
-
-      {data.isToday && <InssCard />}
 
       {open === 'day' && (
         <DaySheet

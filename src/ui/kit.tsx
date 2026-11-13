@@ -106,12 +106,12 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     };
   }, []);
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 md:justify-center md:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl bg-slate-50"
+        className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl bg-slate-50 md:max-h-[85vh] md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
