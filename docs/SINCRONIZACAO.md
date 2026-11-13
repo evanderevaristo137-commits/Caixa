@@ -70,6 +70,8 @@ Estado a 13/11/2026 (Fase 5, passo 5). Hoje os dados de cada loja ficam **só no
 
 ## O que falta decidir (fundador)
 
+**13/11/2026:** o fundador decidiu pagar o servidor quando a Fase 6 acabar. No fim da Fase 6 fica pronta uma lista do que comprar, com os preços confirmados nesse dia.
+
 - **O servidor.** A proposta é o Supabase. Tem um plano gratuito com limites, e os planos pagos têm custo mensal: confirmar os preços e os limites actuais antes de escolher.
 - **Onde ficam os dados** (país do servidor) e o que a Lei n.º 22/11 exige.
 - **Como a loja entra na conta:** número de telemóvel com código por SMS (as SMS têm custo) ou e-mail.
