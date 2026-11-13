@@ -43,6 +43,50 @@ Actualizado à medida que cada passo é publicado.
 | Avisos de segurança nas ferramentas | 6 (4 moderados)            | 4 baixos, só na construção (sem versão corrigida) |
 | `store.ts`                          | 1.178 linhas               | 76 linhas + uma área por ficheiro em `repos/`     |
 
+## Fase 3: melhorias funcionais (concluída a 13/11/2026)
+
+| Passo                       | O que foi feito                                                                                                                                                                                                                                                                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3.1 Vendas                  | Transferência bancária e TPA (com a referência); «Procurar vendas» (período, forma de pagamento, cliente, estado, texto); devoluções de toda ou parte de uma venda (o dinheiro sai da caixa, de outra forma ou abate na dívida); pagamentos electrónicos «por confirmar» («Já entrou» / «Não entrou»); talão para imprimir ou guardar em PDF. |
+| 3.2 Finanças (I3)           | «Recebido» ao lado de «Vendido» no «Hoje», no resumo do dia e em «Semana e mês»; «Contas da loja» para qualquer período: vendido e recebido, entradas e saídas de dinheiro com o saldo, e o resultado estimado (sempre «não é contabilidade»).                                                                                                |
+| 3.3 Stock                   | «Análise do stock»: o que comprar pela velocidade de venda, produtos parados (dinheiro na prateleira) e perdas; velocidade e dias de stock na ficha do produto; lista de compras e encomendas pela velocidade; validades por produto e custo médio, ambos opcionais e desligados por defeito.                                                 |
+| 3.4 Clientes e fornecedores | Pontualidade de cada cliente e relatório de devedores pelo atraso; preços de compra por produto e por fornecedor (subidas e descidas), prazo médio dos fornecedores e se a loja lhes paga a tempo; relatório de compras.                                                                                                                      |
+| 3.5 Listas (I4)             | As listas longas aparecem por partes («Ver mais»); «Mais» deixou de ler todas as vendas ao abrir; a pontualidade em Clientes calcula-se depois de a lista aparecer.                                                                                                                                                                           |
+
+**Problemas encontrados e corrigidos durante a fase:**
+
+- O lucro de «Semana e mês» e da Ficha da loja não descontava as devoluções (falha do passo 3.1, corrigida no 3.2).
+- A pontualidade tornou a lista de Clientes ~150 ms mais lenta num telemóvel lento (passo 3.4); passou a calcular-se depois de a lista aparecer (passo 3.5).
+- Um teste da app (relógio errado) falhava às vezes com o computador carregado: recarregava a página antes de o produto ficar gravado. A app estava certa; corrigido o teste.
+
+**Números** (medições com o processador 6 vezes mais lento e a loja grande: 300 produtos, 60 clientes, 14.000 vendas; média de 2 a 3 medições, com a mesma medição para as duas versões):
+
+| Medida                    | Fim da Fase 2              | Fim da Fase 3                                                |
+| ------------------------- | -------------------------- | ------------------------------------------------------------ |
+| Testes                    | 331 de cálculos, 51 da app | 401 de cálculos, 68 da app; todos passam                     |
+| Base de dados             | versão 7                   | versão 10 (devoluções, pagamentos por confirmar, lotes)      |
+| Ficheiro principal da app | 688 KB (203 KB comprimido) | 770 KB (223 KB comprimido): mais 10%                         |
+| Abrir a app               | ~1,4 s                     | ~1,1 s                                                       |
+| Produtos                  | ~510 ms                    | ~250 ms                                                      |
+| Voltar a Vender           | ~630 ms                    | ~275 ms                                                      |
+| Ficha de um produto       | ~315 ms                    | ~225 ms (com mais informação: velocidade, preços, validades) |
+| Clientes                  | ~450 ms                    | ~515 ms (com a pontualidade)                                 |
+| «Hoje»                    | ~1,15 s                    | ~1,15 s (o ecrã mais lento; fica para a Fase 4)              |
+
+**Pendentes:**
+
+- O campo «quem vendeu» não entrou: sem funcionários (Fase 5) não há o que guardar, e um campo opcional junta-se mais tarde sem refazer nada.
+- O aviso diário com a app fechada ainda não inclui as validades nem os pagamentos por confirmar.
+- Impressão directa por Bluetooth ou rede: só quando houver uma impressora escolhida para o piloto.
+- Continuam do fundador: servidor, endereço próprio da app (C7) e funcionários; e a revisão dos textos legais e das regras do INSS (I7).
+
+**Riscos:**
+
+- **Mais coisas no «Hoje»:** cartões novos (pagamentos por confirmar, validades) e três botões («Semana, mês e ficha da loja», «Contas da loja», «Procurar vendas»). Para a Dona Teresa pode ser demasiado; a Fase 4 (painel inicial e «Mais» por secções) deve arrumar isto.
+- **O «Hoje» é o ecrã mais lento** (~1,2 s num telemóvel lento com uma loja grande).
+- **Ficheiro 10% maior:** a primeira visita em 3G lento demora um pouco mais (antes ~5 s).
+- **Validades e custo médio** são opcionais e regras novas: confirmar no piloto com uma farmácia antes de os recomendar.
+
 ## O que foi analisado, e como
 
 | Área                | Como                                                                                                              |
