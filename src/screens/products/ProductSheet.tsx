@@ -17,7 +17,7 @@ import { useConfirm } from '../../ui/confirm';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
 import { PurchasePricesPanel } from './PurchasePricesPanel';
-import { CategoryField } from './CategoryField';
+import { CategoryPicker, type CategoryChoice } from './CategoryPicker';
 import { useBusy } from '../../ui/use-busy';
 
 const ERRORS: Record<string, string> = {
@@ -88,7 +88,9 @@ function ProductForm({
   const [minStock, setMinStock] = useState(
     product ? (product.soldBy === 'weight' ? formatKg(product.minStock) : String(product.minStock)) : '3',
   );
-  const [category, setCategory] = useState(product?.category ?? '');
+  const [place, setPlace] = useState<CategoryChoice | null>(
+    product?.category ? { category: product.category, ...(product.subcategory ? { subcategory: product.subcategory } : {}) } : null,
+  );
   const [tracks, setTracks] = useState(product?.tracksExpiry ?? false);
   const [initialExpiry, setInitialExpiry] = useState('');
   const [unit, setUnit] = useState(product?.unit ?? '');
@@ -119,7 +121,8 @@ function ProductForm({
       costCents,
       barcode,
       minStock: min,
-      category,
+      category: place?.category ?? '',
+      subcategory: place?.subcategory ?? '',
       unit,
       taxRateBp,
       taxExemption: taxRateBp === 0 ? exemption : undefined,
@@ -264,7 +267,7 @@ function ProductForm({
           inputMode="numeric"
           error={err('min')}
         />
-        <CategoryField value={category} onChange={setCategory} />
+        <CategoryPicker value={place} onChange={setPlace} />
         <label className="flex min-h-12 items-start gap-3 rounded-xl bg-white px-3 py-2">
           <input
             type="checkbox"

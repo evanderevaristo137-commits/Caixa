@@ -32,6 +32,8 @@ export interface Product extends BaseRecord {
   supplierId?: string;
   /** Optional group ("Bebidas", "Mercearia"…) to find products faster and see sales by group. */
   category?: string;
+  /** Optional part of the category ("Bebidas › Cerveja"); only with a category. */
+  subcategory?: string;
   /** Follows its expiry dates (pharmacies, food): stock coming in asks for a date. Off by default. */
   tracksExpiry?: boolean;
   // ---- Optional data for certified invoicing (phase 3, through an AGT-certified partner) ----
@@ -410,6 +412,8 @@ export type VatRegime = (typeof VAT_REGIMES)[number];
 
 export interface Settings extends BaseRecord {
   storeName: string;
+  /** The kinds of shop (catalog.ts BUSINESS_TYPES ids): their categories come first. */
+  businessTypes?: string[];
   phone?: string;
   /** Optional NIF, shown on the non-fiscal receipt only. */
   nif?: string;

@@ -1,11 +1,14 @@
+import { BUSINESS_TYPES, CATALOG, type CatalogCategory } from './catalog';
 import { lineCostCents } from './profit';
 import { comparePt } from './ranking';
 import type { Cents, Product, Sale, SaleItem } from './types';
 
 /**
- * Product categories ("Bebidas", "Mercearia"…): optional, typed freely, one per product.
- * They filter the products in Vender and Produtos and group sales in the reports.
- * Reports use the product's current category, so renaming one regroups past sales too.
+ * Product categories ("Bebidas", "Telemóveis e electrónica"…) and, inside each, an optional
+ * subcategory ("Cerveja", "Capas e películas"): chosen from the app's list (catalog.ts) or written
+ * by the shop. One of each per product. They filter the products in Vender and Produtos and group
+ * sales in the reports. Reports use the product's current category, so renaming one regroups past
+ * sales too.
  */
 
 /** Filter value for the products without a category. */
@@ -13,7 +16,15 @@ export const NO_CATEGORY = '';
 
 const MAX_LENGTH = 40;
 
-const key = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+/** "Electrónica " → "electronica": to compare and search without accents, capitals or extra spaces. */
+export const categoryKey = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+const key = categoryKey;
 
 /** Single spaces, at most 40 characters; empty → undefined. */
 export function cleanCategory(input: string | undefined): string | undefined {
@@ -27,6 +38,103 @@ export function canonicalCategory(input: string | undefined, known: readonly str
   if (!c) return undefined;
   return known.find((k) => key(k) === key(c)) ?? c;
 }
+
+/** The same subcategory written another way takes the spelling the shop or the app already uses. */
+export const canonicalSub = canonicalCategory;
+
+/** The app's category with this name (any spelling). */
+export function catalogCategory(name: string | undefined): CatalogCategory | undefined {
+  if (!name) return undefined;
+  const k = key(name);
+  return CATALOG.find((c) => key(c.name) === k);
+}
+
+/** The app's categories a shop sees first: those of its kinds of shop, in that order (all of them when none is chosen). */
+export function catalogFor(types: readonly string[] | undefined): CatalogCategory[] {
+  const chosen = BUSINESS_TYPES.filter((b) => types?.includes(b.id));
+  if (chosen.length === 0) return [...CATALOG];
+  const names = new Set(chosen.flatMap((b) => [...b.categories]));
+  const out: CatalogCategory[] = [];
+  for (const b of chosen) for (const n of b.categories) if (names.delete(n)) out.push(catalogCategory(n)!);
+  return out;
+}
+
+/** A category in use in the shop, with the subcategories its products use. */
+export interface CategoryGroup {
+  name: string;
+  subs: string[];
+}
+
+/** The shop's categories and subcategories in use (archived products left out), in Portuguese order. */
+export function categoryTree(products: Pick<Product, 'category' | 'subcategory' | 'archivedAt'>[]): CategoryGroup[] {
+  const groups = new Map<string, Set<string>>();
+  for (const p of products) {
+    if (!p.category || p.archivedAt) continue;
+    const subs = groups.get(p.category) ?? new Set<string>();
+    if (p.subcategory) subs.add(p.subcategory);
+    groups.set(p.category, subs);
+  }
+  return [...groups]
+    .map(([name, subs]) => ({ name, subs: [...subs].sort((a, b) => comparePt(a, b)) }))
+    .sort((a, b) => comparePt(a.name, b.name));
+}
+
+/** Subcategories to offer for a category: the shop's own first, then the app's ones (no repeats). */
+export function subsFor(category: string, tree: readonly CategoryGroup[]): string[] {
+  const own = tree.find((g) => key(g.name) === key(category))?.subs ?? [];
+  const out = [...own];
+  const seen = new Set(own.map(key));
+  for (const sub of catalogCategory(category)?.subs ?? []) {
+    if (!seen.has(key(sub.name))) {
+      seen.add(key(sub.name));
+      out.push(sub.name);
+    }
+  }
+  return out;
+}
+
+/** A search result: a category, or a subcategory inside its category. */
+export interface CategoryHit {
+  category: string;
+  sub?: string;
+}
+
+/**
+ * Finds categories and subcategories by any word ("capa" → «Telemóveis e electrónica › Capas e
+ * películas»; "pneu" → «Peças e acessórios auto › Pneus»), in the shop's own ones and in the app's
+ * list. Names that start with the words come first; at most `limit` results.
+ */
+export function searchCategories(query: string, tree: readonly CategoryGroup[], limit = 20): CategoryHit[] {
+  const q = key(query);
+  if (q.length < 2) return [];
+  const scored: { hit: CategoryHit; score: number }[] = [];
+  const seen = new Set<string>();
+  const add = (hit: CategoryHit, text: string, words: readonly string[] = []) => {
+    const id = `${key(hit.category)}|${key(hit.sub ?? '')}`;
+    if (seen.has(id)) return;
+    const name = key(text);
+    const score = name.startsWith(q) || name.includes(` ${q}`) ? 0 : name.includes(q) ? 1 : words.some((w) => key(w).includes(q)) ? 2 : -1;
+    if (score < 0) return;
+    seen.add(id);
+    scored.push({ hit, score });
+  };
+  for (const g of tree) {
+    add({ category: g.name }, g.name);
+    for (const sub of g.subs)
+      add({ category: g.name, sub }, sub, catalogCategory(g.name)?.subs.find((x) => key(x.name) === key(sub))?.words);
+  }
+  for (const c of CATALOG) {
+    add({ category: c.name }, c.name);
+    for (const sub of c.subs) add({ category: c.name, sub: sub.name }, sub.name, sub.words);
+  }
+  return scored
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit)
+    .map((x) => x.hit);
+}
+
+/** "Bebidas › Cerveja", or just "Bebidas". */
+export const categoryLabel = (category: string, sub?: string) => (sub ? `${category} › ${sub}` : category);
 
 /** Categories of the products, in Portuguese alphabetical order. */
 export function categoriesOf(products: Pick<Product, 'category' | 'archivedAt'>[]): string[] {

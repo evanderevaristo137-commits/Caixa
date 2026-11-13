@@ -2,7 +2,8 @@ import { lineProblem, saleItem, type Cart } from '../../domain/cart';
 import { addDays, startOfLocalDay } from '../../lib/dates';
 import { drawer, summariseOutflows, type Drawer } from '../../domain/cash';
 import { internalBarcode } from '../../domain/barcode';
-import { canonicalCategory } from '../../domain/categories';
+import { canonicalCategory, canonicalSub, catalogCategory } from '../../domain/categories';
+import { CATALOG } from '../../domain/catalog';
 import { savedCents } from '../../domain/inss';
 import { summariseReturns } from '../../domain/returns';
 import type { AuditEntry, Batch, SaleItem, StockMovement } from '../../domain/types';
@@ -129,7 +130,15 @@ export class StoreCore {
   /** The category as the shop already writes it ("bebidas" → "Bebidas"). Call inside a transaction with products. */
   async categoryFor(input: string | undefined): Promise<string | undefined> {
     const known = (await this.db.products.orderBy('category').uniqueKeys()).filter((k): k is string => typeof k === 'string');
-    return canonicalCategory(input, known);
+    // The shop's spelling first, then the app's list.
+    return canonicalCategory(input, [...known, ...CATALOG.map((c) => c.name)]);
+  }
+
+  /** The subcategory as the shop (or the app's list) already writes it, inside its category. Call inside a transaction with products. */
+  async subcategoryFor(category: string, input: string | undefined): Promise<string | undefined> {
+    const known = new Set<string>();
+    for (const p of await this.db.products.where('category').equals(category).toArray()) if (p.subcategory) known.add(p.subcategory);
+    return canonicalSub(input, [...known, ...(catalogCategory(category)?.subs.map((x) => x.name) ?? [])]);
   }
 
   /** Call inside a transaction with products and meta. Skips codes already used by any product. */

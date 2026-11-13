@@ -79,6 +79,11 @@ export function describeAudit(e: AuditEntry, names: Names): AuditLine | null {
         if (before.name !== after.name) changes.push(`nome «${before.name}» → «${after.name}»`);
         if (before.barcode !== after.barcode) changes.push('código de barras');
         if (before.minStock !== after.minStock) changes.push(`stock mínimo ${before.minStock} → ${after.minStock}`);
+        // The log keeps only the fields that changed: the category may be missing when only the subcategory changed.
+        const place = (p: Partial<Product>) => (p.category ? (p.subcategory ? `${p.category} › ${p.subcategory}` : p.category) : '—');
+        if (before.category !== after.category) changes.push(`categoria ${place(before)} → ${place(after)}`);
+        else if (before.subcategory !== after.subcategory)
+          changes.push(`subcategoria ${before.subcategory ?? '—'} → ${after.subcategory ?? '—'}`);
         if (!!before.tracksExpiry !== !!after.tracksExpiry)
           changes.push(after.tracksExpiry ? 'passou a controlar validades' : 'deixou de controlar validades');
         if (changes.length === 0) return null;

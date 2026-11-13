@@ -127,7 +127,7 @@ describe('CSV', () => {
     const store = new Store(db);
     const p = await store.products.create({ name: 'Óleo', priceCents: 185_050, minStock: 2, barcode: '2000000000017' }, 3);
     await store.sales.create({ cart: addToCart([], p, 2), method: 'kwik' });
-    expect(await productsCsv(db)).toContain('Óleo;;"=""2000000000017""";un;1850,50;;1;2\r\n');
+    expect(await productsCsv(db)).toContain('Óleo;;;"=""2000000000017""";un;1850,50;;1;2\r\n');
     const sale = (await new Store(db).sales.list())[0]!;
     expect(await salesCsv(db)).toContain(';Óleo;2;un;1850,50;3701,00;3701,00;QR KWiK;;;;');
     await new Store(db).sales.void(sale.id, 'Engano');
@@ -135,7 +135,7 @@ describe('CSV', () => {
     // With a cost price, each line shows its cost and profit.
     const b = await store.products.create({ name: 'Bolacha', priceCents: 50_000, costCents: 35_000, minStock: 0 }, 5);
     await store.sales.create({ cart: addToCart([], b, 3), method: 'cash' });
-    expect(await productsCsv(db)).toContain('Bolacha;;;un;500,00;350,00;2;0\r\n');
+    expect(await productsCsv(db)).toContain('Bolacha;;;;un;500,00;350,00;2;0\r\n');
     expect(await salesCsv(db)).toContain(';Bolacha;3;un;500,00;1500,00;1500,00;Numerário;;;;;1050,00;450,00;;\r\n');
     // Electronic payments still to confirm, and confirmed later, say so in the last column.
     const waiting = await store.sales.create({ cart: addToCart([], b), method: 'transfer', pending: true });

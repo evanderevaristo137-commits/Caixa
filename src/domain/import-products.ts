@@ -66,7 +66,7 @@ export function parseCsv(text: string): SheetRow[] {
   return rows;
 }
 
-type Field = 'name' | 'barcode' | 'soldBy' | 'price' | 'cost' | 'stock' | 'minStock' | 'category';
+type Field = 'name' | 'barcode' | 'soldBy' | 'price' | 'cost' | 'stock' | 'minStock' | 'category' | 'subcategory';
 
 const norm = (s: string) =>
   s
@@ -87,12 +87,14 @@ const ALIASES: Record<Field, string[]> = {
   stock: ['stock', 'stock inicial', 'quantidade', 'qtd', 'existencias'],
   minStock: ['stock minimo', 'minimo', 'stock min'],
   category: ['categoria', 'familia', 'grupo'],
+  subcategory: ['subcategoria', 'sub-categoria', 'subfamilia', 'subgrupo'],
 };
 
 /** The columns of the template and of the "Produtos" export, in this order. */
 export const TEMPLATE_HEADER = [
   'Produto',
   'Categoria',
+  'Subcategoria',
   'Código de barras',
   'Vende-se por',
   'Preço (Kz)',
@@ -111,6 +113,8 @@ export interface ImportedProduct {
   stock?: number;
   minStock?: number;
   category?: string;
+  /** Only with a category. */
+  subcategory?: string;
 }
 
 export interface PlanRow {
@@ -258,6 +262,7 @@ export function planImport(sheet: SheetRow[], existing: Product[]): ImportPlan {
       continue;
     }
     const category = get('category').slice(0, 40) || undefined;
+    const subcategory = (category && get('subcategory').slice(0, 40)) || undefined;
 
     const nameKey = norm(name);
     const sameName = seenNames.get(nameKey);
@@ -273,7 +278,7 @@ export function planImport(sheet: SheetRow[], existing: Product[]): ImportPlan {
     seenNames.set(nameKey, line);
     if (barcode) seenCodes.set(barcode, line);
 
-    const product: ImportedProduct = { name, priceCents, costCents, barcode, soldBy, stock, minStock, category };
+    const product: ImportedProduct = { name, priceCents, costCents, barcode, soldBy, stock, minStock, category, subcategory };
     // The same product in the app: same barcode first, then same name (accents and case ignored).
     const match = (barcode && byBarcode.get(barcode)) || byName.get(nameKey);
     if (!match) {
@@ -302,7 +307,9 @@ export function planImport(sheet: SheetRow[], existing: Product[]): ImportPlan {
       changes.push(c.min(formatQuantity(match.minStock, match.soldBy), formatQuantity(minStock, match.soldBy)));
     }
     if (barcode && barcode !== match.barcode) changes.push(c.barcode);
-    if (category && norm(category) !== norm(match.category ?? '')) changes.push(c.category(category));
+    const newPlace =
+      category && (norm(category) !== norm(match.category ?? '') || (subcategory && norm(subcategory) !== norm(match.subcategory ?? '')));
+    if (newPlace) changes.push(c.category(subcategory ? `${category} › ${subcategory}` : category));
     if (stock !== undefined && stock !== match.stock) plan.stockKept += 1;
     plan.rows.push({
       line,

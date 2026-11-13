@@ -152,7 +152,7 @@ function ProductsList({ readOnly = false }: { readOnly?: boolean }) {
                   <p className="truncate text-base font-semibold">{p.name}</p>
                   <span className="text-slate-600 tabular-nums">
                     {p.soldBy === 'weight' ? t.weight.perKg(formatKz(p.priceCents)) : formatKz(p.priceCents)}
-                    {p.category && <span className="text-slate-500"> · {p.category}</span>}
+                    {p.category && <span className="text-slate-500"> · {p.subcategory ?? p.category}</span>}
                   </span>
                 </div>
                 <span

@@ -553,6 +553,7 @@ export async function productsCsv(db: CaixaDB): Promise<string> {
       return [
         p.name,
         p.category ?? '',
+        p.subcategory ?? '',
         p.barcode ? excelText(p.barcode) : '',
         byWeight ? 'kg' : 'un',
         kzNumber(p.priceCents),

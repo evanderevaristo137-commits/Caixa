@@ -41,6 +41,8 @@ export interface ProductInput {
   soldBy?: 'weight';
   /** Optional group ("Bebidas", "Mercearia"…). */
   category?: string;
+  /** Optional part of the category ("Cerveja"). Dropped without a category; on an update, kept when missing. */
+  subcategory?: string;
   /** Follows its expiry dates (stock coming in asks for one). Unchanged when missing on an update. */
   tracksExpiry?: boolean;
 }

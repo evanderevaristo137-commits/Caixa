@@ -32,6 +32,8 @@ export class ProductsRepository {
         if (!Number.isInteger(initialStock) || initialStock < 0) throw new DomainError('invalid_stock');
         if (initialExpiresOn !== undefined && !isExpiryDate(initialExpiresOn)) throw new DomainError('invalid_date');
         const at = this.c.stamp();
+        const category = await this.c.categoryFor(input.category);
+        const subcategory = category ? await this.c.subcategoryFor(category, input.subcategory) : undefined;
         const product: Product = {
           id: uuid(),
           name: input.name.trim(),
@@ -39,7 +41,8 @@ export class ProductsRepository {
           ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
           ...(input.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
           barcode: clean(input.barcode),
-          category: await this.c.categoryFor(input.category),
+          category,
+          ...(subcategory ? { subcategory } : {}),
           minStock: input.minStock,
           unit: cleanShort(input.unit, 10),
           taxRateBp: input.taxRateBp,
@@ -84,6 +87,18 @@ export class ProductsRepository {
         const category = await this.c.categoryFor(input.category);
         if (category) after.category = category;
         else delete after.category;
+      }
+      if ('category' in input || 'subcategory' in input) {
+        // A subcategory belongs to its category: it goes when the category changes or is taken away.
+        const sub = !after.category
+          ? undefined
+          : 'subcategory' in input
+            ? await this.c.subcategoryFor(after.category, input.subcategory)
+            : after.category === before.category
+              ? before.subcategory
+              : undefined;
+        if (sub) after.subcategory = sub;
+        else delete after.subcategory;
       }
       // The cost price changes only when the form sends it (undefined clears it).
       if ('costCents' in input) {
@@ -211,6 +226,7 @@ export class ProductsRepository {
               barcode: p.barcode,
               minStock: p.minStock ?? 0,
               category: p.category,
+              subcategory: p.subcategory,
               ...(p.soldBy === 'weight' ? { soldBy: 'weight' as const } : {}),
             };
             await this.create(input, p.stock ?? 0);
@@ -224,7 +240,7 @@ export class ProductsRepository {
               ...(p.costCents !== undefined ? { costCents: p.costCents } : {}),
               barcode: p.barcode ?? current.barcode,
               minStock: p.minStock ?? current.minStock,
-              ...(p.category ? { category: p.category } : {}),
+              ...(p.category ? { category: p.category, ...(p.subcategory ? { subcategory: p.subcategory } : {}) } : {}),
               unit: current.unit,
               taxRateBp: current.taxRateBp,
               taxExemption: current.taxExemption,

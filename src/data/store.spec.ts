@@ -636,7 +636,7 @@ describe('Store: products sold by weight', () => {
     const { productsCsv, salesCsv } = await import('./backup');
     const beans = await store.products.create({ name: 'Feijão a granel', priceCents: 140_000, minStock: 5_000, soldBy: 'weight' }, 12_500);
     await store.sales.create({ cart: setWeightLine([], beans, 750), method: 'cash' });
-    expect(await productsCsv(db)).toContain('Feijão a granel;;;kg;1400,00;;11,75;5');
+    expect(await productsCsv(db)).toContain('Feijão a granel;;;;kg;1400,00;;11,75;5');
     expect(await salesCsv(db)).toContain(';Feijão a granel;0,75;kg;1400,00;1050,00;1050,00;Numerário;');
   });
 });

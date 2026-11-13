@@ -977,11 +977,26 @@ test('categories: show one category when selling, pick one in the product form, 
   const form = page.getByRole('dialog', { name: 'Novo produto' });
   await form.getByLabel('Nome').fill('Sumo de múcua 1 L');
   await form.getByLabel('Preço (Kz)').fill('1.500');
-  await form.getByRole('button', { name: 'Bebidas' }).click();
-  await expect(form.getByLabel('Categoria (opcional)')).toHaveValue('Bebidas');
+  // «Escolher categoria»: the shop's categories first, then the subcategories of the one chosen.
+  await form.getByRole('button', { name: 'Escolher categoria' }).click();
+  const picker = page.getByRole('dialog', { name: 'Escolher categoria' });
+  await expect(picker.getByRole('heading', { name: 'Da sua loja' })).toBeVisible();
+  await picker
+    .getByRole('button', { name: /Bebidas/ })
+    .first()
+    .click();
+  await expect(picker.getByRole('heading', { name: 'Subcategoria de Bebidas' })).toBeVisible();
+  // Android's back button goes back to the categories, not out of the form.
+  await page.goBack();
+  await expect(picker.getByRole('heading', { name: 'Da sua loja' })).toBeVisible();
+  // Or by any word: "sumo" finds «Refrigerantes e sumos».
+  await picker.getByLabel('Procurar categoria').fill('sumo');
+  await picker.getByRole('button', { name: /Refrigerantes e sumos/ }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(form.getByRole('button', { name: /Bebidas › Refrigerantes e sumos/ })).toBeVisible();
   await form.getByRole('button', { name: 'Guardar' }).click();
   await chips.getByRole('button', { name: 'Bebidas' }).click();
-  await expect(page.getByRole('button', { name: /Sumo de múcua 1 L.*Bebidas/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sumo de múcua 1 L.*Refrigerantes e sumos/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
 
   await nav(page, 'Hoje');
