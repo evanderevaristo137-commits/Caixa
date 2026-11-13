@@ -670,6 +670,13 @@ export const t = {
     printHint: 'No ecrã de impressão pode escolher «Guardar como PDF» e enviar o ficheiro para imprimir noutro lado.',
     printAgain: 'Imprimir',
   },
+  demoKinds: {
+    title: 'Loja de exemplo',
+    hint: 'Escolha a loja parecida com a que vai visitar: os dados de exemplo mudam (produtos, clientes, fornecedores e vendas). Nunca mexe nos dados da loja real.',
+    names: { grocery: 'Mercearia', auto: 'Peças auto', phones: 'Telemóveis' } as Record<'grocery' | 'auto' | 'phones', string>,
+    icons: { grocery: '🛒', auto: '🚗', phones: '📱' } as Record<'grocery' | 'auto' | 'phones', string>,
+    shown: (name: string) => `Demonstração: ${name}`,
+  },
   shopTypes: {
     title: 'Tipo de loja',
     hint: 'As categorias deste tipo de loja aparecem primeiro quando escolhe a categoria de um produto. Pode escolher mais do que um.',

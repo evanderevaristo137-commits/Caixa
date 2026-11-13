@@ -16,6 +16,7 @@ Também funciona num **tablet** ou num **computador** (no Chrome): em «Vender»
 ## Mostrar a um comerciante (modo demonstração)
 
 - Separador **Mais** → **Entrar no modo demonstração**. Aparece a «Mercearia da Dona Teresa» com 30 produtos, 5 clientes com compras a crédito e duas semanas de vendas. Todos os clientes da demonstração usam o número de testes 955 502 264, para os lembretes e talões enviados por WhatsApp chegarem a esse telefone.
+- **Loja de exemplo:** no mesmo cartão escolha a loja parecida com a que vai visitar: **Mercearia** (a da Dona Teresa), **Peças auto** («Peças Auto do Sr. Domingos»: óleos, filtros, travões, baterias, pneus, peças de mota) ou **Telemóveis** («Telemóveis da Neusa»: telemóveis, capas e películas, carregadores, auriculares, saldo). Cada uma tem os seus produtos nas suas categorias, clientes a crédito, fornecedores e duas semanas de vendas, e renova-se como ela própria em cada novo dia. Nunca mexe nos dados da loja real.
 - Uma faixa amarela no topo lembra que são dados de exemplo.
 - Em cada novo dia os dados de exemplo renovam-se sozinhos, para o ecrã «Hoje» ter sempre vendas do dia.
 - **Repor dados da demonstração** volta tudo ao início a qualquer momento.

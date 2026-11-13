@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { subsFor } from '../domain/categories';
-import { buildDemoData, DEMO_VERSION, ensureFreshDemo, seedDemo } from './demo-seed';
+import { buildDemoData, DEMO_VERSION, demoKindOf, ensureFreshDemo, seedDemo } from './demo-seed';
+import { DEMO_PROFILES } from './demo-profiles';
 import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
 import { inssStatus, savedCents } from '../domain/inss';
@@ -193,5 +194,55 @@ describe('demo payment terms', () => {
 
   it('every demo customer uses the WhatsApp test number', () => {
     expect(new Set(buildDemoData(now).customers.map((c) => c.phone))).toEqual(new Set(['955 502 264']));
+  });
+});
+
+describe('other example shops: car parts and phones', () => {
+  for (const kind of ['auto', 'phones'] as const) {
+    it(`${kind}: every product in the app's categories, believable sales, customers in every situation`, () => {
+      const profile = DEMO_PROFILES[kind];
+      const d = buildDemoData(now, kind);
+      expect(d.kind).toBe(kind);
+      expect(d.products).toHaveLength(profile.products.length);
+      // Every product has its place in the app's list, and nothing is sold by weight.
+      expect(d.products.filter((p) => !p.category || !p.subcategory).map((p) => p.name)).toEqual([]);
+      for (const p of d.products) expect(subsFor(p.category!, [])).toContain(p.subcategory);
+      expect(d.products.some((p) => p.soldBy === 'weight')).toBe(false);
+      // Two weeks of sales, today's included, every line priced from its product.
+      const days = new Set(d.sales.map((s) => s.createdAt.slice(0, 10)));
+      expect(days.size).toBeGreaterThanOrEqual(14);
+      for (const s of d.sales) expect(s.totalCents).toBe(s.items.reduce((a, i) => a + i.lineTotalCents, 0));
+      // The five customers: overdue, due today, due soon and later.
+      const states = creditBook(d.customers, d.sales, d.payments, now).map((b) => b.dueState);
+      expect(new Set(states)).toEqual(new Set(['overdue', 'today', 'soon', 'later']));
+      // Stock left today as planned, and some of it low (for the shopping list).
+      for (const [i, p] of d.products.entries()) expect(p.stock).toBe(profile.products[i]![4]);
+      expect(lowStockProducts(d.products).length).toBeGreaterThan(0);
+      // The part already paid of the purchase on credit goes to its own supplier.
+      const onCredit = d.purchases.find((p) => p.payment === 'credit')!;
+      expect(d.supplierPayments[0]!.supplierId).toBe(onCredit.supplierId);
+      expect(
+        payablesBook(d.suppliers, d.purchases, d.supplierPayments, now).find((b) => b.supplier.id === onCredit.supplierId)!.balanceCents,
+      ).toBeGreaterThan(0);
+    });
+  }
+
+  it('the demo keeps the shop chosen when it renews itself, with its name, kind and a product below cost', async () => {
+    const db = new CaixaDB('test-demo-kinds');
+    await seedDemo(db, now, 'auto');
+    const store = new Store(db, () => now);
+    expect(await demoKindOf(db)).toBe('auto');
+    expect(await store.settings.get()).toMatchObject({ storeName: 'Peças Auto do Sr. Domingos', businessTypes: ['auto'] });
+    const oil = (await store.products.list()).find((p) => p.name === 'Óleo de motor 15W-40 (4 L)')!;
+    expect(oil.costCents).toBeGreaterThan(oil.priceCents);
+    // The next day it renews itself as the same shop.
+    expect(await ensureFreshDemo(db, new Date(2026, 10, 7, 8, 0))).toBe(true);
+    expect((await store.settings.get()).storeName).toBe('Peças Auto do Sr. Domingos');
+    // Another shop, chosen on purpose.
+    await seedDemo(db, now, 'phones');
+    expect(await demoKindOf(db)).toBe('phones');
+    expect((await store.products.list()).some((p) => p.name === 'Película de vidro')).toBe(true);
+    expect((await store.products.list()).some((p) => p.name === 'Arroz 1 kg')).toBe(false);
+    await db.delete();
   });
 });

@@ -5,6 +5,7 @@ import { FakePaymentProvider, type PaymentProvider } from '../providers/payment'
 import { requestPersistentStorage } from '../lib/storage';
 import { t } from '../i18n/pt-AO';
 import { ensureFreshDemo, seedDemo } from '../data/demo-seed';
+import type { DemoKind } from '../data/demo-profiles';
 import { useBackgroundAlerts } from './use-background-alerts';
 import { recordError } from '../lib/error-log';
 
@@ -30,6 +31,8 @@ function storeFor(mode: DataMode): Store {
 
 /** The real shop's data, whatever mode the screens are in (for checks that concern the shop, like the clock). */
 export const realShopStore = () => storeFor('store');
+/** The demonstration's data, whatever mode the screens are in (to know which example shop it holds). */
+export const demoShopStore = () => storeFor('demo');
 
 interface AppState {
   mode: DataMode;
@@ -37,6 +40,8 @@ interface AppState {
   payments: PaymentProvider;
   setMode: (mode: DataMode) => Promise<void>;
   resetDemo: () => Promise<void>;
+  /** Fills the demonstration with another example shop and shows it. */
+  setDemoKind: (kind: DemoKind) => Promise<void>;
   toast: string | null;
   showToast: (msg: string) => void;
 }
@@ -98,9 +103,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await storeFor('demo').staff.load();
   }, []);
 
+  const setDemoKind = useCallback(
+    async (kind: DemoKind) => {
+      await seedDemo(storeFor('demo').db, new Date(), kind);
+      await storeFor('demo').staff.load();
+      await setMode('demo');
+    },
+    [setMode],
+  );
+
   const value = useMemo(
-    () => ({ mode, store: storeFor(mode), payments, setMode, resetDemo, toast, showToast }),
-    [mode, setMode, resetDemo, toast, showToast],
+    () => ({ mode, store: storeFor(mode), payments, setMode, resetDemo, setDemoKind, toast, showToast }),
+    [mode, setMode, resetDemo, setDemoKind, toast, showToast],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -24,6 +24,7 @@ import { lineTotalFor } from '../domain/quantity';
 import { addDays, addDaysToDateString, startOfLocalDay, toLocalDateString } from '../lib/dates';
 import { uuid } from '../lib/ids';
 import { rebuildAccounts } from './accounts';
+import { DEMO_PROFILES, isDemoKind, type DemoKind } from './demo-profiles';
 import type { CaixaDB } from './db';
 import { SETTINGS_ID } from './store';
 
@@ -46,111 +47,15 @@ function demoBarcode(i: number): string {
   return body + String((10 - (sum % 10)) % 10);
 }
 
-/** The demo product whose cost went above its price (see seedDemo). */
-const SUGAR_BELOW_COST = 'Açúcar 1 kg';
-const SUGAR_NEW_COST_CENTS = 115_000;
-
-// [name, price in Kz, cost price in Kz (both per kg when sold by weight), minimum stock, final stock target, sold by weight]
-// Stock for weighed products is in grams. Prices and costs are fictitious but plausible.
-const PRODUCTS: [string, number, number, number, number, boolean?][] = [
-  ['Arroz 1 kg', 1_200, 1_000, 10, 34],
-  ['Arroz 5 kg', 5_500, 4_700, 4, 9],
-  ['Fuba de milho 1 kg', 800, 650, 10, 28],
-  ['Fuba de bombó 1 kg', 900, 720, 8, 6],
-  ['Feijão manteiga 1 kg', 1_500, 1_200, 8, 19],
-  ['Açúcar 1 kg', 1_100, 900, 10, 25],
-  ['Óleo vegetal 1 L', 1_850, 1_550, 8, 3],
-  ['Óleo de palma 1 L', 2_000, 1_600, 4, 11],
-  ['Sal 1 kg', 300, 220, 5, 22],
-  ['Massa esparguete 500 g', 600, 470, 10, 31],
-  ['Leite em pó 400 g', 3_200, 2_700, 4, 7],
-  ['Leite UHT 1 L', 1_200, 980, 6, 14],
-  ['Pão (unidade)', 150, 110, 20, 45],
-  ['Ovos (dúzia)', 2_500, 2_050, 4, 2],
-  ['Sardinha em lata', 650, 500, 10, 26],
-  ['Atum em lata', 900, 720, 6, 13],
-  ['Salsichas em lata', 800, 630, 6, 15],
-  ['Massa de tomate 70 g', 350, 260, 10, 30],
-  ['Cebola 1 kg', 800, 600, 5, 12],
-  ['Batata 1 kg', 700, 520, 5, 16],
-  ['Água 1,5 L', 300, 210, 12, 40],
-  ['Gasosa 330 ml', 400, 290, 12, 36],
-  ['Sumo 1 L', 1_200, 950, 6, 10],
-  ['Cerveja 330 ml', 500, 370, 24, 60],
-  ['Sabão em barra', 400, 300, 8, 21],
-  ['Detergente em pó 500 g', 1_300, 1_050, 5, 4],
-  ['Papel higiénico (4 rolos)', 1_200, 950, 5, 12],
-  ['Pasta de dentes', 900, 700, 4, 9],
-  ['Fósforos (caixa)', 100, 70, 10, 50],
-  ['Carvão (saco)', 1_500, 1_100, 4, 8],
-  ['Arroz a granel', 1_100, 900, 10_000, 25_000, true],
-  ['Feijão a granel', 1_400, 1_100, 5_000, 3_500, true],
-  ['Açúcar a granel', 1_000, 820, 5_000, 12_000, true],
-];
-
-// Categories of the demo products, by name (a test checks every product has one).
-/** Where each example product is, in the app's list of categories (catalog.ts): category › subcategory › products. */
-const DEMO_CATEGORIES: Record<string, Record<string, string[]>> = {
-  'Alimentação e mercearia': {
-    'Arroz, massas e fuba': [
-      'Arroz 1 kg',
-      'Arroz 5 kg',
-      'Fuba de milho 1 kg',
-      'Fuba de bombó 1 kg',
-      'Massa esparguete 500 g',
-      'Arroz a granel',
-    ],
-    'Feijão, milho e cereais': ['Feijão manteiga 1 kg', 'Feijão a granel'],
-    'Óleo, açúcar e sal': ['Açúcar 1 kg', 'Óleo vegetal 1 L', 'Óleo de palma 1 L', 'Sal 1 kg', 'Açúcar a granel'],
-    'Leite e derivados': ['Leite em pó 400 g', 'Leite UHT 1 L'],
-    Conservas: ['Sardinha em lata', 'Atum em lata', 'Salsichas em lata'],
-    'Temperos e molhos': ['Massa de tomate 70 g'],
-    'Pão e bolachas': ['Pão (unidade)'],
-  },
-  'Frescos e congelados': { 'Legumes e verduras': ['Cebola 1 kg', 'Batata 1 kg'], Ovos: ['Ovos (dúzia)'] },
-  Bebidas: { Água: ['Água 1,5 L'], 'Refrigerantes e sumos': ['Gasosa 330 ml', 'Sumo 1 L'], Cerveja: ['Cerveja 330 ml'] },
-  'Higiene e limpeza': {
-    'Detergentes e lixívia': ['Sabão em barra', 'Detergente em pó 500 g'],
-    'Papel higiénico e guardanapos': ['Papel higiénico (4 rolos)'],
-    'Higiene pessoal': ['Pasta de dentes'],
-  },
-  'Casa e cozinha': { 'Gás e carvão': ['Carvão (saco)'] },
-  Diversos: { 'Fósforos e isqueiros': ['Fósforos (caixa)'] },
-};
-const DEMO_PLACE_OF = new Map(
-  Object.entries(DEMO_CATEGORIES).flatMap(([category, subs]) =>
-    Object.entries(subs).flatMap(([subcategory, names]) => names.map((n) => [n, { category, subcategory }] as const)),
-  ),
-);
-
-// Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
-// receipts sent from the demo arrive on a phone we control (never on a stranger's phone).
 export const DEMO_WHATSAPP_TEST_NUMBER = '955 502 264';
-const CUSTOMERS: [string, string][] = [
-  ['Joana Mateus', DEMO_WHATSAPP_TEST_NUMBER],
-  ['António Kiala', DEMO_WHATSAPP_TEST_NUMBER],
-  ['Esperança Domingos', DEMO_WHATSAPP_TEST_NUMBER],
-  ['Manuel Sebastião', DEMO_WHATSAPP_TEST_NUMBER],
-  ['Luísa Neto', DEMO_WHATSAPP_TEST_NUMBER],
-];
-
-const METHOD_WEIGHTS: [PaymentMethod, number][] = [
-  ['cash', 0.46],
-  ['multicaixa_express', 0.2],
-  ['kwik', 0.08],
-  ['unitel_money', 0.08],
-  ['afrimoney', 0.04],
-  ['paypay', 0.04],
-  ['credit', 0.1],
-];
-
-export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
+export const DEMO_STORE_NAME = DEMO_PROFILES.grocery.storeName;
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 7;
+export const DEMO_VERSION = 8;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
 export interface DemoData {
+  kind: DemoKind;
   products: Product[];
   customers: Customer[];
   sales: Sale[];
@@ -165,53 +70,31 @@ export interface DemoData {
   /** Dona Teresa follows her INSS in the app: 45 years old, one minimum wage, paying for over a year. */
   inssPlan: InssPlan;
   inssContributions: InssContribution[];
-  /** The milk follows its expiry dates: one lot about to expire, one expired. */
+  /** Some products follow their expiry dates (in the grocery, the milk): one lot about to expire, one expired. */
   batches: Batch[];
 }
 
-// Fictitious suppliers (same WhatsApp test number as the customers). Drinks and bread have their own.
-const SUPPLIERS = ['Armazém Kikolo', 'Distribuidora Viana', 'Padaria do Bairro'];
-const supplierOf = (name: string) => (/^(Água|Gasosa|Sumo|Cerveja)/.test(name) ? 1 : name.startsWith('Pão') ? 2 : 0);
-// [day of the two weeks, supplier, payment, lines: product name and quantity]
-const PURCHASES: [number, number, Purchase['payment'], [string, number][]][] = [
-  [
-    4,
-    0,
-    'credit',
-    [
-      ['Arroz 1 kg', 20],
-      ['Óleo vegetal 1 L', 12],
-      ['Açúcar 1 kg', 20],
-    ],
-  ],
-  [
-    9,
-    1,
-    'cash',
-    [
-      ['Cerveja 330 ml', 48],
-      ['Gasosa 330 ml', 24],
-      ['Água 1,5 L', 24],
-    ],
-  ],
-  [12, 2, 'cash', [['Pão (unidade)', 30]]],
-];
-
-/** Builds two weeks of believable sales ending at `now`. Pure function (testable). */
-export function buildDemoData(now: Date): DemoData {
+/** Builds two weeks of believable sales of one example shop, ending at `now`. Pure function (testable). */
+export function buildDemoData(now: Date, kind: DemoKind = 'grocery'): DemoData {
+  const profile = DEMO_PROFILES[kind];
+  const placeOf = new Map(
+    Object.entries(profile.places).flatMap(([category, subs]) =>
+      Object.entries(subs).flatMap(([subcategory, names]) => names.map((n) => [n, { category, subcategory }] as const)),
+    ),
+  );
   const rand = mulberry32(20261106);
   const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]!;
   const iso = (d: Date) => d.toISOString();
   const start = addDays(startOfLocalDay(now), -14);
   const createdAt = iso(addDays(start, -1));
 
-  const products: Product[] = PRODUCTS.map(([name, kz, costKz, minStock, , byWeight], i) => ({
+  const products: Product[] = profile.products.map(([name, kz, costKz, minStock, , byWeight], i) => ({
     id: uuid(),
     name,
     priceCents: kz * 100,
     costCents: costKz * 100,
     ...(byWeight ? { soldBy: 'weight' as const } : {}),
-    ...DEMO_PLACE_OF.get(name),
+    ...placeOf.get(name),
     // Loose goods are weighed, not scanned.
     barcode: byWeight ? undefined : demoBarcode(i),
     minStock,
@@ -219,20 +102,26 @@ export function buildDemoData(now: Date): DemoData {
     createdAt,
     updatedAt: createdAt,
   }));
-  const customers: Customer[] = CUSTOMERS.map(([name, phone]) => ({ id: uuid(), name, phone, createdAt, updatedAt: createdAt }));
+  const customers: Customer[] = profile.customers.map((name) => ({
+    id: uuid(),
+    name,
+    phone: DEMO_WHATSAPP_TEST_NUMBER,
+    createdAt,
+    updatedAt: createdAt,
+  }));
 
   const sales: Sale[] = [];
   let number = 0;
   for (let day = 0; day <= 14; day++) {
     const dayStart = addDays(start, day);
-    const count = 14 + Math.floor(rand() * 12);
+    const count = profile.salesPerDay[0] + Math.floor(rand() * profile.salesPerDay[1]);
     const times = Array.from({ length: count }, () => 7 * 60 + Math.floor(rand() * 13 * 60)).sort((a, b) => a - b);
     for (const minute of times) {
       const at = new Date(dayStart);
       at.setMinutes(minute);
       if (at > now) break;
       const items: SaleItem[] = [];
-      const lines = 1 + Math.floor(rand() * 4);
+      const lines = 1 + Math.floor(rand() * profile.maxLines);
       for (let l = 0; l < lines; l++) {
         const p = pick(products);
         if (items.some((it) => it.productId === p.id)) continue;
@@ -261,7 +150,7 @@ export function buildDemoData(now: Date): DemoData {
       }
       let r = rand();
       let method: PaymentMethod = 'cash';
-      for (const [m, w] of METHOD_WEIGHTS) {
+      for (const [m, w] of profile.methodWeights) {
         if (r < w) {
           method = m;
           break;
@@ -341,16 +230,16 @@ export function buildDemoData(now: Date): DemoData {
   }
 
   // Suppliers and purchases: one on credit (due in 2 days, part already paid), two paid from the till.
-  const suppliers: Supplier[] = SUPPLIERS.map((name) => ({
+  const suppliers: Supplier[] = profile.suppliers.map((name) => ({
     id: uuid(),
     name,
     phone: DEMO_WHATSAPP_TEST_NUMBER,
     createdAt,
     updatedAt: createdAt,
   }));
-  products.forEach((p) => (p.supplierId = suppliers[supplierOf(p.name)]!.id));
+  products.forEach((p) => (p.supplierId = suppliers[profile.supplierOf(p.name)]!.id));
   const purchases: Purchase[] = [];
-  PURCHASES.forEach(([dayIndex, s, payment, lines], i) => {
+  profile.purchases.forEach(([dayIndex, s, payment, lines], i) => {
     const at = addDays(start, dayIndex);
     at.setHours(10, 0);
     const items = lines.map(([name, quantity]) => {
@@ -371,8 +260,17 @@ export function buildDemoData(now: Date): DemoData {
   });
   const paidAt = addDays(start, 10);
   paidAt.setHours(11, 0);
+  // Part of the purchase on credit already paid to its supplier.
+  const onCredit = purchases.find((pu) => pu.payment === 'credit')!;
   const supplierPayments: SupplierPayment[] = [
-    { id: uuid(), supplierId: suppliers[0]!.id, amountCents: 2_000_000, fromCash: false, createdAt: iso(paidAt), updatedAt: iso(paidAt) },
+    {
+      id: uuid(),
+      supplierId: onCredit.supplierId!,
+      amountCents: 2_000_000,
+      fromCash: false,
+      createdAt: iso(paidAt),
+      updatedAt: iso(paidAt),
+    },
   ];
 
   // Money out: transport most mornings, generator fuel every 3 days, the rent once, the owner's weekly withdrawal.
@@ -465,7 +363,7 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
   products.forEach((p, i) => {
-    const target = PRODUCTS[i]![4];
+    const target = profile.products[i]![4];
     const initial = Math.max(0, (sold.get(p.id) ?? 0) + target - (bought.get(p.id) ?? 0));
     movements.push({
       id: uuid(),
@@ -492,26 +390,10 @@ export function buildDemoData(now: Date): DemoData {
     }
   }
 
-  // Expiry dates (optional, product by product): the milk follows them. Its stock on the shelf gets
-  // dates, as a shop does when it starts: one lot about to expire, one expired, the rest fine.
+  // Expiry dates (optional, product by product): in the grocery, the milk follows them. Its stock on
+  // the shelf gets dates, as a shop does when it starts: one lot about to expire, one expired, the rest fine.
   const batches: Batch[] = [];
-  const DATED: [string, [number, number][]][] = [
-    [
-      'Leite UHT 1 L',
-      [
-        [4, 5],
-        [99, 45],
-      ],
-    ], // [quantity, days until it expires]
-    [
-      'Leite em pó 400 g',
-      [
-        [2, -3],
-        [99, 120],
-      ],
-    ],
-  ];
-  for (const [name, lots] of DATED) {
+  for (const [name, lots] of profile.dated) {
     const p = products.find((x) => x.name === name);
     if (!p) continue;
     p.tracksExpiry = true;
@@ -533,6 +415,7 @@ export function buildDemoData(now: Date): DemoData {
   }
 
   return {
+    kind,
     products,
     customers,
     sales,
@@ -549,19 +432,31 @@ export function buildDemoData(now: Date): DemoData {
   };
 }
 
-/** Wipes the demo database and fills it again. Only ever called on the demo database. */
-export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
+/** The example shop the demo database holds now (the grocery until another is chosen). */
+export async function demoKindOf(db: CaixaDB): Promise<DemoKind> {
+  const row = await db.meta.get('demoKind');
+  return isDemoKind(row?.value) ? row.value : 'grocery';
+}
+
+/**
+ * Wipes the demo database and fills it again, with the example shop chosen (`kind`), or else the one
+ * it already holds. Only ever called on the demo database.
+ */
+export async function seedDemo(db: CaixaDB, now = new Date(), kind?: DemoKind): Promise<void> {
   if (!db.name.endsWith('-demo') && !db.name.startsWith('test-')) {
     throw new Error('Demo data can only be written to the demo database');
   }
-  const data = buildDemoData(now);
+  const chosen = kind ?? (await demoKindOf(db));
+  const data = buildDemoData(now, chosen);
+  const profile = DEMO_PROFILES[chosen];
   const at = now.toISOString();
   await db.transaction('rw', db.tables, async () => {
     await Promise.all(db.tables.map((t) => t.clear()));
-    // The sugar supplier raised the price and the shop did not change it yet: the cost price is now
-    // above the selling price (the sales already made keep the cost of their day). The «Hoje»
-    // suggestions show it, so a visit can explain them.
-    await db.products.bulkAdd(data.products.map((p) => (p.name === SUGAR_BELOW_COST ? { ...p, costCents: SUGAR_NEW_COST_CENTS } : p)));
+    // A supplier raised a price and the shop did not change it yet (in the grocery, the sugar): the
+    // cost price is now above the selling price (the sales already made keep the cost of their day).
+    // The «Hoje» suggestions show it, so a visit can explain them.
+    const { belowCost } = profile;
+    await db.products.bulkAdd(data.products.map((p) => (p.name === belowCost.name ? { ...p, costCents: belowCost.costCents } : p)));
     await db.customers.bulkAdd(data.customers);
     await db.sales.bulkAdd(data.sales);
     await db.creditPayments.bulkAdd(data.payments);
@@ -577,22 +472,23 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
     await db.meta.put({ key: 'purchaseNumber', value: data.purchases.length });
     await db.settings.put({
       id: SETTINGS_ID,
-      storeName: DEMO_STORE_NAME,
+      storeName: profile.storeName,
       phone: '923 000 000',
       inss: data.inssPlan,
       creditTermDays: 15,
-      creditLimitCents: 3_000_000,
+      creditLimitCents: profile.creditLimitCents,
       cashFloatCents: DEMO_FLOAT_CENTS,
       // Example of a credit-for-stock contract: at least 40% of receipts in digital payments.
       digitalMinShareBp: 4000,
-      // A grocery: its categories come first when choosing one.
-      businessTypes: ['grocery'],
+      // Its kind of shop: its categories come first when choosing one.
+      businessTypes: profile.businessTypes,
       createdAt: at,
       updatedAt: at,
     });
     await db.meta.put({ key: 'saleNumber', value: data.sales.length });
     // In-store codes made later in the demo start after the demo's own codes.
-    await db.meta.put({ key: 'barcodeSeq', value: PRODUCTS.length });
+    await db.meta.put({ key: 'barcodeSeq', value: profile.products.length });
+    await db.meta.put({ key: 'demoKind', value: chosen });
     await db.meta.put({ key: 'demoSeededAt', value: at });
     await db.meta.put({ key: 'demoVersion', value: DEMO_VERSION });
     await db.audit.add({ id: uuid(), entity: 'data', entityId: 'demo', action: 'reset', createdAt: at, updatedAt: at });
