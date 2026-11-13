@@ -9,6 +9,7 @@ import { t } from '../../i18n/pt-AO';
 import { activeCategory, CategoryChips } from '../../ui/CategoryChips';
 import { Button, normalise, Sheet, Skeleton } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { useConfirm } from '../../ui/confirm';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { CountReview } from './CountReview';
 
@@ -36,6 +37,7 @@ const parseQuantity = (text: string, p: Pick<Product, 'soldBy'>): number | null 
 export function StockCountSheet({ onClose }: { onClose: () => void }) {
   const { store, mode, showToast } = useApp();
   const guard = usePinGuard();
+  const [dialog, ask] = useConfirm();
   const products = useLiveQuery(() => store.products.list(), [store]);
   const [draft, setDraft] = useState<CountDraft>(() => loadDraft(mode) ?? emptyCount(new Date()));
   // What is typed in each field (maybe half-typed); the draft keeps only valid counts.
@@ -77,8 +79,14 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
     setDraft((d) => setCount(d, p, q));
   };
 
-  const discard = () => {
-    if (!window.confirm(t.stockCount.discardConfirm)) return;
+  const discard = async () => {
+    const ok = await ask({
+      title: t.stockCount.discardConfirm,
+      message: t.stockCount.discardConfirmNote,
+      confirmLabel: t.stockCount.discardYes,
+      danger: true,
+    });
+    if (!ok) return;
     setDraft(emptyCount(new Date()));
     setTexts({});
   };
@@ -150,7 +158,7 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
             </Button>
           )}
           {summary.counted > 0 && (
-            <Button variant="ghost" className="w-full" onClick={discard}>
+            <Button variant="ghost" className="w-full" onClick={() => void discard()}>
               {sc.discard}
             </Button>
           )}
@@ -174,6 +182,7 @@ export function StockCountSheet({ onClose }: { onClose: () => void }) {
           }}
         />
       )}
+      {dialog}
     </Sheet>
   );
 }

@@ -6,6 +6,7 @@ import type { InssModality, InssPlan } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { formatKz } from '../../lib/money';
 import { Button, Field } from '../../ui/kit';
+import { useConfirm } from '../../ui/confirm';
 import { InssEstimate } from './InssEstimate';
 import { InssGuide } from './InssGuide';
 
@@ -18,6 +19,7 @@ const chip = (selected: boolean) =>
 /** The simulator and the owner's plan in one form: the estimate follows what is chosen. */
 export function InssPlanForm({ plan, paidMonths, onDone }: { plan?: InssPlan; paidMonths: number; onDone: () => void }) {
   const { store, showToast } = useApp();
+  const [dialog, ask] = useConfirm();
   const [wages, setWages] = useState(plan?.wages ?? 1);
   const [custom, setCustom] = useState(plan ? !WAGE_CHIPS.includes(plan.wages) : false);
   const [other, setOther] = useState(plan && !WAGE_CHIPS.includes(plan.wages) ? String(plan.wages) : '');
@@ -57,7 +59,8 @@ export function InssPlanForm({ plan, paidMonths, onDone }: { plan?: InssPlan; pa
   };
 
   const stop = async () => {
-    if (!window.confirm(t.inss.stopConfirm)) return;
+    const ok = await ask({ title: t.inss.stopConfirm, message: t.inss.stopConfirmNote, confirmLabel: t.inss.stopYes });
+    if (!ok) return;
     await store.inss.savePlan(null);
     showToast(t.inss.stopped);
     onDone();
@@ -162,6 +165,7 @@ export function InssPlanForm({ plan, paidMonths, onDone }: { plan?: InssPlan; pa
       ) : (
         <InssGuide />
       )}
+      {dialog}
     </div>
   );
 }

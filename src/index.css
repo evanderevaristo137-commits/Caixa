@@ -32,6 +32,31 @@ button {
   outline: 3px solid #f59e0b;
   outline-offset: 2px;
 }
+/* "Show more" boxes (<details>) open with the same chevron as the rest of the app, not the browser's triangle. */
+summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::after {
+  content: '';
+  flex-shrink: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.35rem;
+  border-right: 2px solid #64748b;
+  border-bottom: 2px solid #64748b;
+  transform: translateY(-0.15rem) rotate(45deg);
+  transition: transform 0.15s;
+}
+details[open] > summary::after {
+  transform: translateY(0.15rem) rotate(-135deg);
+}
 /* Printing labels: only the labels go to paper (or PDF), 3 per row. */
 @media print {
   @page {

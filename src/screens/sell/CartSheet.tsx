@@ -93,7 +93,7 @@ function UnitStepper({ line, onChange }: { line: CartLine; onChange: (qty: numbe
   const stepButton = 'h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-2xl font-bold active:bg-slate-100';
   return (
     <>
-      <button type="button" aria-label="Menos" onClick={() => onChange(line.quantity - 1)} className={stepButton}>
+      <button type="button" aria-label={t.sell.oneLess} onClick={() => onChange(line.quantity - 1)} className={stepButton}>
         −
       </button>
       {editing ? (
@@ -117,7 +117,7 @@ function UnitStepper({ line, onChange }: { line: CartLine; onChange: (qty: numbe
           {line.quantity}
         </button>
       )}
-      <button type="button" aria-label="Mais" onClick={() => onChange(line.quantity + 1)} className={stepButton}>
+      <button type="button" aria-label={t.sell.oneMore} onClick={() => onChange(line.quantity + 1)} className={stepButton}>
         +
       </button>
     </>

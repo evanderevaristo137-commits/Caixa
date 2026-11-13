@@ -13,6 +13,7 @@ import { BarcodeSvg } from '../../ui/BarcodeSvg';
 import { LabelsSheet } from './LabelsSheet';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { useConfirm } from '../../ui/confirm';
 import { Scanner, scannerSupported } from '../sell/Scanner';
 import { StockPanel } from './StockPanel';
 import { PurchasePricesPanel } from './PurchasePricesPanel';
@@ -74,6 +75,7 @@ function ProductForm({
   showToast: (m: string) => void;
 }) {
   const guard = usePinGuard();
+  const [dialog, ask] = useConfirm();
   const [name, setName] = useState(product?.name ?? '');
   const [price, setPrice] = useState(product ? formatKz(product.priceCents).replace(' Kz', '') : '');
   const [cost, setCost] = useState(product?.costCents !== undefined ? formatKz(product.costCents).replace(' Kz', '') : '');
@@ -162,7 +164,14 @@ function ProductForm({
   const save = () => runOnce(submit);
 
   const archive = async () => {
-    if (!product || !window.confirm(t.products.archiveConfirm)) return;
+    if (!product) return;
+    const ok = await ask({
+      title: t.products.archiveConfirm,
+      message: t.products.archiveConfirmNote,
+      confirmLabel: t.products.archiveYes,
+      danger: true,
+    });
+    if (!ok) return;
     await guard(async () => {
       await store.products.archive(product.id);
       onClose();
@@ -309,6 +318,7 @@ function ProductForm({
       )}
 
       {labels && product && <LabelsSheet initialIds={[product.id]} onClose={() => setLabels(false)} />}
+      {dialog}
 
       {scanning && (
         <Scanner

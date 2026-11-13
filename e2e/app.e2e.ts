@@ -1086,3 +1086,39 @@ test('the demo shop follows its INSS: months in a row on Hoje and money set asid
   await expect(sheet).toContainText('Leve o bilhete de identidade e uma cópia.');
   await expect(sheet).toContainText('A Caixa não é o INSS e não recebe contribuições');
 });
+
+test('the app asks with its own window before archiving a product; back cancels it', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: /Gasosa 330 ml/ }).click();
+  const product = page.getByRole('dialog', { name: 'Editar produto' });
+  await product.getByRole('button', { name: 'Arquivar produto' }).click();
+  const ask = page.getByRole('alertdialog', { name: 'Arquivar este produto?' });
+  await expect(ask).toContainText('Deixa de aparecer nas vendas, mas o histórico fica.');
+  // The safe choice has the focus.
+  await expect(ask.getByRole('button', { name: 'Cancelar' })).toBeFocused();
+  // Android's back button closes the question, not the product.
+  await page.goBack();
+  await expect(ask).toHaveCount(0);
+  await expect(product).toBeVisible();
+
+  await product.getByRole('button', { name: 'Arquivar produto' }).click();
+  await ask.getByRole('button', { name: 'Arquivar', exact: true }).click();
+  await expect(product).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Gasosa 330 ml/ })).toHaveCount(0);
+});
+
+test('a stock count is discarded only after the app asks', async ({ page }) => {
+  await openDemo(page);
+  await nav(page, 'Produtos');
+  await page.getByRole('button', { name: 'Contar o stock' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Contagem de stock' });
+  await sheet.getByLabel('Quantidade contada de Cerveja 330 ml').fill('55');
+  await sheet.getByRole('button', { name: 'Apagar a contagem' }).click();
+  const ask = page.getByRole('alertdialog', { name: 'Apagar tudo o que contou até agora?' });
+  await ask.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(sheet.getByLabel('Quantidade contada de Cerveja 330 ml')).toHaveValue('55');
+  await sheet.getByRole('button', { name: 'Apagar a contagem' }).click();
+  await ask.getByRole('button', { name: 'Apagar', exact: true }).click();
+  await expect(sheet.getByLabel('Quantidade contada de Cerveja 330 ml')).toHaveValue('');
+});

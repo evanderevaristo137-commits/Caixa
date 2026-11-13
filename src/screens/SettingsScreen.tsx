@@ -21,6 +21,7 @@ import { MoreSection, useOpenSections } from './settings/MoreSection';
 import { DEFAULT_STORE_NAME } from '../data/repos/shared';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
 import { ICON } from '../ui/icons';
+import { useConfirm } from '../ui/confirm';
 
 export default function SettingsScreen() {
   const { store } = useApp();
@@ -121,6 +122,7 @@ function StoreForm({ settings }: { settings: Settings }) {
 function DemoCard() {
   const { mode, setMode, resetDemo, showToast } = useApp();
   const [busy, setBusy] = useState(false);
+  const [dialog, ask] = useConfirm();
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -145,7 +147,12 @@ function DemoCard() {
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                if (!window.confirm(t.settings.demoResetConfirm)) return;
+                const ok = await ask({
+                  title: t.settings.demoResetConfirm,
+                  message: t.settings.demoResetConfirmNote,
+                  confirmLabel: t.settings.demoResetYes,
+                });
+                if (!ok) return;
                 await resetDemo();
                 showToast(t.settings.demoResetOk);
               })
@@ -158,6 +165,7 @@ function DemoCard() {
           </Button>
         </>
       )}
+      {dialog}
     </Card>
   );
 }

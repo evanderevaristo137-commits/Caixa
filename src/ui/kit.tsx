@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { registerBackHandler } from './back';
 import { formatKz } from '../lib/money';
+import { t } from '../i18n/pt-AO';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'dangerSolid' | 'ghost' | 'whatsapp';
 const VARIANTS: Record<Variant, string> = {
@@ -118,7 +119,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fechar"
+            aria-label={t.common.close}
             className="min-h-12 min-w-12 rounded-full text-2xl text-slate-600 active:bg-slate-200"
           >
             ×
@@ -141,9 +142,9 @@ export function Empty({ children, action }: { children: ReactNode; action?: Reac
 
 export function Skeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="space-y-3 p-4" aria-busy="true" aria-label="A carregar">
+    <div className="space-y-3 p-4" role="status" aria-busy="true" aria-label={t.common.loading}>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-200" />
+        <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-200 motion-reduce:animate-none" />
       ))}
     </div>
   );
