@@ -42,7 +42,7 @@ export function IntegrityCard() {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.integrity.title}</h2>
+      <h3 className="text-lg font-bold">{t.integrity.title}</h3>
       <p className="text-sm text-slate-600">{t.integrity.hint}</p>
       <Button variant="secondary" className="w-full" disabled={busy} onClick={() => void run()}>
         {t.integrity.run}

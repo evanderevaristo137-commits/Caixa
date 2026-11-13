@@ -15,7 +15,7 @@ export function AuditLogCard() {
   const [open, setOpen] = useState(false);
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.auditLog.title}</h2>
+      <h3 className="text-lg font-bold">{t.auditLog.title}</h3>
       <p className="text-sm text-slate-600">{t.auditLog.hint}</p>
       <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
         {t.auditLog.open}

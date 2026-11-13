@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { inDays, kzToCents, luandaTime, luandaToday, nav, openDemo, openReport, openStore, sellInCash, toDoLine } from './helpers';
+import {
+  inDays,
+  kzToCents,
+  luandaTime,
+  luandaToday,
+  nav,
+  openDemo,
+  openMore,
+  openReport,
+  openStore,
+  sellInCash,
+  toDoLine,
+} from './helpers';
 import { simpleXlsx } from '../src/lib/test-xlsx';
 
 // Mid-afternoon in Luanda: the demo shop has sold all day (e2e/midnight.e2e.ts covers the empty start of the day).
@@ -95,7 +107,7 @@ test('Today lists the customers to remind', async ({ page }) => {
 test('the usual payment term and payment notifications are set in Mais', async ({ page, context }) => {
   await context.grantPermissions(['notifications']);
   await openDemo(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Dinheiro e clientes');
   const terms = page.getByRole('group', { name: 'Prazo habitual para os clientes pagarem' });
   await expect(terms.getByRole('button', { name: '15 dias' })).toHaveAttribute('aria-pressed', 'true');
   await terms.getByRole('button', { name: '30 dias' }).click();
@@ -373,7 +385,7 @@ test('with the app closed, Android wakes the background check and the shop gets 
 
 test('the owner code protects voids and price changes, and everything shows in the activity log', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Definir código' }).click();
   await page.getByLabel('Novo código (4 a 6 números)').fill('2580');
   await page.getByLabel('Repita o novo código').fill('2580');
@@ -417,7 +429,7 @@ test('the owner code protects voids and price changes, and everything shows in t
   await expect(page.getByRole('button', { name: /Sal 1 kg/ })).toContainText('350 Kz');
 
   // Activity log, in plain words.
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/Venda n\.º \d+ anulada \([\d.]+ Kz\)\. Motivo: Engano no registo/)).toBeVisible();
   await expect(page.getByText('Sal 1 kg: preço 300 Kz → 350 Kz')).toBeVisible();
@@ -473,14 +485,14 @@ test('a sale paid on the TPA or by bank transfer is only recorded, with the slip
 
 test('"Verificar os dados" confirms that every number adds up', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Verificar agora' }).click();
   await expect(page.getByText(/Tudo certo: \d+ vendas e \d+ produtos verificados\./)).toBeVisible();
 });
 
 test('invoicing data (optional): what is missing, and the export for the certified partner', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'A loja');
   await page.getByLabel('NIF (opcional)').fill('5000000000');
   await page.getByRole('button', { name: 'Guardar' }).first().click();
   const card = page.locator('details', { hasText: 'Morada da loja' });
@@ -527,10 +539,11 @@ test('credit limit: warns, needs explicit confirmation, is logged, and can be sw
   await expect(page.getByText('Venda registada')).toBeVisible();
   await page.getByRole('button', { name: 'Nova venda' }).click();
 
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/Venda n\.º \d+ a crédito acima do limite: 33\.000 Kz/)).toBeVisible();
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await openMore(page, 'Dinheiro e clientes');
   await page.getByRole('group', { name: 'Limite de crédito habitual' }).getByRole('button', { name: 'Sem limite' }).click();
 
   await startCreditSale('Luísa Neto', 6);
@@ -719,7 +732,7 @@ test('money out and closing the day: expected cash, short or over, and the log',
   const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
   expect(decodeURIComponent(summary!)).toMatch(/Fecho: contou [\d.]+ Kz — faltam 200 Kz/);
 
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/fechado: contou [\d.]+ Kz, devia ter [\d.]+ Kz — faltam 200 Kz/).first()).toBeVisible();
   await expect(page.getByText('Saída de dinheiro: Transporte — 1.500 Kz (da caixa) · Táxi')).toBeVisible();
@@ -845,7 +858,7 @@ test('a sale on hold: serve another customer and come back to it without losing 
 
 test('the pilot summary carries only the shop numbers, never customer names or phones', async ({ page }) => {
   await openDemo(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Piloto e ajuda');
   await page.getByLabel('WhatsApp de quem acompanha o piloto (opcional)').fill('923 000 000');
   await page.getByRole('button', { name: 'Guardar' }).last().click();
   const link = page.getByRole('link', { name: 'Enviar resumo do piloto por WhatsApp' });
@@ -869,7 +882,7 @@ test('credit for stock: digital payments against the contract minimum, with an a
   await expect(card).toContainText(/Recebido pelo telemóvel: [\d.]+ Kz de [\d.]+ Kz/);
 
   // A stricter contract (90%): the alarm appears at the top of Today and in the activity log.
-  await nav(page, 'Mais');
+  await openMore(page, 'Dinheiro e clientes');
   await page.getByLabel('Mínimo de pagamentos digitais (%) — vazio = sem contrato').fill('90');
   await page
     .locator('div.rounded-2xl')
@@ -880,7 +893,7 @@ test('credit for stock: digital payments against the contract minimum, with an a
   const alarm = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Alarme: pagamentos digitais' }) });
   await expect(alarm).toContainText(/Abaixo do mínimo do contrato: \d+% \(mínimo 90%\)\./);
   await expect(alarm).toContainText('cobrar em numerário para fugir à retenção é incumprimento');
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText('Mínimo de pagamentos digitais (crédito para stock): 90%')).toBeVisible();
 });
@@ -899,13 +912,14 @@ test('the shop accepts the terms before using its own data, and can read them an
   await expect(page.getByRole('button', { name: '+ Criar o primeiro produto' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Bem-vindo à Caixa' })).toHaveCount(0);
 
-  await nav(page, 'Mais');
+  await openMore(page, 'Piloto e ajuda');
   await expect(
     page.getByText(/A loja aceitou os Termos e a Política de privacidade em \d\d\/\d\d\/\d{4} \(versão \d{4}-\d\d-\d\d\)\./),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Condições do crédito para stock' }).click();
   await expect(page.getByRole('dialog', { name: 'Condições do crédito para stock' })).toContainText('Compromisso de pagamentos digitais');
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/Termos de uso e privacidade aceites \(versão \d{4}-\d\d-\d\d\)/)).toBeVisible();
 });

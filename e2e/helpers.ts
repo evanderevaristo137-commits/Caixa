@@ -66,3 +66,13 @@ export async function openReport(page: Page, name: 'Semana, mês e ficha da loja
 /** «Hoje» → «Para tratar hoje»: the line whose text matches (it opens its detail). */
 export const toDoLine = (page: Page, text: RegExp) =>
   page.getByRole('list', { name: 'Para tratar hoje' }).getByRole('button', { name: text });
+
+type MoreSection = 'A loja' | 'Dinheiro e clientes' | 'Segurança e cópias' | 'Piloto e ajuda';
+
+/** «Mais» with one of its sections open (it stays open while the app is open). */
+export async function openMore(page: Page, section: MoreSection) {
+  await nav(page, 'Mais');
+  const button = page.getByRole('button', { name: new RegExp(`^${section}`) });
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+}

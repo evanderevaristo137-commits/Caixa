@@ -14,7 +14,7 @@ export function LegalCard() {
   const [open, setOpen] = useState<LegalDocId | null>(null);
   return (
     <Card className="space-y-2">
-      <h2 className="text-lg font-bold">{t.legal.title}</h2>
+      <h3 className="text-lg font-bold">{t.legal.title}</h3>
       <p className="text-sm text-slate-600">{t.legal.hint}</p>
       {mode === 'store' && accepted?.at && (
         <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-800">{t.legal.acceptedOn(formatDate(accepted.at), accepted.version)}</p>

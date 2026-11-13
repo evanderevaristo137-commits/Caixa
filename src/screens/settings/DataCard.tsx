@@ -62,7 +62,7 @@ export function DataCard() {
 
   return (
     <Card className="space-y-2">
-      <h2 className="text-lg font-bold">{t.settings.data}</h2>
+      <h3 className="text-lg font-bold">{t.settings.data}</h3>
       <p className="text-sm text-slate-600">{t.settings.dataNote}</p>
       {persisted !== null && persisted !== undefined && (
         <p className={`rounded-lg p-2 text-sm ${persisted ? 'bg-brand-50 text-brand-800' : 'bg-amber-50 text-amber-900'}`}>
@@ -102,7 +102,7 @@ export function DataCard() {
           </Button>
         </div>
       )}
-      <h3 className="pt-2 font-semibold">{t.settings.exportsTitle}</h3>
+      <h4 className="pt-2 font-semibold">{t.settings.exportsTitle}</h4>
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" className="text-sm" onClick={() => void exportCsv('vendas', () => salesCsv(store.db))}>
           {t.settings.exportSales}

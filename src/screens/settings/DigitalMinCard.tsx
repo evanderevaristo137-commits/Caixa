@@ -23,7 +23,7 @@ export function DigitalMinCard({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.digital.settingTitle}</h2>
+      <h3 className="text-lg font-bold">{t.digital.settingTitle}</h3>
       <p className="text-sm text-slate-600">{t.digital.settingHint}</p>
       <Field label={t.digital.settingLabel} value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" error={error} />
       <Button className="w-full" onClick={() => void save()}>

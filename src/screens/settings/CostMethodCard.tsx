@@ -17,7 +17,7 @@ export function CostMethodCard({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.costMethod.title}</h2>
+      <h3 className="text-lg font-bold">{t.costMethod.title}</h3>
       <p className="text-sm text-slate-600">{t.costMethod.hint}</p>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={t.costMethod.title}>
         {(['last', 'average'] as const).map((m) => (

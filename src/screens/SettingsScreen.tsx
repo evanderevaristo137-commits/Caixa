@@ -17,29 +17,52 @@ import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
 import { DataCard } from './settings/DataCard';
 import { AuditLogCard } from './settings/AuditLogCard';
+import { MoreSection, useOpenSections } from './settings/MoreSection';
+import { DEFAULT_STORE_NAME } from '../data/repos/shared';
 import { Button, Card, Field, Skeleton } from '../ui/kit';
+import { ICON } from '../ui/icons';
 
 export default function SettingsScreen() {
   const { store } = useApp();
   const settings = useLiveQuery(() => store.settings.get(), [store]);
   if (!settings) return <Skeleton />;
+  return <Sections key={store.db.name} settings={settings} />;
+}
+
+/**
+ * «Mais» in four groups that open with a tap: the shop, money and customers, safety and backups,
+ * the pilot and help. The demo switch stays always in sight (the founder uses it at every visit).
+ */
+function Sections({ settings }: { settings: Settings }) {
+  const { mode } = useApp();
+  // A real shop still without its name: the shop's section starts open, to fill it in.
+  const [open, toggle] = useOpenSections(mode === 'store' && settings.storeName === DEFAULT_STORE_NAME ? ['store'] : []);
+  const s = t.moreSections;
   return (
     <div className="space-y-3 p-3">
       <InstallCard />
-      <StoreForm key={`${store.db.name}-${settings.updatedAt}`} settings={settings} />
-      <CreditSettingsCard settings={settings} />
-      <CashFloatCard key={`float-${store.db.name}`} settings={settings} />
-      <CostMethodCard settings={settings} />
-      <DigitalMinCard key={`digital-${store.db.name}`} settings={settings} />
-      <InssCard key={`inss-${store.db.name}`} />
-      <InvoicingCard settings={settings} />
-      <OwnerPinCard />
-      <DataCard />
-      <IntegrityCard />
-      <AuditLogCard />
-      <PilotCard key={`pilot-${store.db.name}`} settings={settings} />
+      <MoreSection icon={ICON.store} title={s.store} hint={s.storeHint} open={open.has('store')} onToggle={() => toggle('store')}>
+        <StoreForm key={settings.updatedAt} settings={settings} />
+        <InvoicingCard settings={settings} />
+        <CostMethodCard settings={settings} />
+      </MoreSection>
+      <MoreSection icon={ICON.wallet} title={s.money} hint={s.moneyHint} open={open.has('money')} onToggle={() => toggle('money')}>
+        <CreditSettingsCard settings={settings} />
+        <CashFloatCard settings={settings} />
+        <DigitalMinCard settings={settings} />
+        <InssCard />
+      </MoreSection>
+      <MoreSection icon={ICON.shield} title={s.safety} hint={s.safetyHint} open={open.has('safety')} onToggle={() => toggle('safety')}>
+        <OwnerPinCard />
+        <DataCard />
+        <IntegrityCard />
+        <AuditLogCard />
+      </MoreSection>
+      <MoreSection icon={ICON.help} title={s.help} hint={s.helpHint} open={open.has('help')} onToggle={() => toggle('help')}>
+        <PilotCard settings={settings} />
+        <LegalCard />
+      </MoreSection>
       <DemoCard />
-      <LegalCard />
       <p className="px-2 pb-4 text-center text-sm text-slate-600">{t.settings.about}</p>
     </div>
   );
@@ -76,7 +99,7 @@ function StoreForm({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.settings.title}</h2>
+      <h3 className="text-lg font-bold">{t.settings.title}</h3>
       <Field label={t.settings.storeName} value={storeName} onChange={(e) => setStoreName(e.target.value)} error={error} />
       <Field label={t.settings.phone} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" />
       <Field

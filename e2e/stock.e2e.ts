@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, luandaToday, nav, openDemo, openStore, toDoLine } from './helpers';
+import { luandaTime, luandaToday, nav, openDemo, openMore, openStore, toDoLine } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -118,7 +118,7 @@ test('a product that follows its dates asks for them when stock comes in', async
 
 test('the cost price can follow the average cost instead of the last purchase', async ({ page }) => {
   await openStore(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'A loja');
   const choice = page.getByRole('group', { name: 'Preço de custo depois de uma compra' });
   await expect(choice.getByRole('button', { name: 'O da última compra' })).toHaveAttribute('aria-pressed', 'true');
   await choice.getByRole('button', { name: 'Custo médio' }).click();

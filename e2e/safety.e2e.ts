@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, nav, openDemo, openReport, openStore } from './helpers';
+import { luandaTime, nav, openDemo, openMore, openReport, openStore } from './helpers';
 
 test('the published app refuses to send data anywhere, and nothing it does breaks that rule', async ({ page }) => {
   await page.clock.install({ time: luandaTime('15:00') });
@@ -58,12 +58,13 @@ test('app errors are kept on the phone and only their number goes into the pilot
     void Promise.reject(new Error('Erro de teste'));
   });
   await expect(page.getByText('Algo correu mal', { exact: false })).toBeVisible();
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await expect(page.getByText('A app registou 1 erro nos últimos 7 dias.')).toBeVisible();
   await page.getByRole('button', { name: 'Ver os erros' }).click();
   await expect(page.getByText(/Acção · Error: Erro de teste/)).toBeVisible();
   // The pilot summary is prepared when its card comes on the screen.
-  await page.getByRole('heading', { name: 'Piloto' }).scrollIntoViewIfNeeded();
+  await openMore(page, 'Piloto e ajuda');
+  await page.getByRole('heading', { name: 'Piloto', exact: true }).scrollIntoViewIfNeeded();
   const link = page.getByRole('link', { name: 'Enviar resumo do piloto por WhatsApp' });
   const text = decodeURIComponent((await link.getAttribute('href'))!.split('text=')[1]!);
   expect(text).toContain('Erros da app (7 dias): 1');

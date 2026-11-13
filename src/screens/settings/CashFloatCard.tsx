@@ -19,7 +19,7 @@ export function CashFloatCard({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.cash.floatSettingTitle}</h2>
+      <h3 className="text-lg font-bold">{t.cash.floatSettingTitle}</h3>
       <p className="text-sm text-slate-600">{t.cash.floatSettingHint}</p>
       <Field label={t.cash.floatSettingLabel} value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" error={error} />
       <Button className="w-full" onClick={() => void save()}>

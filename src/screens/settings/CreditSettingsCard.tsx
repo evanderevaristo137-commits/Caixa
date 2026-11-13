@@ -57,7 +57,7 @@ export function CreditSettingsCard({ settings }: { settings: Settings }) {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.alerts.termTitle}</h2>
+      <h3 className="text-lg font-bold">{t.alerts.termTitle}</h3>
       <div className="grid grid-cols-3 gap-2" role="group" aria-label={t.alerts.termTitle}>
         {TERMS.map((d) => (
           <button
@@ -73,7 +73,7 @@ export function CreditSettingsCard({ settings }: { settings: Settings }) {
       </div>
       <p className="text-sm text-slate-600">{t.alerts.termHint}</p>
 
-      <h2 className="pt-2 text-lg font-bold">{t.credit.limitTitle}</h2>
+      <h3 className="pt-2 text-lg font-bold">{t.credit.limitTitle}</h3>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={t.credit.limitTitle}>
         {LIMITS.map((cents) => (
           <button
@@ -103,7 +103,7 @@ export function CreditSettingsCard({ settings }: { settings: Settings }) {
       </div>
       <p className="text-sm text-slate-600">{t.credit.limitHint}</p>
 
-      <h2 className="pt-2 text-lg font-bold">{t.alerts.title}</h2>
+      <h3 className="pt-2 text-lg font-bold">{t.alerts.title}</h3>
       <p className="text-sm text-slate-600">{t.alerts.hint}</p>
       {permission === 'granted' ? (
         <>

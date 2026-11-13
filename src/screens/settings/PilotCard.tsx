@@ -26,9 +26,9 @@ export function PilotCard({ settings }: { settings: Settings }) {
   };
   return (
     <Card className="space-y-3">
-      <h2 ref={cardRef} className="text-lg font-bold">
+      <h3 ref={cardRef} className="text-lg font-bold">
         {t.pilot.title}
-      </h2>
+      </h3>
       <p className="text-sm text-slate-600">{t.pilot.hint}</p>
       <Field
         label={t.pilot.phone}

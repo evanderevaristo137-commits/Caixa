@@ -70,7 +70,7 @@ export function OwnerPinCard() {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">{t.pin.title}</h2>
+      <h3 className="text-lg font-bold">{t.pin.title}</h3>
       <p className="text-sm text-slate-600">{t.pin.hint}</p>
       {hasPin && mode === 'idle' && <p className="rounded-lg bg-brand-50 p-2 text-sm font-semibold text-brand-800">{t.pin.active}</p>}
       {mode === 'idle' ? (

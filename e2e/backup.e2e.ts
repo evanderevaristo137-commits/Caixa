@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { luandaTime, nav, openStore } from './helpers';
+import { luandaTime, nav, openMore, openStore } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -48,7 +48,7 @@ const chooseFile = (page: Page, text: string, name = 'caixa-copia-de-seguranca.t
 
 test('a backup is compressed; restoring it shows what would be lost first, and can be undone', async ({ page }) => {
   await shopWithOneSale(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   const text = await backupFile(page, page.getByRole('button', { name: 'Enviar cópia de segurança' }));
   await expect(page.getByText('Cópia guardada na pasta Transferências.')).toBeVisible();
   const file = JSON.parse(text) as { format: number; compression: string; lock?: unknown; payload: string };
@@ -63,7 +63,7 @@ test('a backup is compressed; restoring it shows what would be lost first, and c
   // One more sale after the copy: restoring the copy would lose it, and the app says so.
   await sellOne(page);
   expect(await salesToday(page)).toBe('2 vendas');
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await chooseFile(page, text);
   const review = page.getByRole('dialog', { name: 'Recuperar uma cópia' });
   await expect(review).toContainText(/Na cópia.*1 venda, a última a/);
@@ -77,7 +77,7 @@ test('a backup is compressed; restoring it shows what would be lost first, and c
   expect(await salesToday(page)).toBe('1 venda');
 
   // Undo: the sale made after the copy comes back.
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await expect(page.getByText(/Antes da última recuperação \(.+\) ficou guardado o que estava no telemóvel: 2 vendas\./)).toBeVisible();
   await page.getByRole('button', { name: 'Voltar a esses dados' }).click();
   const undo = page.getByRole('dialog', { name: 'Desfazer a última recuperação' });
@@ -88,7 +88,7 @@ test('a backup is compressed; restoring it shows what would be lost first, and c
   expect(await salesToday(page)).toBe('2 vendas');
 
   // Both are in the activity log.
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await page.getByRole('button', { name: 'Ver registo' }).click();
   await expect(page.getByText(/^Cópia de segurança de .+ recuperada \(todos os dados substituídos\)$/)).toBeVisible();
   await expect(page.getByText('Recuperação desfeita: voltaram os dados que estavam no telemóvel antes dela')).toBeVisible();
@@ -96,7 +96,7 @@ test('a backup is compressed; restoring it shows what would be lost first, and c
 
 test('a backup protected with a password opens only with it', async ({ page }) => {
   await shopWithOneSale(page);
-  await nav(page, 'Mais');
+  await openMore(page, 'Segurança e cópias');
   await expect(page.getByText('As cópias não têm palavra-passe: quem receber o ficheiro pode ver os dados da loja.')).toBeVisible();
   await page.getByRole('button', { name: 'Proteger as cópias com palavra-passe' }).click();
   const sheet = page.getByRole('dialog', { name: 'Palavra-passe das cópias' });
