@@ -22,4 +22,15 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  {
+    // The whole-app tests take `test` from e2e/fixtures.ts, which also checks that the app talks to no other server.
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/fixtures.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: '@playwright/test', importNames: ['test'], message: "Use `test` from './fixtures'." }] },
+      ],
+    },
+  },
 ]);

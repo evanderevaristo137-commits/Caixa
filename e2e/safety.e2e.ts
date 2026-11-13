@@ -1,28 +1,33 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { luandaTime, nav, openDemo, openMore, openReport, openStore } from './helpers';
 
-test('the published app refuses to send data anywhere, and nothing it does breaks that rule', async ({ page }) => {
-  await page.clock.install({ time: luandaTime('15:00') });
-  const violations: string[] = [];
-  page.on('console', (m) => {
-    if (/Content Security Policy/i.test(m.text())) violations.push(m.text());
+test.describe(() => {
+  // The test itself tries to send something to example.com: the browser must refuse it.
+  test.use({ allowOutside: ['example.com'] });
+
+  test('the published app refuses to send data anywhere, and nothing it does breaks that rule', async ({ page }) => {
+    await page.clock.install({ time: luandaTime('15:00') });
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (/Content Security Policy/i.test(m.text())) violations.push(m.text());
+    });
+    await openDemo(page);
+    await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content', /connect-src 'self'/);
+    // A request to another site is refused by the browser itself.
+    const outcome = await page.evaluate(() =>
+      fetch('https://example.com/recolha', { method: 'POST', body: 'dados' }).then(
+        () => 'sent',
+        () => 'refused',
+      ),
+    );
+    expect(outcome).toBe('refused');
+    // Going through the screens (charts, labels, the scanner button, reports) never trips the rule.
+    for (const tab of ['Hoje', 'Clientes', 'Produtos', 'Mais', 'Vender'] as const) await nav(page, tab);
+    await nav(page, 'Hoje');
+    await openReport(page, 'Semana, mês e ficha da loja');
+    await expect(page.getByRole('dialog', { name: 'Semana e mês' }).getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
+    expect(violations.filter((v) => !v.includes('example.com'))).toEqual([]);
   });
-  await openDemo(page);
-  await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content', /connect-src 'self'/);
-  // A request to another site is refused by the browser itself.
-  const outcome = await page.evaluate(() =>
-    fetch('https://example.com/recolha', { method: 'POST', body: 'dados' }).then(
-      () => 'sent',
-      () => 'refused',
-    ),
-  );
-  expect(outcome).toBe('refused');
-  // Going through the screens (charts, labels, the scanner button, reports) never trips the rule.
-  for (const tab of ['Hoje', 'Clientes', 'Produtos', 'Mais', 'Vender'] as const) await nav(page, tab);
-  await nav(page, 'Hoje');
-  await openReport(page, 'Semana, mês e ficha da loja');
-  await expect(page.getByRole('dialog', { name: 'Semana e mês' }).getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
-  expect(violations.filter((v) => !v.includes('example.com'))).toEqual([]);
 });
 
 test('a phone clock that went back is reported, and selling still works', async ({ page }) => {

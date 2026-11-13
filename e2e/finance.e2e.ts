@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { luandaTime, luandaToday, nav, openDemo, openReport, openStore } from './helpers';
 
 test.beforeEach(async ({ context }) => {

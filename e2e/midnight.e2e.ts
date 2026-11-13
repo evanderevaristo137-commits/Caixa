@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { luandaTime, nav, openDemo, sellInCash } from './helpers';
 
 // Ten minutes after midnight: nothing was sold today yet. The rest of the suite runs in the afternoon.
