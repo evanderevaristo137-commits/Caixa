@@ -9,6 +9,7 @@ import { uuid } from '../../lib/ids';
 import { Button } from '../../ui/kit';
 import { useBusy } from '../../ui/use-busy';
 import { CheckoutSheet } from '../sell/CheckoutSheet';
+import { saveFailedText } from '../../lib/save-error';
 
 /**
  * Where the money of a sale stands: an electronic payment still to confirm («Já entrou», or «Não
@@ -32,8 +33,8 @@ export function PaymentStatus({ sale }: { sale: Sale }) {
       try {
         await store.sales.confirmPayment(sale.id);
         showToast(t.pending.confirmedToast);
-      } catch {
-        showToast(t.errors.saveFailed);
+      } catch (e) {
+        showToast(saveFailedText(e));
       }
     });
 

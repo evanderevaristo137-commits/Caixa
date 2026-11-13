@@ -261,7 +261,10 @@ test('if saving fails (phone full), the user is told and nothing is half-saved',
   await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Numerário' }).click();
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
-  await expect(page.getByText('Não foi possível guardar. Tente outra vez.')).toBeVisible();
+  // Said plainly: the phone is full, the sale was not saved, the cart is still there.
+  await expect(
+    page.getByText(/^O telemóvel está sem espaço livre: a venda não foi guardada, mas o carrinho continua aqui\./),
+  ).toBeVisible();
   await expect(page.getByText('Venda registada')).toBeHidden();
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(page.getByRole('button', { name: /Arroz 5 kg/ })).toHaveText(stockBefore!.replace(/\d+$/, '') + '1');

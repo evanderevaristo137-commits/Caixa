@@ -9,6 +9,7 @@ import { Button, Field } from '../../ui/kit';
 import { useConfirm } from '../../ui/confirm';
 import { InssEstimate } from './InssEstimate';
 import { InssGuide } from './InssGuide';
+import { saveFailedText } from '../../lib/save-error';
 
 const WAGE_CHIPS = [1, 2, 3];
 const MODALITIES: InssModality[] = ['normal', 'extended'];
@@ -54,7 +55,7 @@ export function InssPlanForm({ plan, paidMonths, onDone }: { plan?: InssPlan; pa
       const code = e instanceof DomainError ? e.code : '';
       if (code === 'invalid_birth_year') setError({ field: 'birth', msg: t.inss.invalidBirthYear });
       else if (code === 'invalid_months') setError({ field: 'months', msg: t.inss.invalidMonths });
-      else setError({ field: 'wages', msg: code === 'invalid_wages' ? t.inss.invalidWages : t.errors.saveFailed });
+      else setError({ field: 'wages', msg: code === 'invalid_wages' ? t.inss.invalidWages : saveFailedText(e) });
     }
   };
 

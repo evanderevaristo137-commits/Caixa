@@ -10,6 +10,7 @@ import { usePinGuard } from '../../ui/pin';
 import { NewPurchaseSheet } from './NewPurchaseSheet';
 import { PurchaseReportSheet } from './PurchaseReportSheet';
 import { ShowMore, usePaged } from '../../ui/paged';
+import { saveFailedText } from '../../lib/save-error';
 
 /** Purchases drawn at once; «Ver mais» draws the next ones. */
 const PURCHASES_PAGE = 50;
@@ -96,8 +97,8 @@ function PurchaseSheet({ purchaseId, onClose }: { purchaseId: string; onClose: (
         await store.purchases.void(purchase.id, reason);
         showToast(t.purchases.voided);
         setVoiding(false);
-      } catch {
-        setError(t.errors.saveFailed);
+      } catch (e) {
+        setError(saveFailedText(e));
       }
     });
   };

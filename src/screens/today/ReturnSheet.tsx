@@ -9,6 +9,7 @@ import { formatKz } from '../../lib/money';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 const chip = (on: boolean) =>
   `min-h-12 rounded-xl border-2 px-3 text-sm font-semibold ${on ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white'}`;
@@ -50,7 +51,7 @@ export function ReturnSheet({ sale, earlier, onClose }: { sale: Sale; earlier: S
           showToast(t.returns.done(formatKz(total)));
           onClose();
         } catch (e) {
-          setError((e instanceof DomainError && t.returns.errors[e.code]) || t.errors.saveFailed);
+          setError((e instanceof DomainError && t.returns.errors[e.code]) || saveFailedText(e));
         }
       }),
     );

@@ -5,6 +5,7 @@ import { DomainError } from '../../data/store';
 import { isValidPin } from '../../domain/pin';
 import { t } from '../../i18n/pt-AO';
 import { Button, Card, Field } from '../../ui/kit';
+import { saveFailedText } from '../../lib/save-error';
 
 /** The message for a refused code: wrong, or too many wrong codes (wait). */
 const pinError = (e: unknown) =>
@@ -12,7 +13,7 @@ const pinError = (e: unknown) =>
     ? t.pin.locked(e.detail ?? 30)
     : e instanceof DomainError && e.code === 'wrong_pin'
       ? t.pin.wrong
-      : (e instanceof DomainError && t.team.errors[e.code]) || t.errors.saveFailed;
+      : (e instanceof DomainError && t.team.errors[e.code]) || saveFailedText(e);
 
 type Mode = 'idle' | 'set' | 'remove';
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6);

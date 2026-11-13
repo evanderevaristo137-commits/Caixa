@@ -8,9 +8,10 @@ import { useConfirm } from '../../ui/confirm';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6);
-const staffError = (e: unknown) => (e instanceof DomainError && t.team.errors[e.code]) || t.errors.saveFailed;
+const staffError = (e: unknown) => (e instanceof DomainError && t.team.errors[e.code]) || saveFailedText(e);
 
 /**
  * A new employee, or one already in the shop: name, what they may do and their code. Everything here

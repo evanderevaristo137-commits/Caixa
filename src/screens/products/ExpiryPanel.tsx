@@ -9,6 +9,7 @@ import { t } from '../../i18n/pt-AO';
 import { formatDateString, toLocalDateString } from '../../lib/dates';
 import { Button, Field } from '../../ui/kit';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 /**
  * The expiry dates of what is on the shelf, first to expire first, and a way to give a date to
@@ -39,7 +40,7 @@ export function ExpiryPanel({ product }: { product: Product }) {
         setDate('');
         setError(null);
       } catch (e) {
-        setError((e instanceof DomainError && t.expiry.errors[e.code]) || t.errors.saveFailed);
+        setError((e instanceof DomainError && t.expiry.errors[e.code]) || saveFailedText(e));
       }
     });
 

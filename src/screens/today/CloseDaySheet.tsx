@@ -9,6 +9,7 @@ import { toLocalDateString } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 const kzText = (cents: number) => formatKz(cents).replace(' Kz', '');
 
@@ -44,8 +45,8 @@ export function CloseDaySheet({ defaultFloatCents, onClose }: { defaultFloatCent
         showToast(t.cash.closed);
         onClose();
       }
-    } catch {
-      setError({ field: 'counted', msg: t.errors.saveFailed });
+    } catch (e) {
+      setError({ field: 'counted', msg: saveFailedText(e) });
     } finally {
       setBusy(false);
     }

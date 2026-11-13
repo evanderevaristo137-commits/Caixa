@@ -7,6 +7,7 @@ import { t } from '../../i18n/pt-AO';
 import { toLocalDateString } from '../../lib/dates';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Sheet } from '../../ui/kit';
+import { saveFailedText } from '../../lib/save-error';
 
 /** How many months back a payment can be recorded for. */
 const MONTHS_BACK = 24;
@@ -54,7 +55,7 @@ export function InssPaySheet({
       showToast(t.inss.payDone);
       onClose();
     } catch (e) {
-      setError((e instanceof DomainError && t.inss.payErrors[e.code]) || t.errors.saveFailed);
+      setError((e instanceof DomainError && t.inss.payErrors[e.code]) || saveFailedText(e));
       setBusy(false);
     }
   };

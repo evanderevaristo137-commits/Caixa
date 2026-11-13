@@ -19,6 +19,7 @@ import { StockPanel } from './StockPanel';
 import { PurchasePricesPanel } from './PurchasePricesPanel';
 import { CategoryPicker, type CategoryChoice } from './CategoryPicker';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 const ERRORS: Record<string, string> = {
   name_required: t.products.nameRequired,
@@ -156,7 +157,7 @@ function ProductForm({
                     : code === 'invalid_tax'
                       ? 'tax'
                       : 'min';
-        setError({ field, msg: ERRORS[code] ?? t.errors.saveFailed });
+        setError({ field, msg: ERRORS[code] ?? saveFailedText(e) });
       }
     };
     // A new price on an existing product needs the owner code (when set).

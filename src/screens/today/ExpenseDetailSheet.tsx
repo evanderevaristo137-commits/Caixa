@@ -6,6 +6,7 @@ import { t } from '../../i18n/pt-AO';
 import { formatDateTime } from '../../lib/dates';
 import { Button, Field, Money, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { saveFailedText } from '../../lib/save-error';
 
 /** One money-out record, and voiding it (with a reason and the owner code, when set). */
 export function ExpenseDetailSheet({ expenseId, onClose }: { expenseId: string; onClose: () => void }) {
@@ -25,7 +26,7 @@ export function ExpenseDetailSheet({ expenseId, onClose }: { expenseId: string; 
         showToast(t.expenses.voided);
         setVoiding(false);
       } catch (e) {
-        setError(e instanceof DomainError && e.code === 'inss_used' ? t.inss.usedError : t.errors.saveFailed);
+        setError(e instanceof DomainError && e.code === 'inss_used' ? t.inss.usedError : saveFailedText(e));
       }
     });
   };

@@ -4,6 +4,7 @@ import { dailyCents } from '../../domain/inss';
 import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Sheet } from '../../ui/kit';
+import { saveFailedText } from '../../lib/save-error';
 
 const typed = (cents: number) => formatKz(cents).replace(' Kz', '');
 
@@ -25,8 +26,8 @@ export function InssSaveSheet({ monthlyCents, savedCents, onClose }: { monthlyCe
       await store.expenses.create({ category: 'inss', amountCents, fromCash });
       showToast(t.inss.saveDone);
       onClose();
-    } catch {
-      setError(t.errors.saveFailed);
+    } catch (e) {
+      setError(saveFailedText(e));
       setBusy(false);
     }
   };

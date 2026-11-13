@@ -1075,6 +1075,8 @@ export const t = {
     body: 'Os seus dados estão guardados no telemóvel. Toque em «Recarregar» para continuar.',
     reload: 'Recarregar',
     saveFailed: 'Não foi possível guardar. Tente outra vez.',
+    noSpace: 'O telemóvel está sem espaço livre e nada foi guardado. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
+    noSpaceSale: 'O telemóvel está sem espaço livre: a venda não foi guardada, mas o carrinho continua aqui. Liberte espaço (fotos, vídeos, ficheiros do WhatsApp) e tente outra vez.',
     generic: 'Algo correu mal. Tente outra vez.',
   },
   weight: {

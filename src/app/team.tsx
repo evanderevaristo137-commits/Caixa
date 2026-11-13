@@ -7,6 +7,7 @@ import type { StaffMember } from '../domain/types';
 import { t } from '../i18n/pt-AO';
 import { usePinGuard } from '../ui/pin';
 import { WhoSheet } from './WhoSheet';
+import { saveFailedText } from '../lib/save-error';
 
 const KEY = (mode: string) => `caixa.person.${mode}`;
 
@@ -129,4 +130,4 @@ export function useAllow() {
 
 /** The message for a refused employee code. */
 export const signInError = (e: unknown, name: string) =>
-  e instanceof DomainError && e.code === 'no_code' ? t.team.noCode(name) : t.errors.saveFailed;
+  e instanceof DomainError && e.code === 'no_code' ? t.team.noCode(name) : saveFailedText(e);

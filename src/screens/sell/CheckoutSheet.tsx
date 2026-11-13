@@ -15,6 +15,7 @@ import { TermPicker } from './TermPicker';
 import { usePinGuard } from '../../ui/pin';
 import { recordError } from '../../lib/error-log';
 import { useTeam } from '../../app/team';
+import { isNoSpace } from '../../lib/save-error';
 
 /**
  * Choosing how the customer pays and recording the sale. The receipt is shown by ReceiptSheet.
@@ -135,7 +136,7 @@ export function CheckoutSheet({
       else {
         // Not a rule of the shop: the phone failed to save (full, or a bug). Kept for the pilot.
         if (!code) recordError('sale', e);
-        showToast(t.errors.saveFailed);
+        showToast(isNoSpace(e) ? t.errors.noSpaceSale : t.errors.saveFailed);
       }
     } finally {
       submitting.current = false;

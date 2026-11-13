@@ -13,6 +13,7 @@ import { daysLeft, paceOf, speedFromMovements } from '../../domain/stock-insight
 import { useBusy } from '../../ui/use-busy';
 import { ExpiryPanel } from './ExpiryPanel';
 import { ShowMore, usePaged } from '../../ui/paged';
+import { saveFailedText } from '../../lib/save-error';
 
 /** Stock movements drawn at once in the product detail. */
 const MOVEMENTS_PAGE = 50;
@@ -69,7 +70,7 @@ export function StockPanel({ product }: { product: Product }) {
         setError(null);
         showToast(t.settings.saved);
       } catch (e) {
-        setError(e instanceof DomainError ? (ERRORS[e.code] ?? t.errors.saveFailed) : t.errors.saveFailed);
+        setError((e instanceof DomainError && ERRORS[e.code]) || saveFailedText(e));
       }
     };
     if (mode === 'entry') return run();

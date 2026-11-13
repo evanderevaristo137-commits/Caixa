@@ -7,6 +7,7 @@ import { Button, Money } from '../../ui/kit';
 import { ShowMore, usePaged } from '../../ui/paged';
 import { useBusy } from '../../ui/use-busy';
 import { SaleSheet } from './SaleSheet';
+import { saveFailedText } from '../../lib/save-error';
 
 /** Drawn 20 at a time. */
 const PAGE = 20;
@@ -30,8 +31,8 @@ export function PendingPayments() {
       try {
         await store.sales.confirmPayment(id);
         showToast(t.pending.confirmedToast);
-      } catch {
-        showToast(t.errors.saveFailed);
+      } catch (e) {
+        showToast(saveFailedText(e));
       }
     });
 

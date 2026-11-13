@@ -6,6 +6,7 @@ import { normalisePassword } from '../../lib/pack';
 import { Button, Field, Sheet } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
 import { useBusy } from '../../ui/use-busy';
+import { saveFailedText } from '../../lib/save-error';
 
 /**
  * The password that protects the backups: set it, change it or take it out.
@@ -33,7 +34,7 @@ export function BackupPasswordSheet({ locked, onClose }: { locked: boolean; onCl
         } catch (e) {
           setError({
             field: 'password',
-            msg: e instanceof DomainError && e.code === 'weak_password' ? t.backups.tooShort : t.errors.saveFailed,
+            msg: e instanceof DomainError && e.code === 'weak_password' ? t.backups.tooShort : saveFailedText(e),
           });
         }
       }),

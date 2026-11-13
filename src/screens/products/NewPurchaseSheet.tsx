@@ -11,6 +11,7 @@ import { t } from '../../i18n/pt-AO';
 import { formatKz, parseKz } from '../../lib/money';
 import { Button, Field, Money, normalise, Sheet } from '../../ui/kit';
 import { TermPicker } from '../sell/TermPicker';
+import { saveFailedText } from '../../lib/save-error';
 
 interface Line {
   product: Product;
@@ -103,7 +104,7 @@ export function NewPurchaseSheet({ onClose }: { onClose: () => void }) {
       showToast(t.purchases.saved);
       onClose();
     } catch (e) {
-      setError(e instanceof DomainError && e.code === 'supplier_required' ? t.purchases.creditNeedsSupplier : t.errors.saveFailed);
+      setError(e instanceof DomainError && e.code === 'supplier_required' ? t.purchases.creditNeedsSupplier : saveFailedText(e));
     } finally {
       setBusy(false);
     }

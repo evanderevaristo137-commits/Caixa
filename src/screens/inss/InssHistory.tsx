@@ -7,6 +7,7 @@ import { formatDateString } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
 import { Button, Card, Field } from '../../ui/kit';
 import { usePinGuard } from '../../ui/pin';
+import { saveFailedText } from '../../lib/save-error';
 
 /** Payments listed at first (a year); the rest opens with a tap. */
 const RECENT = 12;
@@ -29,8 +30,8 @@ export function InssHistory({ plan, status, contributions }: { plan: InssPlan; s
         showToast(t.inss.voided);
         setVoiding(null);
         setReason('');
-      } catch {
-        setError(t.errors.saveFailed);
+      } catch (e) {
+        setError(saveFailedText(e));
       }
     });
   };

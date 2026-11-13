@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, type ExpenseCategory } from '../../domain/types';
 import { t } from '../../i18n/pt-AO';
 import { parseKz } from '../../lib/money';
 import { Button, Field, Sheet } from '../../ui/kit';
+import { saveFailedText } from '../../lib/save-error';
 
 const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000];
 
@@ -34,7 +35,7 @@ export function ExpenseSheet({ onClose }: { onClose: () => void }) {
     } catch (e) {
       setError({
         field: 'amount',
-        msg: e instanceof DomainError && e.code === 'invalid_amount' ? t.expenses.invalidAmount : t.errors.saveFailed,
+        msg: e instanceof DomainError && e.code === 'invalid_amount' ? t.expenses.invalidAmount : saveFailedText(e),
       });
     } finally {
       setBusy(false);

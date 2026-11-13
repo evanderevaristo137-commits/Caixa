@@ -15,6 +15,7 @@ import { Button, Field, LinkButton, Money, Sheet } from '../../ui/kit';
 import { dueBadge } from '../credit/due';
 import { useBusy } from '../../ui/use-busy';
 import { ShowMore, usePaged } from '../../ui/paged';
+import { saveFailedText } from '../../lib/save-error';
 
 /** One supplier: contact, what the shop owes, paying it, ordering by WhatsApp and the history. */
 export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
@@ -67,7 +68,7 @@ export function SupplierSheet({ supplierId, onClose }: { supplierId: string; onC
         setError(null);
         showToast(t.suppliers.paid);
       } catch (e) {
-        setError(e instanceof DomainError && e.code === 'too_much' ? t.suppliers.tooMuch : t.errors.saveFailed);
+        setError(e instanceof DomainError && e.code === 'too_much' ? t.suppliers.tooMuch : saveFailedText(e));
       }
     });
 

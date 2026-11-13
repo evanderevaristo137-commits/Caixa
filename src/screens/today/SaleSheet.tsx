@@ -16,6 +16,7 @@ import { ReturnSheet } from './ReturnSheet';
 import { ReceiptPrint } from '../sell/ReceiptPrint';
 import { PaymentStatus } from './PaymentStatus';
 import { useTeam } from '../../app/team';
+import { saveFailedText } from '../../lib/save-error';
 
 /** One sale: details, resend the non-fiscal receipt, give goods back (returns), or void it (with a reason). */
 export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => void }) {
@@ -55,7 +56,7 @@ export function SaleSheet({ saleId, onClose }: { saleId: string; onClose: () => 
             ? t.products.reasonRequired
             : e instanceof DomainError && e.code === 'has_returns'
               ? t.returns.noVoid
-              : t.errors.saveFailed,
+              : saveFailedText(e),
         );
       }
     });
