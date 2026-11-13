@@ -539,8 +539,14 @@ describe('Store: checking the numbers', () => {
     expect(await store.integrity.check()).toEqual([]);
     await db.products.update(a.id, { stock: 50 }); // e.g. a bug or a bad restore
     expect(await store.integrity.check()).toEqual([{ kind: 'stock_mismatch', productId: a.id, name: 'A', recorded: 50, computed: 7 }]);
+    const edited = (await store.products.get(a.id))!.updatedAt;
     await store.integrity.fixStock(a.id);
-    expect((await store.products.get(a.id))!.stock).toBe(7);
+    const fixed = (await store.products.get(a.id))!;
+    expect(fixed.stock).toBe(7);
+    // Not an edit of the product's own data: its date of change stays (see sync-merge.ts), and the
+    // correction is in the activity log.
+    expect(fixed.updatedAt).toBe(edited);
+    expect((await store.auditLog.list()).at(-1)).toMatchObject({ entity: 'product', entityId: a.id, action: 'updated' });
     expect(await store.integrity.check()).toEqual([]);
   });
 });

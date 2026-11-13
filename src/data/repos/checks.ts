@@ -45,7 +45,9 @@ export class IntegrityRepository {
       if (!before) throw new DomainError('not_found');
       const computed = (await this.c.db.stockMovements.where('productId').equals(productId).toArray()).reduce((a, m) => a + m.delta, 0);
       if (computed === before.stock) return;
-      const after: Product = { ...before, stock: computed, updatedAt: this.c.stamp() };
+      // Like a sale or a stock entry, this is no edit of the product's own data: updatedAt stays, so
+      // another phone's newer name or price is never lost to it (see sync-merge.ts).
+      const after: Product = { ...before, stock: computed };
       await this.c.db.products.put(after);
       await this.c.audit({ entity: 'product', entityId: productId, action: 'updated', ...changedFields(before, after, ['name']) });
     });
