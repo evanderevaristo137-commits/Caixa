@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { inDays, kzToCents, luandaTime, luandaToday, nav, openDemo, openStore, sellInCash } from './helpers';
+import { inDays, kzToCents, luandaTime, luandaToday, nav, openDemo, openReport, openStore, sellInCash, toDoLine } from './helpers';
 import { simpleXlsx } from '../src/lib/test-xlsx';
 
 // Mid-afternoon in Luanda: the demo shop has sold all day (e2e/midnight.e2e.ts covers the empty start of the day).
@@ -84,11 +84,12 @@ test('a credit sale has a payment term: the usual one is pre-selected, another c
 test('Today lists the customers to remind', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  await expect(page.getByRole('heading', { name: 'Pagamentos de clientes' })).toBeVisible();
-  await expect(page.getByText('Em atraso: 2')).toBeVisible();
-  await expect(page.getByText('Vencem hoje: 1')).toBeVisible();
-  await expect(page.getByText('Nos próximos 2 dias: 1')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Lembrar Esperança Domingos' })).toBeVisible();
+  await toDoLine(page, /Pagamentos de clientes\s*2 em atraso · 1 vence hoje · 1 em breve/).click();
+  const sheet = page.getByRole('dialog', { name: 'Pagamentos de clientes' });
+  await expect(sheet.getByText('Em atraso: 2')).toBeVisible();
+  await expect(sheet.getByText('Vencem hoje: 1')).toBeVisible();
+  await expect(sheet.getByText('Nos próximos 2 dias: 1')).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'Lembrar Esperança Domingos' })).toBeVisible();
 });
 
 test('the usual payment term and payment notifications are set in Mais', async ({ page, context }) => {
@@ -167,7 +168,9 @@ test('the real shop and the demo never share data', async ({ page }) => {
 test('low stock becomes a WhatsApp shopping list', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const href = await page.getByRole('link', { name: 'Enviar lista de compras' }).getAttribute('href');
+  await page.getByRole('button', { name: /Produtos com stock baixo\s*ver o que comprar\s*\d+/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Análise do stock' });
+  const href = await sheet.getByRole('link', { name: 'Enviar lista de compras' }).getAttribute('href');
   const text = decodeURIComponent(href!.split('text=')[1]!);
   expect(text).toContain('*Lista de compras — Mercearia da Dona Teresa*');
   expect(text).toMatch(/• Ovos \(dúzia\): \d+ \(há \d+\)/);
@@ -230,7 +233,7 @@ test('a customer name can be corrected', async ({ page }) => {
 test('if saving fails (phone full), the user is told and nothing is half-saved', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const count = page.locator('.bg-brand-700 p.text-lg');
+  const count = page.getByTestId('sales-count');
   const before = await count.textContent();
   await nav(page, 'Vender');
   const stockBefore = await page.getByRole('button', { name: /Arroz 5 kg/ }).textContent();
@@ -257,7 +260,7 @@ test('if saving fails (phone full), the user is told and nothing is half-saved',
 test('a double tap on "Confirmar venda" records one sale', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const count = page.locator('.bg-brand-700 p.text-lg');
+  const count = page.getByTestId('sales-count');
   const before = Number((await count.textContent())!.match(/\d+/)![0]);
   await nav(page, 'Vender');
   await page.getByRole('button', { name: /Pão/ }).click();
@@ -648,10 +651,15 @@ test('cost price gives the day profit; the app makes barcodes and prints labels'
   await sellInCash(page, [/Bolacha Maria/, /Bolacha Maria/, /Pão/]);
   await page.getByRole('button', { name: 'Nova venda' }).click();
   await nav(page, 'Hoje');
-  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Lucro estimado das vendas' }) });
+  // The tile says it is only part of the sales; its sheet explains.
+  const tile = page.getByRole('button', { name: /^Lucro bruto estimado/ });
+  await expect(tile).toContainText(/300 Kz\s*1 artigo sem custo/);
+  await tile.click();
+  const card = page.getByRole('dialog', { name: 'Lucro bruto estimado' });
   await expect(card.locator('.text-3xl')).toHaveText('300 Kz');
   await expect(card).toContainText('Margem de 30% · os produtos custaram 700 Kz');
   await expect(card).toContainText('1 artigo vendido sem preço de custo não entra nesta conta.');
+  await card.getByRole('button', { name: 'Fechar', exact: true }).click();
   const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
   expect(decodeURIComponent(summary!)).toContain('Lucro estimado: 300 Kz (margem de 30%) — só dos produtos com preço de custo');
 
@@ -679,6 +687,8 @@ test('money out and closing the day: expected cash, short or over, and the log',
   const expected = cashCard.locator('.text-3xl');
   await expect(cashCard).toContainText('Fundo de caixa5.000 Kz');
   const before = kzToCents(await expected.textContent());
+  const expensesTile = page.getByRole('button', { name: /^Despesas de hoje/ });
+  const expensesBefore = kzToCents(await expensesTile.textContent());
 
   await cashCard.getByRole('button', { name: 'Registar saída' }).click();
   await page.getByRole('button', { name: 'Transporte', exact: true }).click();
@@ -698,8 +708,13 @@ test('money out and closing the day: expected cash, short or over, and the log',
   await sheet.getByLabel('Quanto dinheiro contou na caixa?').fill(kzTyped(before - 150_000 - 20_000));
   await sheet.getByRole('button', { name: 'Confirmar fecho' }).click();
   await expect(cashCard).toContainText(/Dia fechado às \d\d:\d\d: contou [\d.]+ Kz\. Faltam 200 Kz\./);
-  await expect(page.getByText('Despesas do dia')).toBeVisible();
-  await expect(page.getByText('Resultado do dia (lucro − despesas)')).toBeVisible();
+  // The expenses tile adds the new one; the result of the day is in the profit sheet.
+  await expect.poll(async () => kzToCents(await expensesTile.textContent())).toBe(expensesBefore + 150_000);
+  await page.getByRole('button', { name: /^Lucro bruto estimado/ }).click();
+  const profit = page.getByRole('dialog', { name: 'Lucro bruto estimado' });
+  await expect(profit.getByText('Despesas do dia')).toBeVisible();
+  await expect(profit.getByText('Resultado do dia (lucro − despesas)')).toBeVisible();
+  await profit.getByRole('button', { name: 'Fechar', exact: true }).click();
 
   const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
   expect(decodeURIComponent(summary!)).toMatch(/Fecho: contou [\d.]+ Kz — faltam 200 Kz/);
@@ -752,7 +767,7 @@ test('a purchase on credit raises the stock and the cost; the supplier is paid a
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
 
   await nav(page, 'Hoje');
-  await expect(page.getByRole('button', { name: /A pagar a fornecedores/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Contas a pagar\s*[\d.]+ Kz/ })).toBeVisible();
 });
 
 test('a customer gets the account statement by WhatsApp', async ({ page }) => {
@@ -779,7 +794,7 @@ test('week and month reports with a chart, and the store sheet for a bank', asyn
   });
   await openDemo(page);
   await nav(page, 'Hoje');
-  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  await openReport(page, 'Semana, mês e ficha da loja');
   const sheet = page.getByRole('dialog', { name: 'Semana e mês' });
   await expect(sheet.getByText('Vendido', { exact: true }).first()).toBeVisible();
   await expect(sheet.getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
@@ -956,7 +971,7 @@ test('categories: show one category when selling, pick one in the product form, 
   await expect(page.getByRole('button', { name: /Arroz 1 kg/ })).toHaveCount(0);
 
   await nav(page, 'Hoje');
-  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  await openReport(page, 'Semana, mês e ficha da loja');
   const report = page.getByRole('dialog', { name: 'Semana e mês' });
   await expect(report.getByRole('heading', { name: 'Vendas por categoria' })).toBeVisible();
   for (const c of ['Mercearia', 'Bebidas', 'Granel']) await expect(report.getByText(c, { exact: true })).toBeVisible();

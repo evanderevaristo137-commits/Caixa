@@ -245,7 +245,6 @@ export const t = {
   backupReminder: {
     never: 'Ainda não fez nenhuma cópia de segurança. Se o telemóvel se perder, perde as vendas e o que os clientes devem.',
     late: (days: number) => `A última cópia de segurança foi há ${days} dias.`,
-    action: 'Fazer cópia agora',
   },
   today: {
     title: 'Hoje',
@@ -256,17 +255,15 @@ export const t = {
     more: 'mais que ontem',
     less: 'menos que ontem',
     same: 'igual a ontem',
+    morePrev: 'mais que no dia anterior',
+    lessPrev: 'menos que no dia anterior',
+    samePrev: 'igual ao dia anterior',
     byMethod: 'Por meio de pagamento',
-    lowStock: 'Stock baixo',
-    noLowStock: 'Nenhum produto abaixo do mínimo.',
-    shoppingList: 'Enviar lista de compras',
     sendSummary: 'Enviar resumo do dia',
-    alertsTitle: 'Pagamentos de clientes',
     alertsOverdue: 'Em atraso',
     alertsToday: 'Vencem hoje',
     alertsSoon: 'Nos próximos 2 dias',
     alertsSeeAll: 'Ver todos os clientes',
-    creditTotal: 'A receber de clientes',
     noSales: 'Ainda não há vendas hoje.',
     noSalesDay: 'Não houve vendas neste dia.',
     prevDay: 'Dia anterior',
@@ -286,7 +283,6 @@ export const t = {
     profitSetup: 'Ponha o preço de custo nos produtos e a app diz quanto ganhou em cada venda.',
     profitSetupAction: 'Pôr preços de custo',
     topProfit: 'Os que mais deram lucro',
-    payablesTitle: 'A pagar a fornecedores',
     payablesUrgent: (n: number) => (n === 1 ? '1 pagamento em atraso ou a vencer hoje' : `${n} pagamentos em atraso ou a vencer hoje`),
     receivedLine: 'Recebido',
     partCredit: (amount: string) => `a crédito ${amount}`,
@@ -760,7 +756,6 @@ export const t = {
     card: (n: number) => (n === 1 ? '1 lote vencido ou a vencer' : `${count(n)} lotes vencidos ou a vencer`),
     cardHint:
       'Nos próximos 30 dias. Venda primeiro, faça uma promoção ou retire da prateleira (acerto de stock com o motivo «Fora de prazo»).',
-    more: (n: number) => `E mais ${n} em Produtos → Análise do stock → Validades.`,
     tab: 'Validades',
     tabHint: 'Lotes vencidos e a vencer nos próximos 60 dias, dos produtos que controlam validades.',
     tabNone: 'Nada vencido nem a vencer nos próximos 60 dias.',
@@ -1093,6 +1088,55 @@ export const t = {
     forgot:
       'Esqueceu o código? Envie uma cópia de segurança, apague os dados da app nas definições do Android e recupere a cópia: o código nunca vai na cópia.',
   },
+  panel: {
+    title: 'Os números do dia',
+    sales: 'Vendas de hoje',
+    salesOf: (day: string) => `Vendas · ${day}`,
+    received: 'Dinheiro recebido',
+    expenses: 'Despesas de hoje',
+    expensesOf: 'Despesas do dia',
+    profit: 'Lucro bruto estimado',
+    cash: 'Saldo de caixa',
+    toReceive: 'Contas a receber',
+    toPay: 'Contas a pagar',
+    lowStock: 'Produtos com stock baixo',
+    notesCredit: (amount: string) => `a crédito ${amount}`,
+    notesWithdrawals: (amount: string) => `e retiradas do dono ${amount}`,
+    profitMargin: (pct: string) => `margem de ${pct}`,
+    profitMissing: 'ponha os preços de custo',
+    profitPartial: (n: number) => (n === 1 ? '1 artigo sem custo' : `${n} artigos sem custo`),
+    cashNote: 'o que devia estar na caixa',
+    overdue: (n: number) => (n === 1 ? '1 em atraso' : `${n} em atraso`),
+    urgent: (n: number) => (n === 1 ? '1 em atraso ou hoje' : `${n} em atraso ou hoje`),
+    noneLow: 'nenhum',
+    lowNote: 'ver o que comprar',
+    /** The comparison on the sales tile: today against yesterday until this hour, a past day against the day before. */
+    compare: (diffCents: number, amount: string, sameTime: boolean) => {
+      if (diffCents === 0) return sameTime ? 'Igual a ontem à mesma hora' : 'Igual ao dia anterior';
+      const than = sameTime ? 'que ontem à mesma hora' : 'que no dia anterior';
+      return diffCents > 0 ? `▲ ${amount} mais ${than}` : `▼ ${amount} menos ${than}`;
+    },
+    daySheet: 'Vendas e dinheiro do dia',
+    profitSheet: 'Lucro bruto estimado',
+  },
+  todo: {
+    title: 'Para tratar hoje',
+    customers: 'Pagamentos de clientes',
+    customersLine: (overdue: number, today: number, soon: number) =>
+      [overdue && `${overdue} em atraso`, today && `${today} ${today === 1 ? 'vence' : 'vencem'} hoje`, soon && `${soon} em breve`]
+        .filter(Boolean)
+        .join(' · '),
+    pendingSheet: 'Pagamentos por confirmar',
+    suppliers: 'Pagar a fornecedores',
+    expirySheet: 'Lotes vencidos ou a vencer',
+    inss: (month: string, day: string) => `INSS de ${month}: pagar até ${day}`,
+    backup: 'Fazer a cópia de segurança',
+  },
+  reportsMenu: {
+    open: 'Relatórios',
+    title: 'Relatórios',
+    hint: 'Vendas por semana e mês, as contas da loja e a pesquisa de vendas.',
+  },
   finance: {
     open: 'Contas da loja',
     title: 'Contas da loja',
@@ -1167,7 +1211,7 @@ export const t = {
     repaid: (n: number) => `Registada de novo como venda n.º ${n}.`,
     replaces: (n: number) => `Em vez da venda n.º ${n}, cujo pagamento não entrou.`,
     replacedBy: (n: number) => `O pagamento não entrou: registada de novo como venda n.º ${n}.`,
-    showAll: (n: number) => `Ver todos (${n})`,
+    none: 'Já não há pagamentos por confirmar.',
     receipt: 'por confirmar',
     byMethod: (amount: string) => `por confirmar: ${amount}`,
     noReturn: 'Confirme primeiro se o dinheiro entrou.',

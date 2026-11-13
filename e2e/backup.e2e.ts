@@ -31,7 +31,7 @@ async function sellOne(page: Page) {
 
 async function salesToday(page: Page) {
   await nav(page, 'Hoje');
-  return page.locator('.bg-brand-700 p.text-lg').textContent();
+  return page.getByTestId('sales-count').textContent();
 }
 
 /** Taps the backup button and returns the file the phone saved. */

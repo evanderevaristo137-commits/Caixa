@@ -55,3 +55,14 @@ export async function sellInCash(page: Page, products: RegExp[]) {
   await page.getByRole('button', { name: 'Confirmar venda' }).click();
   await expect(page.getByText('Venda registada')).toBeVisible();
 }
+
+/** «Hoje» → «Relatórios» → one of the reports. */
+export async function openReport(page: Page, name: 'Semana, mês e ficha da loja' | 'Contas da loja' | 'Procurar vendas') {
+  await page.getByRole('button', { name: 'Relatórios', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Relatórios' }).getByRole('button', { name }).click();
+  await expect(page.getByRole('dialog', { name: name === 'Semana, mês e ficha da loja' ? 'Semana e mês' : name })).toBeVisible();
+}
+
+/** «Hoje» → «Para tratar hoje»: the line whose text matches (it opens its detail). */
+export const toDoLine = (page: Page, text: RegExp) =>
+  page.getByRole('list', { name: 'Para tratar hoje' }).getByRole('button', { name: text });

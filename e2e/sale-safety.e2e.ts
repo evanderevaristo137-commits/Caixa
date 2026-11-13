@@ -10,7 +10,7 @@ const savedCart = (page: Page) => page.evaluate((key) => localStorage.getItem(ke
 
 async function salesToday(page: Page): Promise<number> {
   await nav(page, 'Hoje');
-  const text = await page.locator('.bg-brand-700 p.text-lg').textContent();
+  const text = await page.getByTestId('sales-count').textContent();
   await nav(page, 'Vender');
   return Number(text!.match(/\d+/)![0]);
 }

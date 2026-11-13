@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, nav, openDemo } from './helpers';
+import { luandaTime, nav, openDemo, openReport, toDoLine } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -8,8 +8,8 @@ test.beforeEach(async ({ context }) => {
 test('finding sales: by product, by customer on credit, voided ones apart, and each sale opens', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const todayCount = await page.locator('.bg-brand-700 p.text-lg').textContent();
-  await page.getByRole('button', { name: 'Procurar vendas' }).click();
+  const todayCount = await page.getByTestId('sales-count').textContent();
+  await openReport(page, 'Procurar vendas');
   const sheet = page.getByRole('dialog', { name: 'Procurar vendas' });
   const summary = sheet.getByRole('status');
   await expect(sheet.getByRole('button', { name: '7 dias' })).toHaveAttribute('aria-pressed', 'true');
@@ -48,7 +48,7 @@ test('a voided sale shows among the voided ones and never counts in the total', 
   await expect(page.getByText(/Anulada em/)).toBeVisible();
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
 
-  await page.getByRole('button', { name: 'Procurar vendas' }).click();
+  await openReport(page, 'Procurar vendas');
   const sheet = page.getByRole('dialog', { name: 'Procurar vendas' });
   await sheet.getByRole('button', { name: 'Hoje', exact: true }).click();
   await expect(sheet.getByRole('status')).toContainText('E 1 anulada (não conta no total).');
@@ -159,9 +159,9 @@ test('an electronic payment to confirm later stays on Hoje until «Já entrou»,
 }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: /por confirmar$/ }) });
+  const line = toDoLine(page, /pagamentos? por confirmar/);
   // The demo shows one, so a visit can explain it.
-  await expect(card.getByRole('heading')).toHaveText('1 pagamento por confirmar');
+  await expect(line).toContainText('1 pagamento por confirmar');
 
   // A sale by Multicaixa Express whose money has not arrived yet.
   await nav(page, 'Vender');
@@ -175,15 +175,23 @@ test('an electronic payment to confirm later stays on Hoje until «Já entrou»,
   await page.getByRole('button', { name: 'Nova venda' }).click();
 
   await nav(page, 'Hoje');
-  await expect(card.getByRole('heading')).toHaveText('2 pagamentos por confirmar');
-  await expect(page.getByText('por confirmar: 1.850 Kz', { exact: false }).first()).toBeVisible();
-  // The demo's money arrived: «Já entrou» right on the card (the oldest is first).
+  await expect(line).toContainText(/2 pagamentos por confirmar\s*[\d.]+ Kz/);
+  // The day's detail says how much of each method is still to confirm.
+  await page.getByRole('button', { name: /^Dinheiro recebido/ }).click();
+  const day = page.getByRole('dialog', { name: 'Vendas e dinheiro do dia' });
+  await expect(day.getByText('por confirmar: 1.850 Kz', { exact: false }).first()).toBeVisible();
+  await day.getByRole('button', { name: 'Fechar', exact: true }).click();
+
+  // The demo's money arrived: «Já entrou» right on the list (the oldest is first).
+  await line.click();
+  const card = page.getByRole('dialog', { name: 'Pagamentos por confirmar' });
   await card
     .getByRole('button', { name: /^Já entrou: venda n\.º \d+$/ })
     .first()
     .click();
   await expect(page.getByText('Pagamento confirmado.')).toBeVisible();
-  await expect(card.getByRole('heading')).toHaveText('1 pagamento por confirmar');
+  await expect(card.getByRole('button', { name: /^Já entrou/ })).toHaveCount(1);
+  await expect(line).toContainText('1 pagamento por confirmar');
 
   // Ours never came: the customer pays in cash instead.
   await card.getByRole('button', { name: /Multicaixa Express · 1\.850 Kz/ }).click();
@@ -198,11 +206,13 @@ test('an electronic payment to confirm later stays on Hoje until «Já entrou»,
   await expect(page.getByText(/^Registada de novo como venda n\.º \d+\.$/)).toBeVisible();
   await expect(detail).toContainText(/O pagamento não entrou: registada de novo como venda n\.º \d+\./);
   await expect(detail).toContainText('Motivo: O pagamento não entrou');
-  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
-  await expect(card).toHaveCount(0);
+  await detail.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await expect(card).toContainText('Já não há pagamentos por confirmar.');
+  await card.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await expect(line).toHaveCount(0);
 
   // Nothing left to confirm, and the search says the same.
-  await page.getByRole('button', { name: 'Procurar vendas' }).click();
+  await openReport(page, 'Procurar vendas');
   const search = page.getByRole('dialog', { name: 'Procurar vendas' });
   await search.getByRole('group', { name: 'Estado' }).getByRole('button', { name: 'Por confirmar' }).click();
   await expect(search).toContainText('Nenhuma venda com estes filtros.');

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, luandaToday, nav, openDemo, openStore } from './helpers';
+import { luandaTime, luandaToday, nav, openDemo, openStore, toDoLine } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -69,10 +69,13 @@ const isoInDays = (n: number) => {
 test('expiry dates: the demo milk warns on Hoje, and a product follows its dates from the start', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  const card = page.locator('div.rounded-2xl').filter({ has: page.getByRole('heading', { name: /lotes? vencidos? ou a vencer/ }) });
-  await expect(card.getByRole('heading')).toHaveText('2 lotes vencidos ou a vencer');
+  const line = toDoLine(page, /lotes? vencidos? ou a vencer/);
+  await expect(line).toHaveText(/^2 lotes vencidos ou a vencer/);
+  await line.click();
+  const card = page.getByRole('dialog', { name: 'Lotes vencidos ou a vencer' });
   await expect(card.getByRole('listitem').first()).toContainText(/Leite em pó 400 g\s*venceu a/);
   await expect(card.getByRole('listitem').nth(1)).toContainText(/Leite UHT 1 L\s*vence a \d\d\/\d\d\/\d{4} \(daqui a 5 dias\)\s*4/);
+  await card.getByRole('button', { name: 'Fechar', exact: true }).click();
 
   await nav(page, 'Produtos');
   await page.getByRole('button', { name: 'Análise do stock' }).click();
@@ -100,7 +103,7 @@ test('a product that follows its dates asks for them when stock comes in', async
   await page.getByRole('button', { name: 'Guardar' }).click();
 
   await nav(page, 'Hoje');
-  await expect(page.getByRole('heading', { name: '1 lote vencido ou a vencer' })).toBeVisible();
+  await expect(toDoLine(page, /^1 lote vencido ou a vencer/)).toBeVisible();
 
   await nav(page, 'Produtos');
   await page.getByRole('button', { name: /Paracetamol/ }).click();

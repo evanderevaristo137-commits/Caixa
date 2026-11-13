@@ -1,45 +1,49 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { compareText } from '../../domain/ranking';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '../../app/context';
-import { daySummaryText, shoppingListText } from '../../domain/messages';
+import { daySummaryText } from '../../domain/messages';
 import { creditAlerts, totalOutstanding } from '../../domain/credit';
-import { formatQuantity } from '../../domain/quantity';
 import { lowStockProducts, summariseDayView } from '../../domain/today';
-import { restockList, salesSpeed } from '../../domain/stock-insights';
-import { profitByProduct, summariseProfit } from '../../domain/profit';
+import { formatMargin, marginBp, profitByProduct, summariseProfit } from '../../domain/profit';
 import { summariseReturns } from '../../domain/returns';
 import { drawer as drawerOf, summariseOutflows } from '../../domain/cash';
 import { totalPayable } from '../../domain/payables';
 import { tillPurchasesCents } from '../../data/store';
 import { whatsAppLink } from '../../domain/whatsapp';
-import { isPaymentPending, PAYMENT_METHODS, type PaymentMethod } from '../../domain/types';
-import { methodLabel, t } from '../../i18n/pt-AO';
+import { isPaymentPending, type PaymentMethod } from '../../domain/types';
+import { digitalStatus } from '../../domain/digital-watch';
+import { soldAndReceived } from '../../domain/finance';
+import { t } from '../../i18n/pt-AO';
 import { addDays, dayLabel, formatDate, startOfLocalDay, toLocalDateString } from '../../lib/dates';
-import { formatKz } from '../../lib/money';
-import { Card, LinkButton, Money, Skeleton } from '../../ui/kit';
-import { BackupReminder } from './BackupReminder';
+import { LinkButton, Sheet, Skeleton } from '../../ui/kit';
+import { useLoaded } from '../../ui/use-loaded';
 import { SalesList } from './SalesList';
-import { PaymentAlerts } from './PaymentAlerts';
 import { ProfitCard } from './ProfitCard';
 import { CashCard } from './CashCard';
 import { DigitalCard } from './DigitalCard';
-import { digitalStatus } from '../../domain/digital-watch';
-import { ReportsSheet } from './ReportsSheet';
-import { SalesHistorySheet } from './SalesHistorySheet';
 import { InssCard } from '../inss/InssCard';
-import { PendingPaymentsCard } from './PendingPaymentsCard';
-import { ExpiryCard } from './ExpiryCard';
-import { DayCard } from './DayCard';
-import { FinanceSheet } from './FinanceSheet';
-import { soldAndReceived } from '../../domain/finance';
+import { Indicators, type IndicatorKind } from './Indicators';
+import { ToDoCard } from './ToDoCard';
+import { ReportsMenu } from './ReportsMenu';
+import { DaySheet } from './DaySheet';
+import { StockInsightsSheet } from '../products/StockInsightsSheet';
+import { goToSuppliers } from './go-suppliers';
 
+/** The cash card is where expenses are recorded and the day is closed: the panel scrolls to it. */
+const CASH_ID = 'caixa';
+
+/**
+ * «Hoje»: the numbers of the day on top (each opens its detail), what needs attention, the
+ * reports, the till (money out, closing the day) and the day's sales.
+ */
 export default function TodayScreen() {
   const { store } = useApp();
   const [offset, setOffset] = useState(0);
-  const [reports, setReports] = useState(false);
-  const [history, setHistory] = useState(false);
-  const [finance, setFinance] = useState(false);
+  const [open, setOpen] = useState<'day' | 'profit' | 'stock' | null>(null);
+  // One read for the whole top of the screen, so it appears complete at once. Measured on a slow
+  // phone: splitting out the customers' accounts (the biggest read) showed the day's numbers sooner
+  // but the whole screen later, with numbers popping in.
   const data = useLiveQuery(async () => {
     const now = new Date();
     const day = addDays(startOfLocalDay(now), offset);
@@ -60,16 +64,8 @@ export default function TodayScreen() {
         isToday ? store.payables.book(now) : Promise.resolve([]),
         store.returns.between(day.toISOString(), to),
       ]);
-    // Credit for stock: digital receipts of the last 7 complete days against the 4 weeks before.
-    const watchFrom = addDays(day, -36).toISOString();
-    const [watchSales, watchPayments] = isToday
-      ? await Promise.all([store.sales.since(watchFrom), store.credit.paymentsBetween(watchFrom, to)])
-      : [[], []];
-    const digital = isToday ? digitalStatus(watchSales, watchPayments, now, settings.digitalMinShareBp) : undefined;
     const dayStartIso = day.toISOString();
     const daySales = sales.filter((s) => s.createdAt >= dayStartIso).sort((a, b) => compareText(b.createdAt, a.createdAt));
-    const speeds = isToday ? salesSpeed(watchSales, products, now) : undefined;
-    const shoppingList = whatsAppLink(shoppingListText(settings.storeName, restockList(products, speeds), now));
     const view = summariseDayView(sales, payments, day, now);
     // Sold next to received: a sale on credit is sold, not received; a debt paid is received, not sold today.
     const money = soldAndReceived(
@@ -95,14 +91,11 @@ export default function TodayScreen() {
       cashRefundsCents: returns.cashCents,
     });
     const title = offset >= -1 ? `${dayLabel(day, now)}, ${formatDate(day.toISOString())}` : formatDate(day.toISOString());
-    const summaryLink = whatsAppLink(
-      daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns, pending, money }),
-    );
     return {
       offset,
       isToday,
+      title,
       view,
-      digital,
       profit,
       outflows,
       drawer,
@@ -113,17 +106,38 @@ export default function TodayScreen() {
       dayExpenses: dayExpenses.sort((a, b) => compareText(b.createdAt, a.createdAt)),
       defaultFloatCents: settings.cashFloatCents ?? 0,
       topProfit: profitByProduct(daySales).slice(0, 3),
-      summaryLink,
+      summaryLink: whatsAppLink(
+        daySummaryText(settings.storeName, title, view, { profit, drawer, outflows, close: lastClose, returns, pending, money }),
+      ),
       daySales,
-      lowStock: lowStockProducts(products),
-      owed: totalOutstanding(book),
-      payable: totalPayable(payables),
-      payableUrgent: payables.filter((p) => p.balanceCents > 0 && (p.dueState === 'overdue' || p.dueState === 'today')).length,
-      alerts: creditAlerts(book),
       storeName: settings.storeName,
-      shoppingList,
+      // Today only, the whole shop: what customers owe, what the shop owes suppliers, low stock.
+      shop: isToday
+        ? {
+            lowStock: lowStockProducts(products).length,
+            owed: totalOutstanding(book),
+            alerts: creditAlerts(book),
+            payable: totalPayable(payables),
+            payableUrgent: payables.filter((p) => p.balanceCents > 0 && (p.dueState === 'overdue' || p.dueState === 'today')).length,
+          }
+        : null,
     };
   }, [store, offset]);
+  // Credit for stock: the last 7 complete days against the 4 weeks before (five weeks of sales):
+  // read once the numbers above are on the screen, so they never wait for it.
+  const isToday = data?.isToday ?? false;
+  const digital = useLoaded(async () => {
+    if (!isToday) return undefined;
+    const now = new Date();
+    const since = addDays(startOfLocalDay(now), -36).toISOString();
+    const until = addDays(startOfLocalDay(now), 1).toISOString();
+    const [sales, payments, settings] = await Promise.all([
+      store.sales.since(since),
+      store.credit.paymentsBetween(since, until),
+      store.settings.get(),
+    ]);
+    return digitalStatus(sales, payments, now, settings.digitalMinShareBp);
+  }, [store, isToday]);
 
   // The header follows the tap immediately; the numbers appear once that day's data is loaded.
   const now = new Date();
@@ -158,167 +172,99 @@ export default function TodayScreen() {
       </div>
     );
   }
-  const { view, isToday } = data;
+  const { view } = data;
   const { day } = view;
-  const max = Math.max(1, ...PAYMENT_METHODS.map((m) => day.byMethod[m]));
+  const margin = marginBp(data.profit);
+
+  const onOpen = (kind: IndicatorKind) => {
+    if (kind === 'sales' || kind === 'received') return setOpen('day');
+    if (kind === 'profit') return setOpen('profit');
+    if (kind === 'lowStock') return setOpen('stock');
+    if (kind === 'toReceive') {
+      window.location.hash = '#/credit';
+      return;
+    }
+    if (kind === 'toPay') return goToSuppliers();
+    // Expenses and cash: the till card, where money out is recorded and the day is closed.
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById(CASH_ID)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
 
   return (
     <div className="space-y-3 p-3">
-      {isToday && <BackupReminder />}
       {header}
 
-      {isToday && <PaymentAlerts alerts={data.alerts} storeName={data.storeName} />}
-      {isToday && <PendingPaymentsCard />}
-      {isToday && <ExpiryCard />}
-      {data.digital?.alarm && <DigitalCard status={data.digital} />}
+      {/* Credit for stock: the alarm stays at the top, where the owner cannot miss it. */}
+      {data.isToday && digital?.alarm && <DigitalCard status={digital} />}
 
-      <DayCard view={view} money={data.money} returns={data.returns} />
-
-      <ActionButton icon="M4 20V10M10 20V4M16 20v-7M22 20H2" onClick={() => setReports(true)}>
-        {t.reports.open}
-      </ActionButton>
-      <ActionButton icon="M3 7h18v12H3zM3 11h18M16 15h2" onClick={() => setFinance(true)}>
-        {t.finance.open}
-      </ActionButton>
-      <ActionButton icon="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM21 21l-4.35-4.35" onClick={() => setHistory(true)}>
-        {t.history.open}
-      </ActionButton>
-
-      {(day.count > 0 || data.outflows.expensesCents > 0) && (
-        <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
-      )}
-
-      {data.digital && !data.digital.alarm && data.digital.minShareBp !== undefined && <DigitalCard status={data.digital} />}
-
-      <CashCard
-        drawer={data.drawer}
-        expenses={data.dayExpenses}
-        lastClose={data.lastClose}
-        creditPaidCents={view.creditPaidCents}
-        isToday={isToday}
-        defaultFloatCents={data.defaultFloatCents}
+      <Indicators
+        onOpen={onOpen}
+        v={{
+          isToday: data.isToday,
+          dayTitle: data.title,
+          salesCents: day.totalCents,
+          salesCount: day.count,
+          diffCents: view.diffCents,
+          sameTime: view.comparisonIsSameTime,
+          voidedCount: day.voidedCount,
+          voidedCents: day.voidedCents,
+          returnsCount: data.returns.count,
+          returnsCents: data.returns.totalCents,
+          receivedCents: data.money.receivedCents,
+          onCreditCents: data.money.onCreditCents,
+          expensesCents: data.outflows.expensesCents,
+          withdrawalsCents: data.outflows.withdrawalsCents,
+          profitCents: margin === undefined ? undefined : data.profit.profitCents,
+          marginText: margin === undefined ? undefined : formatMargin(margin),
+          profitUnknownLines: data.profit.unknownLines,
+          cashCents: data.drawer.expectedCents,
+          shop: data.shop ? { ...data.shop, overdueCustomers: data.shop.alerts.overdue.length } : undefined,
+        }}
       />
 
-      <Card>
-        <h2 className="mb-2 font-bold">{t.today.byMethod}</h2>
-        {day.count === 0 ? (
-          <p className="text-slate-600">{isToday ? t.today.noSales : t.today.noSalesDay}</p>
-        ) : (
-          <ul className="space-y-2">
-            {PAYMENT_METHODS.filter((m) => day.byMethod[m] > 0).map((m) => (
-              <li key={m}>
-                <div className="flex justify-between text-base">
-                  <span>{methodLabel[m]}</span>
-                  <Money cents={day.byMethod[m]} className="font-semibold" />
-                </div>
-                {!!data.pendingByMethod.get(m) && (
-                  <p className="text-right text-sm font-semibold text-amber-800">
-                    {t.pending.byMethod(formatKz(data.pendingByMethod.get(m)!))}
-                  </p>
-                )}
-                <div className="mt-1 h-2 rounded-full bg-slate-100">
-                  <div
-                    className={`h-2 rounded-full ${m === 'credit' ? 'bg-amber-500' : 'bg-brand-600'}`}
-                    style={{ width: `${(day.byMethod[m] / max) * 100}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      {data.shop && <ToDoCard alerts={data.shop.alerts} storeName={data.storeName} urgentPayables={data.shop.payableUrgent} />}
+
+      <ReportsMenu />
+
+      <div id={CASH_ID} className="scroll-mt-3">
+        <CashCard
+          drawer={data.drawer}
+          expenses={data.dayExpenses}
+          lastClose={data.lastClose}
+          creditPaidCents={view.creditPaidCents}
+          isToday={data.isToday}
+          defaultFloatCents={data.defaultFloatCents}
+        />
+      </div>
+
+      {digital && !digital.alarm && digital.minShareBp !== undefined && <DigitalCard status={digital} />}
 
       {(day.count > 0 || day.voidedCount > 0 || data.returns.count > 0) && (
         <LinkButton href={data.summaryLink}>{t.today.sendSummary}</LinkButton>
       )}
 
-      {isToday && (
-        <>
-          <a href="#/credit" className="block">
-            <Card className="flex items-center justify-between">
-              <span className="font-bold">{t.today.creditTotal}</span>
-              <Money cents={data.owed} className="text-xl font-extrabold text-amber-800" />
-            </Card>
-          </a>
-          {data.payable > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  sessionStorage.setItem('productsView', 'suppliers');
-                } catch {
-                  // Without storage the products tab simply opens on its first view.
-                }
-                window.location.hash = '#/products';
-              }}
-              className="block w-full text-left"
-            >
-              <Card className="flex items-center justify-between gap-2">
-                <span>
-                  <span className="block font-bold">{t.today.payablesTitle}</span>
-                  {data.payableUrgent > 0 && (
-                    <span className="text-sm font-semibold text-red-700">{t.today.payablesUrgent(data.payableUrgent)}</span>
-                  )}
-                </span>
-                <Money cents={data.payable} className="text-xl font-extrabold text-amber-800" />
-              </Card>
-            </button>
-          )}
-          <InssCard />
-          <Card>
-            <h2 className="mb-2 font-bold">{t.today.lowStock}</h2>
-            {data.lowStock.length === 0 ? (
-              <p className="text-slate-600">{t.today.noLowStock}</p>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {data.lowStock.map((p) => (
-                  <li key={p.id} className="flex justify-between py-2">
-                    <span className="truncate pr-2">{p.name}</span>
-                    <span className={`font-bold whitespace-nowrap ${p.stock <= 0 ? 'text-red-700' : 'text-amber-700'}`}>
-                      {formatQuantity(p.stock, p.soldBy)} / {formatQuantity(p.minStock, p.soldBy)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {data.lowStock.length > 0 && (
-              <LinkButton href={data.shoppingList} className="mt-3">
-                {t.today.shoppingList}
-              </LinkButton>
-            )}
-          </Card>
-        </>
+      <SalesList sales={data.daySales} isToday={data.isToday} />
+
+      {data.isToday && <InssCard />}
+
+      {open === 'day' && (
+        <DaySheet
+          title={t.panel.daySheet}
+          view={view}
+          money={data.money}
+          returns={data.returns}
+          pendingByMethod={data.pendingByMethod}
+          summaryLink={data.summaryLink}
+          isToday={data.isToday}
+          onClose={() => setOpen(null)}
+        />
       )}
-
-      <SalesList sales={data.daySales} />
-      {reports && <ReportsSheet onClose={() => setReports(false)} />}
-      {history && <SalesHistorySheet onClose={() => setHistory(false)} />}
-      {finance && <FinanceSheet onClose={() => setFinance(false)} />}
+      {open === 'profit' && (
+        <Sheet title={t.panel.profitSheet} onClose={() => setOpen(null)}>
+          <ProfitCard profit={data.profit} top={data.topProfit} expensesCents={data.outflows.expensesCents} />
+        </Sheet>
+      )}
+      {open === 'stock' && <StockInsightsSheet onClose={() => setOpen(null)} />}
     </div>
-  );
-}
-
-/** A wide button of «Hoje» that opens a sheet, with a small line icon. */
-function ActionButton({ icon, onClick, children }: { icon: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 font-semibold text-brand-800 active:bg-brand-50"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d={icon} />
-      </svg>
-      {children}
-    </button>
   );
 }

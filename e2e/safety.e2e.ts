@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, nav, openDemo, openStore } from './helpers';
+import { luandaTime, nav, openDemo, openReport, openStore } from './helpers';
 
 test('the published app refuses to send data anywhere, and nothing it does breaks that rule', async ({ page }) => {
   await page.clock.install({ time: luandaTime('15:00') });
@@ -20,7 +20,7 @@ test('the published app refuses to send data anywhere, and nothing it does break
   // Going through the screens (charts, labels, the scanner button, reports) never trips the rule.
   for (const tab of ['Hoje', 'Clientes', 'Produtos', 'Mais', 'Vender'] as const) await nav(page, tab);
   await nav(page, 'Hoje');
-  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  await openReport(page, 'Semana, mês e ficha da loja');
   await expect(page.getByRole('dialog', { name: 'Semana e mês' }).getByRole('group', { name: 'Vendas por dia' })).toBeVisible();
   expect(violations.filter((v) => !v.includes('example.com'))).toEqual([]);
 });

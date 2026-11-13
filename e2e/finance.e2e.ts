@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { luandaTime, luandaToday, nav, openDemo, openStore } from './helpers';
+import { luandaTime, luandaToday, nav, openDemo, openReport, openStore } from './helpers';
 
 test.beforeEach(async ({ context }) => {
   await context.clock.install({ time: luandaTime('15:00') });
@@ -32,10 +32,16 @@ test('Contas da loja: sold next to received, money in and out, and the estimated
 
   // Hoje: sold and received side by side.
   await nav(page, 'Hoje');
-  const day = page.locator('div.rounded-2xl.bg-brand-700');
-  await expect(day).toContainText('3.000 Kz');
+  await expect(page.getByRole('button', { name: /^Vendas de hoje/ })).toContainText(/3\.000 Kz\s*2 vendas/);
+  const received = page.getByRole('button', { name: /^Dinheiro recebido/ });
+  await expect(received).toContainText(/2\.000 Kz\s*a crédito 1\.000 Kz/);
+  // Its detail: sold, received and how the customers paid.
+  await received.click();
+  const day = page.getByRole('dialog', { name: 'Vendas e dinheiro do dia' });
   await expect(day).toContainText('Recebido: 2.000 Kz');
   await expect(day).toContainText('a crédito 1.000 Kz');
+  await expect(day).toContainText(/Por meio de pagamento\s*Numerário\s*2\.000 Kz\s*Cliente \(a crédito\)\s*1\.000 Kz/);
+  await day.getByRole('button', { name: 'Fechar', exact: true }).click();
   const summary = await page.getByRole('link', { name: 'Enviar resumo do dia' }).getAttribute('href');
   expect(decodeURIComponent(summary!)).toContain('Recebido: 2.000 Kz (a crédito: 1.000 Kz)');
 
@@ -45,7 +51,7 @@ test('Contas da loja: sold next to received, money in and out, and the estimated
   await page.getByLabel('Valor (Kz)').fill('500');
   await page.getByRole('button', { name: 'Guardar saída' }).click();
 
-  await page.getByRole('button', { name: 'Contas da loja' }).click();
+  await openReport(page, 'Contas da loja');
   const sheet = page.getByRole('dialog', { name: 'Contas da loja' });
   const periods = sheet.getByRole('group', { name: 'Período' });
   await expect(periods.getByRole('button', { name: 'Hoje' })).toHaveAttribute('aria-pressed', 'true');
@@ -79,7 +85,7 @@ test('Contas da loja: sold next to received, money in and out, and the estimated
 test('Semana e mês shows sold next to received', async ({ page }) => {
   await openDemo(page);
   await nav(page, 'Hoje');
-  await page.getByRole('button', { name: 'Semana, mês e ficha da loja' }).click();
+  await openReport(page, 'Semana, mês e ficha da loja');
   const sheet = page.getByRole('dialog', { name: 'Semana e mês' });
   await expect(sheet.getByRole('heading', { name: 'Vendido e recebido' })).toBeVisible();
   await expect(sheet).toContainText(/Vendido a crédito \(ainda por receber\)\s*[\d.]+ Kz/);

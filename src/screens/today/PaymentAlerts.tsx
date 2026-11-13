@@ -1,12 +1,13 @@
 import { useApp } from '../../app/context';
 import type { CreditAlerts, CustomerWithCredit } from '../../domain/credit';
 import { t } from '../../i18n/pt-AO';
-import { Card, Money } from '../../ui/kit';
+import { Money } from '../../ui/kit';
 import { dueBadge, reminderLink } from '../credit/due';
 
-const MAX_ROWS = 5;
-
-/** "Pagamentos de clientes": who is late, who pays today, who pays soon — with a one-tap reminder. */
+/**
+ * "Pagamentos de clientes" (inside the «Para tratar hoje» sheet): who is late, who pays today, who
+ * pays soon — with a one-tap reminder.
+ */
 export function PaymentAlerts({ alerts, storeName }: { alerts: CreditAlerts; storeName: string }) {
   const { store } = useApp();
   const now = new Date();
@@ -20,8 +21,7 @@ export function PaymentAlerts({ alerts, storeName }: { alerts: CreditAlerts; sto
   ].filter((g) => g.list.length > 0);
 
   return (
-    <Card className="border-2 border-red-200">
-      <h2 className="mb-2 text-lg font-bold">{t.today.alertsTitle}</h2>
+    <div className="rounded-xl bg-white p-3">
       <ul className="mb-2 space-y-1">
         {groups.map((g) => (
           <li key={g.label} className={`flex justify-between font-semibold ${g.tone}`}>
@@ -33,7 +33,7 @@ export function PaymentAlerts({ alerts, storeName }: { alerts: CreditAlerts; sto
         ))}
       </ul>
       <ul className="divide-y divide-slate-100">
-        {rows.slice(0, MAX_ROWS).map((c) => {
+        {rows.map((c) => {
           const badge = dueBadge(c);
           const link = reminderLink(c, c.customer, storeName, now);
           return (
@@ -62,6 +62,6 @@ export function PaymentAlerts({ alerts, storeName }: { alerts: CreditAlerts; sto
       <a href="#/credit" className="mt-2 block min-h-11 rounded-lg py-2 text-center font-semibold text-brand-700 active:bg-brand-50">
         {t.today.alertsSeeAll}
       </a>
-    </Card>
+    </div>
   );
 }

@@ -10,6 +10,8 @@ import { Card, Money } from '../../ui/kit';
  */
 export function DayCard({ view, money, returns }: { view: DayView; money: SoldReceived; returns: { count: number; totalCents: number } }) {
   const { day } = view;
+  // Today is compared with yesterday until this hour; a past day with the whole day before.
+  const sameTime = view.comparisonIsSameTime;
   const parts = [
     money.onCreditCents > 0 && t.today.partCredit(formatKz(money.onCreditCents)),
     money.pendingCents > 0 && t.today.partPending(formatKz(money.pendingCents)),
@@ -26,30 +28,34 @@ export function DayCard({ view, money, returns }: { view: DayView; money: SoldRe
       {parts.length > 0 && <p className="text-sm text-white/90">{parts.join(' · ')}</p>}
       <div className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-base">
         <p>
-          {view.comparisonIsSameTime ? t.today.vsYesterday : t.today.comparedPrevDay}:{' '}
-          <Money cents={view.comparison.totalCents} className="font-semibold" />
+          {sameTime ? t.today.vsYesterday : t.today.comparedPrevDay}: <Money cents={view.comparison.totalCents} className="font-semibold" />
         </p>
         <p className="font-bold">
           {view.diffCents === 0 ? (
-            t.today.same
+            sameTime ? (
+              t.today.same
+            ) : (
+              t.today.samePrev
+            )
           ) : (
             <>
               {view.diffCents > 0 ? '▲ ' : '▼ '}
-              <Money cents={Math.abs(view.diffCents)} /> {view.diffCents > 0 ? t.today.more : t.today.less}
+              <Money cents={Math.abs(view.diffCents)} />{' '}
+              {view.diffCents > 0 ? (sameTime ? t.today.more : t.today.morePrev) : sameTime ? t.today.less : t.today.lessPrev}
             </>
           )}
         </p>
-        {view.comparisonIsSameTime && (
+        {sameTime && (
           <p className="mt-1 text-sm text-white/90">
             {t.today.yesterdayFull}: <Money cents={view.previousFull.totalCents} /> · {t.today.sales(view.previousFull.count)}
           </p>
         )}
       </div>
       {day.voidedCount > 0 && (
-        <p className="mt-2 text-sm font-semibold text-amber-200">{t.today.voidedLine(day.voidedCount, formatKz(day.voidedCents))}</p>
+        <p className="mt-2 text-sm font-semibold text-amber-100">{t.today.voidedLine(day.voidedCount, formatKz(day.voidedCents))}</p>
       )}
       {returns.count > 0 && (
-        <p className="mt-1 text-sm font-semibold text-amber-200">{t.today.returnsLine(returns.count, formatKz(returns.totalCents))}</p>
+        <p className="mt-1 text-sm font-semibold text-amber-100">{t.today.returnsLine(returns.count, formatKz(returns.totalCents))}</p>
       )}
     </Card>
   );
