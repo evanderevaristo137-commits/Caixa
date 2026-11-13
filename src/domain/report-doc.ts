@@ -204,11 +204,20 @@ export function salesDoc(d: SalesReportData, head: ReportHead): ReportDoc {
     tables.push({
       title: t.categories.title,
       header: [td.category, tr.sold, td.share, tr.profit],
-      rows: d.byCategory.map((r) => [
-        r.category === NO_CATEGORY ? t.categories.none : r.category,
-        { kz: r.salesCents },
-        pct(shareBp(r.salesCents, c.salesCents)),
-        r.costedSalesCents > 0 ? { kz: r.profitCents } : '',
+      // Each category, then its subcategories (indented), as the screen shows them when opened.
+      rows: d.byCategory.flatMap((r) => [
+        [
+          r.category === NO_CATEGORY ? t.categories.none : r.category,
+          { kz: r.salesCents },
+          pct(shareBp(r.salesCents, c.salesCents)),
+          r.costedSalesCents > 0 ? { kz: r.profitCents } : '',
+        ],
+        ...r.subs.map((x): Cell[] => [
+          `  ${x.sub === NO_CATEGORY ? t.categories.noSub : x.sub}`,
+          { kz: x.salesCents },
+          pct(shareBp(x.salesCents, c.salesCents)),
+          x.costedSalesCents > 0 ? { kz: x.profitCents } : '',
+        ]),
       ]),
     });
   }
@@ -260,7 +269,10 @@ export function stockDoc(input: { products: Product[]; buy: RestockLine[]; still
   const td = t.reportDoc;
   const products = input.products
     .filter((p) => !p.archivedAt)
-    .sort((a, b) => comparePt(a.category ?? '', b.category ?? '') || comparePt(a.name, b.name));
+    .sort(
+      (a, b) =>
+        comparePt(a.category ?? '', b.category ?? '') || comparePt(a.subcategory ?? '', b.subcategory ?? '') || comparePt(a.name, b.name),
+    );
   let atCost = 0;
   let atPrice = 0;
   let noCost = 0;
@@ -303,13 +315,14 @@ export function stockDoc(input: { products: Product[]; buy: RestockLine[]; still
   }
   tables.push({
     title: td.everyProduct,
-    header: [td.product, td.category, td.stock, td.min, td.cost, td.price, td.valueCost],
-    textColumns: [1],
+    header: [td.product, td.category, td.subcategory, td.stock, td.min, td.cost, td.price, td.valueCost],
+    textColumns: [1, 2],
     rows: products.map((p) => {
       const value = p.stock > 0 ? stockValueCents(p, p.stock) : undefined;
       return [
         p.name,
         p.category ?? '',
+        p.subcategory ?? '',
         formatQuantity(p.stock, p.soldBy),
         formatQuantity(p.minStock, p.soldBy),
         p.costCents === undefined ? '' : { kz: p.costCents },

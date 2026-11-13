@@ -47,9 +47,9 @@ describe('categories', () => {
 
   it('adds up sales and profit by category, without voided sales', () => {
     const categoryOf = new Map([
-      ['agua', 'Bebidas'],
-      ['arroz', 'Mercearia'],
-      ['feijao', 'Mercearia'],
+      ['agua', { category: 'Bebidas' }],
+      ['arroz', { category: 'Mercearia' }],
+      ['feijao', { category: 'Mercearia' }],
     ]);
     const sales = [
       {
@@ -64,9 +64,39 @@ describe('categories', () => {
     ];
     expect(salesByCategory(sales, categoryOf)).toEqual([
       // Rice has no cost price: its sales count, but not in the profit.
-      { category: 'Mercearia', salesCents: 190_000, profitCents: 15_000, costedSalesCents: 70_000 },
-      { category: 'Bebidas', salesCents: 60_000, profitCents: 18_000, costedSalesCents: 60_000 },
-      { category: NO_CATEGORY, salesCents: 30_000, profitCents: 0, costedSalesCents: 0 },
+      { category: 'Mercearia', salesCents: 190_000, profitCents: 15_000, costedSalesCents: 70_000, subs: [] },
+      { category: 'Bebidas', salesCents: 60_000, profitCents: 18_000, costedSalesCents: 60_000, subs: [] },
+      { category: NO_CATEGORY, salesCents: 30_000, profitCents: 0, costedSalesCents: 0, subs: [] },
+    ]);
+  });
+
+  it('splits a category by subcategory once its products have one (the others apart)', () => {
+    const placeOf = new Map([
+      ['capa', { category: 'Telemóveis e electrónica', subcategory: 'Capas e películas' }],
+      ['cabo', { category: 'Telemóveis e electrónica', subcategory: 'Carregadores e cabos' }],
+      ['radio', { category: 'Telemóveis e electrónica' }],
+    ]);
+    const sales = [
+      {
+        items: [
+          { productId: 'capa', quantity: 2, lineTotalCents: 300_000, unitCostCents: 100_000 },
+          { productId: 'cabo', quantity: 1, lineTotalCents: 150_000 },
+          { productId: 'radio', quantity: 1, lineTotalCents: 500_000 },
+        ],
+      },
+    ];
+    expect(salesByCategory(sales, placeOf)).toEqual([
+      {
+        category: 'Telemóveis e electrónica',
+        salesCents: 950_000,
+        profitCents: 100_000,
+        costedSalesCents: 300_000,
+        subs: [
+          { sub: NO_CATEGORY, salesCents: 500_000, profitCents: 0, costedSalesCents: 0 },
+          { sub: 'Capas e películas', salesCents: 300_000, profitCents: 100_000, costedSalesCents: 300_000 },
+          { sub: 'Carregadores e cabos', salesCents: 150_000, profitCents: 0, costedSalesCents: 0 },
+        ],
+      },
     ]);
   });
 });

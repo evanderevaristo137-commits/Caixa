@@ -226,6 +226,7 @@ export const CATALOG: readonly CatalogCategory[] = [
 export const BUSINESS_TYPES = [
   {
     id: 'grocery',
+    icon: '🛒',
     name: 'Mercearia e minimercado',
     categories: [
       'Alimentação e mercearia',
@@ -237,18 +238,33 @@ export const BUSINESS_TYPES = [
       'Diversos',
     ],
   },
-  { id: 'pharmacy', name: 'Farmácia', categories: ['Saúde e farmácia', 'Higiene e limpeza', 'Beleza e cosmética', 'Bebé e criança'] },
-  { id: 'phones', name: 'Telemóveis e electrónica', categories: ['Telemóveis e electrónica', 'Electrodomésticos', 'Diversos'] },
-  { id: 'appliances', name: 'Electrodomésticos', categories: ['Electrodomésticos', 'Telemóveis e electrónica', 'Casa e cozinha'] },
-  { id: 'auto', name: 'Peças auto e motorizadas', categories: ['Peças e acessórios auto', 'Ferragens e construção'] },
-  { id: 'hardware', name: 'Ferragens e construção', categories: ['Ferragens e construção', 'Casa e cozinha', 'Agro-pecuária'] },
-  { id: 'clothing', name: 'Roupa e calçado', categories: ['Roupa e calçado', 'Beleza e cosmética', 'Bebé e criança'] },
-  { id: 'beauty', name: 'Beleza e cosmética', categories: ['Beleza e cosmética', 'Higiene e limpeza'] },
-  { id: 'stationery', name: 'Papelaria', categories: ['Papelaria e escola', 'Telemóveis e electrónica', 'Diversos'] },
-  { id: 'bar', name: 'Bar e restaurante', categories: ['Bebidas', 'Alimentação e mercearia', 'Frescos e congelados', 'Diversos'] },
-  { id: 'agro', name: 'Agro-pecuária', categories: ['Agro-pecuária', 'Ferragens e construção'] },
-  { id: 'general', name: 'Loja de tudo um pouco', categories: CATALOG.map((c) => c.name) },
-] as const satisfies readonly { id: string; name: string; categories: readonly string[] }[];
+  {
+    id: 'pharmacy',
+    icon: '💊',
+    name: 'Farmácia',
+    categories: ['Saúde e farmácia', 'Higiene e limpeza', 'Beleza e cosmética', 'Bebé e criança'],
+  },
+  { id: 'phones', icon: '📱', name: 'Telemóveis e electrónica', categories: ['Telemóveis e electrónica', 'Electrodomésticos', 'Diversos'] },
+  {
+    id: 'appliances',
+    icon: '🔌',
+    name: 'Electrodomésticos',
+    categories: ['Electrodomésticos', 'Telemóveis e electrónica', 'Casa e cozinha'],
+  },
+  { id: 'auto', icon: '🚗', name: 'Peças auto e motorizadas', categories: ['Peças e acessórios auto', 'Ferragens e construção'] },
+  { id: 'hardware', icon: '🔨', name: 'Ferragens e construção', categories: ['Ferragens e construção', 'Casa e cozinha', 'Agro-pecuária'] },
+  { id: 'clothing', icon: '👕', name: 'Roupa e calçado', categories: ['Roupa e calçado', 'Beleza e cosmética', 'Bebé e criança'] },
+  { id: 'beauty', icon: '💄', name: 'Beleza e cosmética', categories: ['Beleza e cosmética', 'Higiene e limpeza'] },
+  { id: 'stationery', icon: '✏️', name: 'Papelaria', categories: ['Papelaria e escola', 'Telemóveis e electrónica', 'Diversos'] },
+  {
+    id: 'bar',
+    icon: '🍻',
+    name: 'Bar e restaurante',
+    categories: ['Bebidas', 'Alimentação e mercearia', 'Frescos e congelados', 'Diversos'],
+  },
+  { id: 'agro', icon: '🌱', name: 'Agro-pecuária', categories: ['Agro-pecuária', 'Ferragens e construção'] },
+  { id: 'general', icon: '🏪', name: 'Loja de tudo um pouco', categories: CATALOG.map((c) => c.name) },
+] as const satisfies readonly { id: string; icon: string; name: string; categories: readonly string[] }[];
 
 export type BusinessTypeId = (typeof BUSINESS_TYPES)[number]['id'];
 

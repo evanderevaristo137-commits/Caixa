@@ -30,6 +30,9 @@ export async function openStore(page: Page) {
   await page.goto('./');
   await page.getByRole('button', { name: 'Aceitar e começar' }).click();
   await expect(page.getByRole('dialog', { name: 'Bem-vindo à Caixa' })).toHaveCount(0);
+  // Then one question, the kind of shop: skipped here (see shop-type.e2e.ts).
+  await page.getByRole('dialog', { name: 'Que tipo de loja tem?' }).getByRole('button', { name: 'Saltar' }).click();
+  await expect(page.getByRole('dialog', { name: 'Que tipo de loja tem?' })).toHaveCount(0);
 }
 
 /** First visit: goes straight to the demo (no terms needed: its data is fictitious). */

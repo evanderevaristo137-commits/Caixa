@@ -61,10 +61,14 @@ describe('category and subcategory of a product', () => {
     const lines = (await store.auditLog.list())
       .filter((e) => e.entity === 'product' && e.action === 'updated')
       .map((e) => describeAudit(e, names)?.text);
-    expect(lines).toEqual([
-      'Pneu 195/65 R15: subcategoria — → Pneus',
-      'Pneu 195/65 R15: categoria Peças e acessórios auto › Pneus → Diversos',
-    ]);
+    // Both changes can share the same millisecond: their order in the log is not what is tested.
+    expect(lines).toHaveLength(2);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        'Pneu 195/65 R15: subcategoria — → Pneus',
+        'Pneu 195/65 R15: categoria Peças e acessórios auto › Pneus → Diversos',
+      ]),
+    );
   });
 
   it('goes out and comes back with the Excel sheet of the products (old sheets without the column too)', async () => {

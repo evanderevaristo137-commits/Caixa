@@ -89,9 +89,9 @@ test('reports to keep or send: PDF and Excel with the shop on top, from each rep
   const stock = await keepOrSend(page, page.getByRole('dialog', { name: 'Análise do stock' }), 'Stock da loja');
   await expect(stock.report).toContainText(/Valor do stock ao preço de custo\s*[\d.]+ Kz/);
   expect(stock.csv).toContain(
-    '\r\nStock de cada produto\r\nProduto;Categoria;Stock;Mínimo;Preço de custo;Preço de venda;Valor ao custo\r\n',
+    '\r\nStock de cada produto\r\nProduto;Categoria;Subcategoria;Stock;Mínimo;Preço de custo;Preço de venda;Valor ao custo\r\n',
   );
-  expect(stock.csv).toMatch(/\r\nArroz 1 kg;[^;\r\n]+;-?\d+;/);
+  expect(stock.csv).toMatch(/\r\nArroz 1 kg;Alimentação e mercearia;Arroz, massas e fuba;-?\d+;/);
   await stock.report.getByRole('button', { name: 'Fechar', exact: true }).click();
   await page.getByRole('dialog', { name: 'Análise do stock' }).getByRole('button', { name: 'Fechar', exact: true }).click();
 

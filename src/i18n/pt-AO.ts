@@ -670,6 +670,15 @@ export const t = {
     printHint: 'No ecrã de impressão pode escolher «Guardar como PDF» e enviar o ficheiro para imprimir noutro lado.',
     printAgain: 'Imprimir',
   },
+  shopTypes: {
+    title: 'Tipo de loja',
+    hint: 'As categorias deste tipo de loja aparecem primeiro quando escolhe a categoria de um produto. Pode escolher mais do que um.',
+    question: 'Que tipo de loja tem?',
+    questionHint:
+      'Assim, ao criar produtos, a app mostra primeiro as categorias certas. Pode escolher mais do que um e mudar depois em «Mais».',
+    continue: 'Continuar',
+    skip: 'Saltar',
+  },
   categoryPicker: {
     choose: 'Escolher categoria',
     change: 'Mudar',
@@ -697,6 +706,7 @@ export const t = {
     label: 'Categoria (opcional)',
     filter: 'Mostrar só uma categoria',
     filterSub: 'Mostrar só uma subcategoria',
+    subsOf: (category: string) => `Subcategorias de ${category}`,
     allSubs: 'Todas desta categoria',
     noSub: 'Sem subcategoria',
     all: 'Todas',
@@ -1250,6 +1260,7 @@ export const t = {
     product: 'Produto',
     quantity: 'Quantidade',
     category: 'Categoria',
+    subcategory: 'Subcategoria',
     profitNote:
       'O lucro é uma estimativa da app, com os preços de custo registados (as vendas sem preço de custo ficam de fora): não é contabilidade nem serve para impostos.',
     stockTitle: 'Stock da loja',
@@ -1295,7 +1306,7 @@ export const t = {
   },
   moreSections: {
     store: 'A loja',
-    storeHint: 'Nome, telefone e NIF, dados para facturação, preço de custo',
+    storeHint: 'Nome, telefone e NIF, tipo de loja, dados para facturação, preço de custo',
     money: 'Dinheiro e clientes',
     moneyHint: 'Prazo e limite de crédito, avisos, fundo de caixa, pagamentos digitais, reforma (INSS)',
     safety: 'Segurança e cópias',

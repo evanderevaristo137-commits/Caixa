@@ -15,6 +15,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import { UpdateBanner } from './app/UpdateBanner';
 import { ClockWarning } from './app/ClockWarning';
 import { TermsGate } from './app/TermsGate';
+import { ShopTypeGate } from './app/ShopTypeGate';
 
 const TABS = ['sell', 'credit', 'today', 'products', 'settings'] as const;
 type Tab = (typeof TABS)[number];
@@ -116,6 +117,7 @@ export function App() {
         </div>
       </nav>
       <TermsGate />
+      <ShopTypeGate />
       {toast && (
         <div
           role="status"

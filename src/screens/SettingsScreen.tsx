@@ -13,6 +13,7 @@ import { PilotCard } from './settings/PilotCard';
 import { DigitalMinCard } from './settings/DigitalMinCard';
 import { LegalCard } from './settings/LegalCard';
 import { InvoicingCard } from './settings/InvoicingCard';
+import { ShopTypesCard } from './settings/ShopTypes';
 import { OwnerPinCard } from './settings/OwnerPinCard';
 import { IntegrityCard } from './settings/IntegrityCard';
 import { DataCard } from './settings/DataCard';
@@ -63,6 +64,7 @@ function Sections({ settings }: { settings: Settings }) {
       <InstallCard />
       <MoreSection icon={ICON.store} title={s.store} hint={s.storeHint} open={open.has('store')} onToggle={() => toggle('store')}>
         <StoreForm key={settings.updatedAt} settings={settings} />
+        <ShopTypesCard key={`types-${settings.updatedAt}`} settings={settings} />
         <InvoicingCard settings={settings} />
         <CostMethodCard settings={settings} />
       </MoreSection>

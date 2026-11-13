@@ -489,8 +489,8 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
     db.products.toArray(),
   ]);
   const names = new Map(customers.map((c) => [c.id, c.name]));
-  // The product's current category, as in the reports.
-  const categories = new Map(products.map((p) => [p.id, p.category ?? '']));
+  // The product's current category and subcategory, as in the reports.
+  const places = new Map(products.map((p) => [p.id, p]));
   const rows: (string | number)[][] = [
     [
       'Data',
@@ -509,6 +509,7 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
       'Custo linha (Kz)',
       'Lucro linha (Kz)',
       'Categoria',
+      'Subcategoria',
       t.pending.exportColumn,
     ],
   ];
@@ -531,7 +532,8 @@ export async function salesCsv(db: CaixaDB): Promise<string> {
         s.voidReason ?? '',
         cost === undefined ? '' : kzNumber(cost),
         cost === undefined ? '' : kzNumber(it.lineTotalCents - cost),
-        categories.get(it.productId) ?? '',
+        places.get(it.productId)?.category ?? '',
+        places.get(it.productId)?.subcategory ?? '',
         isPaymentPending(s) ? t.pending.tag : s.confirmedAt ? t.pending.exportConfirmed(formatDateTime(s.confirmedAt)) : '',
       ]);
     }

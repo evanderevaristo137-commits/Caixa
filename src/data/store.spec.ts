@@ -863,11 +863,17 @@ describe('Store: categories', () => {
     expect((await store.products.update(gasosa.id, { name: 'Gasosa 330 ml', priceCents: 40_000, minStock: 0 })).category).toBe('Bebidas');
   });
 
-  it('maps every product to its category, archived ones too', async () => {
+  it('maps every product to its category and subcategory, archived ones too', async () => {
     const a = await store.products.create({ name: 'A', priceCents: 100, minStock: 0, category: 'Casa' });
+    const c = await store.products.create({ name: 'C', priceCents: 100, minStock: 0, category: 'Bebidas', subcategory: 'Cerveja' });
     await store.products.create({ name: 'B', priceCents: 100, minStock: 0 });
     await store.products.archive(a.id);
-    expect([...(await store.products.categoryMap())]).toEqual([[a.id, 'Casa']]);
+    expect(await store.products.placements()).toEqual(
+      new Map([
+        [c.id, { category: 'Bebidas', subcategory: 'Cerveja' }],
+        [a.id, { category: 'Casa' }],
+      ]),
+    );
   });
 
   it('upgrades a version 4 database without losing products', async () => {
@@ -882,7 +888,7 @@ describe('Store: categories', () => {
     old.close();
     const upgraded = new CaixaDB(name);
     expect(await upgraded.products.count()).toBe(2);
-    expect(await new Store(upgraded).products.categoryMap()).toEqual(new Map([['p1', 'Mercearia']]));
+    expect(await new Store(upgraded).products.placements()).toEqual(new Map([['p1', { category: 'Mercearia' }]]));
     await upgraded.delete();
   });
 });

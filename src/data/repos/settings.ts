@@ -1,3 +1,4 @@
+import { isBusinessType } from '../../domain/catalog';
 import { normaliseNif } from '../../domain/nif';
 import type { Settings } from '../../domain/types';
 import { changedFields } from '../../domain/audit-entry';
@@ -31,6 +32,7 @@ export class SettingsRepository {
         | 'pilotPhone'
         | 'digitalMinShareBp'
         | 'costMethod'
+        | 'businessTypes'
       >
     >,
   ): Promise<Settings> =>
@@ -48,6 +50,12 @@ export class SettingsRepository {
         after.storeName = input.storeName.trim();
       }
       if ('phone' in input) after.phone = clean(input.phone);
+      if ('businessTypes' in input) {
+        // [] = the shop chose none (it was asked); unknown kinds are refused.
+        const types = [...new Set(input.businessTypes ?? [])];
+        if (!types.every(isBusinessType)) throw new DomainError('invalid_type');
+        after.businessTypes = types;
+      }
       if ('pilotPhone' in input) after.pilotPhone = cleanShort(input.pilotPhone, 20);
       if ('digitalMinShareBp' in input) {
         const bp = input.digitalMinShareBp;

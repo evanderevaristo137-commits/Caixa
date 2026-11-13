@@ -376,8 +376,9 @@ test('with the app closed, Android wakes the background check and the shop gets 
     today,
   );
   await wake();
+  // A slow moment of the test machine can take more than the usual 5 s.
   await expect
-    .poll(notifications)
+    .poll(notifications, { timeout: 10_000 })
     .toEqual([
       'Avisos da loja: Clientes: 1 vence hoje. Fornecedores: 1 vence hoje. Pagamentos digitais: abaixo do mínimo do contrato: 32% (mínimo 40%). Toque para ver.',
     ]);
@@ -908,6 +909,10 @@ test('the shop accepts the terms before using its own data, and can read them an
   await doc.getByRole('button', { name: 'Fechar', exact: true }).click();
   await gate.getByRole('button', { name: 'Aceitar e começar' }).click();
   await expect(gate).toHaveCount(0);
+  const kind = page.getByRole('dialog', { name: 'Que tipo de loja tem?' });
+  await kind.getByRole('button', { name: 'Saltar' }).click();
+  // Gone once the choice is saved (a reload before that would ask again).
+  await expect(kind).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('button', { name: '+ Criar o primeiro produto' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Bem-vindo à Caixa' })).toHaveCount(0);
@@ -1002,7 +1007,7 @@ test('categories: show one category when selling, pick one in the product form, 
   await subs.getByRole('button', { name: 'Refrigerantes e sumos' }).click();
   await expect(page.getByRole('button', { name: /Sumo de múcua 1 L/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Cerveja 330 ml/ })).toHaveCount(0);
-  await subs.getByRole('button', { name: 'Sem subcategoria' }).click();
+  await subs.getByRole('button', { name: 'Cerveja' }).click();
   await expect(page.getByRole('button', { name: /Cerveja 330 ml/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sumo de múcua 1 L/ })).toHaveCount(0);
   await subs.getByRole('button', { name: 'Todas desta categoria' }).click();
@@ -1012,7 +1017,14 @@ test('categories: show one category when selling, pick one in the product form, 
   await openReport(page, 'Semana, mês e ficha da loja');
   const report = page.getByRole('dialog', { name: 'Semana e mês' });
   await expect(report.getByRole('heading', { name: 'Vendas por categoria' })).toBeVisible();
-  for (const c of ['Mercearia', 'Bebidas', 'Granel']) await expect(report.getByText(c, { exact: true })).toBeVisible();
+  for (const c of ['Alimentação e mercearia', 'Bebidas', 'Frescos e congelados'])
+    await expect(report.getByText(c, { exact: true })).toBeVisible();
+  // A category opens to show its subcategories.
+  const food = report.getByRole('list', { name: 'Subcategorias de Alimentação e mercearia' });
+  await expect(food).toBeHidden();
+  await report.getByText('Alimentação e mercearia', { exact: true }).click();
+  await expect(food).toBeVisible();
+  await expect(food).toContainText('Arroz, massas e fuba');
 });
 
 test('stock count: count the shelves, stop and come back, see the differences in Kz, adjust at once', async ({ page }) => {

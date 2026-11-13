@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { salesByCategory } from './categories';
+import { salesByCategory, type Placement } from './categories';
 import { debtorsReport } from './debtors';
 import { financeSummary, soldAndReceived } from './finance';
 import { profitByProduct } from './profit';
@@ -138,7 +138,7 @@ describe('«Contas da loja»', () => {
 });
 
 describe('«Vendas dos últimos 7 dias»', () => {
-  const build = (sales: ReturnType<typeof sale>[], categoryOf = new Map<string, string>()) => {
+  const build = (sales: ReturnType<typeof sale>[], categoryOf = new Map<string, Placement>()) => {
     const { from, to, prevFrom } = periodRange('7d', now);
     const inPeriod = sales.filter((s) => s.createdAt >= from.toISOString());
     return salesDoc(
@@ -193,7 +193,7 @@ describe('«Vendas dos últimos 7 dias»', () => {
   });
 
   it('with categories, adds the sales by category', () => {
-    const doc = build([sale(12, 'cash', [line('rice', 'Arroz 1 kg', 100_000, 80_000)])], new Map([['rice', 'Mercearia']]));
+    const doc = build([sale(12, 'cash', [line('rice', 'Arroz 1 kg', 100_000, 80_000)])], new Map([['rice', { category: 'Mercearia' }]]));
     expect(table(doc, 'Vendas por categoria')).toEqual([['Mercearia', '1.000 Kz', '100%', '200 Kz']]);
   });
 });
@@ -262,8 +262,8 @@ describe('«Stock da loja»', () => {
   it('lists every product by category and name, never the archived ones', () => {
     const rows = table(stockDoc({ products, buy: [], still: [] }, head), 'Stock de cada produto');
     expect(rows.map((r) => r[0])).toEqual(['Bolachas', 'Velas', 'Sabão', 'Arroz', 'Feijão']);
-    expect(rows[4]).toEqual(['Feijão', 'Mercearia', '2,5 kg', '0 kg', '1.000 Kz', '1.500 Kz', '2.500 Kz']);
-    expect(rows[1]).toEqual(['Velas', '', '-2', '0', '50 Kz', '100 Kz', '']);
+    expect(rows[4]).toEqual(['Feijão', 'Mercearia', '', '2,5 kg', '0 kg', '1.000 Kz', '1.500 Kz', '2.500 Kz']);
+    expect(rows[1]).toEqual(['Velas', '', '', '-2', '0', '50 Kz', '100 Kz', '']);
   });
 
   it('adds what to buy and what stands still, from the same lists as «Análise do stock»', () => {

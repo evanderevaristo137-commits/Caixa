@@ -89,30 +89,39 @@ const PRODUCTS: [string, number, number, number, number, boolean?][] = [
 ];
 
 // Categories of the demo products, by name (a test checks every product has one).
-const DEMO_CATEGORIES: Record<string, string[]> = {
-  Mercearia: [
-    'Arroz 1 kg',
-    'Arroz 5 kg',
-    'Fuba de milho 1 kg',
-    'Fuba de bombó 1 kg',
-    'Feijão manteiga 1 kg',
-    'Açúcar 1 kg',
-    'Óleo vegetal 1 L',
-    'Óleo de palma 1 L',
-    'Sal 1 kg',
-    'Massa esparguete 500 g',
-    'Massa de tomate 70 g',
-    'Leite em pó 400 g',
-    'Leite UHT 1 L',
-  ],
-  Conservas: ['Sardinha em lata', 'Atum em lata', 'Salsichas em lata'],
-  Frescos: ['Pão (unidade)', 'Ovos (dúzia)', 'Cebola 1 kg', 'Batata 1 kg'],
-  Bebidas: ['Água 1,5 L', 'Gasosa 330 ml', 'Sumo 1 L', 'Cerveja 330 ml'],
-  'Higiene e limpeza': ['Sabão em barra', 'Detergente em pó 500 g', 'Papel higiénico (4 rolos)', 'Pasta de dentes'],
-  Casa: ['Fósforos (caixa)', 'Carvão (saco)'],
-  Granel: ['Arroz a granel', 'Feijão a granel', 'Açúcar a granel'],
+/** Where each example product is, in the app's list of categories (catalog.ts): category › subcategory › products. */
+const DEMO_CATEGORIES: Record<string, Record<string, string[]>> = {
+  'Alimentação e mercearia': {
+    'Arroz, massas e fuba': [
+      'Arroz 1 kg',
+      'Arroz 5 kg',
+      'Fuba de milho 1 kg',
+      'Fuba de bombó 1 kg',
+      'Massa esparguete 500 g',
+      'Arroz a granel',
+    ],
+    'Feijão, milho e cereais': ['Feijão manteiga 1 kg', 'Feijão a granel'],
+    'Óleo, açúcar e sal': ['Açúcar 1 kg', 'Óleo vegetal 1 L', 'Óleo de palma 1 L', 'Sal 1 kg', 'Açúcar a granel'],
+    'Leite e derivados': ['Leite em pó 400 g', 'Leite UHT 1 L'],
+    Conservas: ['Sardinha em lata', 'Atum em lata', 'Salsichas em lata'],
+    'Temperos e molhos': ['Massa de tomate 70 g'],
+    'Pão e bolachas': ['Pão (unidade)'],
+  },
+  'Frescos e congelados': { 'Legumes e verduras': ['Cebola 1 kg', 'Batata 1 kg'], Ovos: ['Ovos (dúzia)'] },
+  Bebidas: { Água: ['Água 1,5 L'], 'Refrigerantes e sumos': ['Gasosa 330 ml', 'Sumo 1 L'], Cerveja: ['Cerveja 330 ml'] },
+  'Higiene e limpeza': {
+    'Detergentes e lixívia': ['Sabão em barra', 'Detergente em pó 500 g'],
+    'Papel higiénico e guardanapos': ['Papel higiénico (4 rolos)'],
+    'Higiene pessoal': ['Pasta de dentes'],
+  },
+  'Casa e cozinha': { 'Gás e carvão': ['Carvão (saco)'] },
+  Diversos: { 'Fósforos e isqueiros': ['Fósforos (caixa)'] },
 };
-const DEMO_CATEGORY_OF = new Map(Object.entries(DEMO_CATEGORIES).flatMap(([category, names]) => names.map((n) => [n, category] as const)));
+const DEMO_PLACE_OF = new Map(
+  Object.entries(DEMO_CATEGORIES).flatMap(([category, subs]) =>
+    Object.entries(subs).flatMap(([subcategory, names]) => names.map((n) => [n, { category, subcategory }] as const)),
+  ),
+);
 
 // Fictitious customers. They all use the founder's WhatsApp test number, so reminders and
 // receipts sent from the demo arrive on a phone we control (never on a stranger's phone).
@@ -137,7 +146,7 @@ const METHOD_WEIGHTS: [PaymentMethod, number][] = [
 
 export const DEMO_STORE_NAME = 'Mercearia da Dona Teresa';
 /** Bump when the example data changes: phones showing the demo then renew it at once, not only the next day. */
-export const DEMO_VERSION = 6;
+export const DEMO_VERSION = 7;
 /** The demo till starts each day with 5.000 Kz of change. */
 export const DEMO_FLOAT_CENTS = 500_000;
 
@@ -202,7 +211,7 @@ export function buildDemoData(now: Date): DemoData {
     priceCents: kz * 100,
     costCents: costKz * 100,
     ...(byWeight ? { soldBy: 'weight' as const } : {}),
-    category: DEMO_CATEGORY_OF.get(name),
+    ...DEMO_PLACE_OF.get(name),
     // Loose goods are weighed, not scanned.
     barcode: byWeight ? undefined : demoBarcode(i),
     minStock,
@@ -576,6 +585,8 @@ export async function seedDemo(db: CaixaDB, now = new Date()): Promise<void> {
       cashFloatCents: DEMO_FLOAT_CENTS,
       // Example of a credit-for-stock contract: at least 40% of receipts in digital payments.
       digitalMinShareBp: 4000,
+      // A grocery: its categories come first when choosing one.
+      businessTypes: ['grocery'],
       createdAt: at,
       updatedAt: at,
     });

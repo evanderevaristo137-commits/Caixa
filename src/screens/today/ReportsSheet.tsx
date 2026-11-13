@@ -43,7 +43,7 @@ export function ReportsSheet({ onClose }: { onClose: () => void }) {
       store.sales.between(prevFrom.toISOString(), to.toISOString()),
       store.credit.paymentsBetween(from.toISOString(), to.toISOString()),
       store.expenses.between(from.toISOString(), to.toISOString()),
-      store.products.categoryMap(),
+      store.products.placements(),
       store.returns.between(prevFrom.toISOString(), to.toISOString()),
     ]);
     const fromIso = from.toISOString();

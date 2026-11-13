@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { subsFor } from '../domain/categories';
 import { buildDemoData, DEMO_VERSION, ensureFreshDemo, seedDemo } from './demo-seed';
 import { lineTotalFor } from '../domain/quantity';
 import { creditBook } from '../domain/credit';
@@ -13,9 +14,10 @@ const now = new Date(2026, 10, 6, 16, 0);
 describe('demo data', () => {
   const d = buildDemoData(now);
 
-  it('puts every product in a category', () => {
-    expect(d.products.filter((p) => !p.category).map((p) => p.name)).toEqual([]);
-    expect(new Set(d.products.map((p) => p.category)).size).toBe(7);
+  it("puts every product in a category and subcategory of the app's list", () => {
+    expect(d.products.filter((p) => !p.category || !p.subcategory).map((p) => p.name)).toEqual([]);
+    expect(new Set(d.products.map((p) => p.category)).size).toBe(6);
+    for (const p of d.products) expect(subsFor(p.category!, [])).toContain(p.subcategory);
   });
 
   it('has 33 products (3 sold by weight), 5 customers and two weeks of sales', () => {

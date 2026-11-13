@@ -167,31 +167,67 @@ type SaleLike = Pick<Sale, 'voidedAt'> & {
   items: Pick<SaleItem, 'productId' | 'quantity' | 'soldBy' | 'lineTotalCents' | 'unitCostCents'>[];
 };
 
-export interface CategorySales {
-  /** NO_CATEGORY for products without one. */
-  category: string;
+/** Sales and estimated profit of a group (a category, or a subcategory inside it). */
+export interface GroupSales {
   salesCents: Cents;
   /** Profit of the lines sold with a cost price, and how much they sold. */
   profitCents: Cents;
   costedSalesCents: Cents;
 }
 
-/** Sales and estimated profit by category, biggest first. Voided sales do not count. */
-export function salesByCategory(sales: SaleLike[], categoryOf: ReadonlyMap<string, string>): CategorySales[] {
-  const rows = new Map<string, CategorySales>();
+export interface CategorySales extends GroupSales {
+  /** NO_CATEGORY for products without one. */
+  category: string;
+  /**
+   * Inside the category, by subcategory (NO_CATEGORY = the products without one), biggest first.
+   * Empty when none of its products sold has a subcategory.
+   */
+  subs: (GroupSales & { sub: string })[];
+}
+
+/** Where a product is: its category and subcategory (both current, as in every report). */
+export interface Placement {
+  category: string;
+  subcategory?: string;
+}
+
+const emptyGroup = (): GroupSales => ({ salesCents: 0, profitCents: 0, costedSalesCents: 0 });
+
+/** Sales and estimated profit by category, each with its subcategories, biggest first. Voided sales do not count. */
+export function salesByCategory(sales: SaleLike[], placeOf: ReadonlyMap<string, Placement>): CategorySales[] {
+  const rows = new Map<string, { group: GroupSales; subs: Map<string, GroupSales> }>();
+  const add = (g: GroupSales, lineCents: Cents, cost: Cents | undefined) => {
+    g.salesCents += lineCents;
+    if (cost !== undefined) {
+      g.profitCents += lineCents - cost;
+      g.costedSalesCents += lineCents;
+    }
+  };
   for (const s of sales) {
     if (s.voidedAt) continue;
     for (const item of s.items) {
-      const category = categoryOf.get(item.productId) ?? NO_CATEGORY;
-      const row = rows.get(category) ?? { category, salesCents: 0, profitCents: 0, costedSalesCents: 0 };
-      row.salesCents += item.lineTotalCents;
+      const place = placeOf.get(item.productId);
+      const category = place?.category ?? NO_CATEGORY;
+      const row = rows.get(category) ?? { group: emptyGroup(), subs: new Map<string, GroupSales>() };
+      const sub = place?.subcategory ?? NO_CATEGORY;
+      const subGroup = row.subs.get(sub) ?? emptyGroup();
       const cost = lineCostCents(item);
-      if (cost !== undefined) {
-        row.profitCents += item.lineTotalCents - cost;
-        row.costedSalesCents += item.lineTotalCents;
-      }
+      add(row.group, item.lineTotalCents, cost);
+      add(subGroup, item.lineTotalCents, cost);
+      row.subs.set(sub, subGroup);
       rows.set(category, row);
     }
   }
-  return [...rows.values()].sort((a, b) => b.salesCents - a.salesCents || comparePt(a.category, b.category));
+  return [...rows]
+    .map(([category, { group, subs }]): CategorySales => {
+      const named = [...subs.keys()].some((k) => k !== NO_CATEGORY);
+      return {
+        category,
+        ...group,
+        subs: named
+          ? [...subs].map(([sub, g]) => ({ sub, ...g })).sort((a, b) => b.salesCents - a.salesCents || comparePt(a.sub, b.sub))
+          : [],
+      };
+    })
+    .sort((a, b) => b.salesCents - a.salesCents || comparePt(a.category, b.category));
 }

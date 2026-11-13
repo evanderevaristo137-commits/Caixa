@@ -3,6 +3,7 @@ import { isExpiryDate } from '../../domain/expiry';
 import { byName } from '../../domain/ranking';
 import { MAX_GRAMS } from '../../domain/quantity';
 import type { PlanRow } from '../../domain/import-products';
+import type { Placement } from '../../domain/categories';
 import type { Product } from '../../domain/types';
 import { changedFields } from '../../domain/audit-entry';
 import { uuid } from '../../lib/ids';
@@ -151,9 +152,13 @@ export class ProductsRepository {
       if ('error' in result) throw new DomainError(result.error satisfies StockChangeError);
       await this.c.addMovement({ productId: id, type: 'adjustment', delta: result.delta, reason: reason.trim() });
     });
-  /** Category of every product that has one (archived ones too: their past sales still count). */
-  categoryMap = async (): Promise<Map<string, string>> =>
-    new Map((await this.c.db.products.orderBy('category').toArray()).flatMap((p) => (p.category ? [[p.id, p.category] as const] : [])));
+  /** Category and subcategory of every product that has one (archived ones too: their past sales still count). */
+  placements = async (): Promise<Map<string, Placement>> =>
+    new Map(
+      (await this.c.db.products.orderBy('category').toArray()).flatMap((p) =>
+        p.category ? [[p.id, { category: p.category, ...(p.subcategory ? { subcategory: p.subcategory } : {}) }] as const] : [],
+      ),
+    );
   /**
    * Applies a stock count, all or nothing: each counted product gets an adjustment of
    * (counted − what the app had when it was counted), so sales made meanwhile still count.
