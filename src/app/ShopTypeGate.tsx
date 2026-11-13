@@ -6,6 +6,7 @@ import { t } from '../i18n/pt-AO';
 import { Button } from '../ui/kit';
 import { useBusy } from '../ui/use-busy';
 import { ShopTypeChoices } from '../screens/settings/ShopTypes';
+import { Modal } from '../ui/modal';
 
 /**
  * Right after the Terms are accepted, one question: «Que tipo de loja tem?». Its categories then
@@ -25,7 +26,7 @@ export function ShopTypeGate() {
 
   const save = (chosen: string[]) => run(() => store.settings.save({ businessTypes: chosen }));
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-50" role="dialog" aria-modal="true" aria-labelledby="shop-type-title">
+    <Modal className="fixed inset-0 z-40 overflow-y-auto bg-slate-50" aria-labelledby="shop-type-title">
       <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-4 p-5">
         <h1 id="shop-type-title" className="text-2xl font-extrabold">
           {t.shopTypes.question}
@@ -39,6 +40,6 @@ export function ShopTypeGate() {
           {t.shopTypes.skip}
         </Button>
       </div>
-    </div>
+    </Modal>
   );
 }

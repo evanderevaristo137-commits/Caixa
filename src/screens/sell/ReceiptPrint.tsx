@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { t } from '../../i18n/pt-AO';
 import { registerBackHandler } from '../../ui/back';
 import { Button } from '../../ui/kit';
+import { Modal } from '../../ui/modal';
 
 /**
  * The non-fiscal receipt, ready for the phone's print screen: a small receipt printer (58 or 80 mm,
@@ -23,12 +24,7 @@ export function ReceiptPrint({ text, onClose }: { text: string; onClose: () => v
   }, []);
 
   return createPortal(
-    <div
-      className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-3 text-black"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t.printReceipt.dialog}
-    >
+    <Modal className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-3 text-black" aria-label={t.printReceipt.dialog}>
       <div className="mb-3 flex items-center gap-2 print:hidden">
         <Button variant="secondary" onClick={onClose}>
           {t.common.close}
@@ -48,7 +44,7 @@ export function ReceiptPrint({ text, onClose }: { text: string; onClose: () => v
           );
         })}
       </div>
-    </div>,
+    </Modal>,
     document.body,
   );
 }

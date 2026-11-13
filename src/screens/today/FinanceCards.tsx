@@ -5,26 +5,37 @@ import { t } from '../../i18n/pt-AO';
 import { formatKz } from '../../lib/money';
 import { Card, Money } from '../../ui/kit';
 
-/** One line of a statement: label on the left, amount on the right ("−" for money out). */
+/**
+ * One line of a statement: label on the left, amount on the right ("−" for money out). A total
+ * has a line above it (`line`); a `note` goes under the amount. Only dt and dd inside each line,
+ * so a screen reader reads the list properly.
+ */
 function Row({
   label,
   cents,
   minus = false,
   strong = false,
   sub = false,
+  line = false,
+  note,
 }: {
   label: ReactNode;
   cents: number;
   minus?: boolean;
   strong?: boolean;
   sub?: boolean;
+  line?: boolean;
+  note?: string;
 }) {
   return (
-    <div className={`flex justify-between gap-3 ${strong ? 'font-bold' : ''} ${sub ? 'pl-3 text-sm text-slate-600' : ''}`}>
+    <div
+      className={`flex justify-between gap-3 ${line ? 'border-t border-slate-200 pt-1' : ''} ${strong ? 'font-bold' : ''} ${sub ? 'pl-3 text-sm text-slate-600' : ''}`}
+    >
       <dt>{label}</dt>
-      <dd className={`whitespace-nowrap tabular-nums ${strong && cents < 0 ? 'text-red-700' : ''}`}>
+      <dd className={`text-right whitespace-nowrap tabular-nums ${strong && cents < 0 ? 'text-red-700' : ''}`}>
         {minus && cents > 0 ? '− ' : ''}
         {formatKz(cents)}
+        {note && <span className="block text-sm font-normal text-slate-600">{note}</span>}
       </dd>
     </div>
   );
@@ -86,9 +97,7 @@ export function MoneyFlowCard({ flow }: { flow: Finance['flow'] }) {
           .map(([label, cents]) => (
             <Row key={label} label={label} cents={cents} sub />
           ))}
-        <div className="border-t border-slate-200 pt-1">
-          <Row label={t.finance.balance} cents={flow.balanceCents} strong />
-        </div>
+        <Row label={t.finance.balance} cents={flow.balanceCents} strong line />
       </dl>
       <p className="mt-2 text-sm text-slate-600">{t.finance.flowNote}</p>
     </Card>
@@ -110,14 +119,15 @@ export function ResultCard({ result }: { result: Finance['result'] }) {
           {result.returnsCents > 0 && <Row label={t.finance.resultReturns} cents={result.returnsCents} minus />}
           {profit.unknownRevenueCents !== 0 && <Row label={t.finance.resultNoCost} cents={profit.unknownRevenueCents} minus />}
           <Row label={t.finance.resultCost} cents={profit.costCents} minus />
-          <div className="border-t border-slate-200 pt-1">
-            <Row label={t.finance.grossProfit} cents={profit.profitCents} strong />
-            {margin !== undefined && <p className="text-right text-sm text-slate-600">{t.finance.margin(formatMargin(margin))}</p>}
-          </div>
+          <Row
+            label={t.finance.grossProfit}
+            cents={profit.profitCents}
+            strong
+            line
+            note={margin !== undefined ? t.finance.margin(formatMargin(margin)) : undefined}
+          />
           <Row label={t.finance.resultExpenses} cents={result.expensesCents} minus />
-          <div className="border-t border-slate-200 pt-1">
-            <Row label={t.finance.resultTotal} cents={result.resultCents} strong />
-          </div>
+          <Row label={t.finance.resultTotal} cents={result.resultCents} strong line />
         </dl>
       )}
       {profit.unknownLines > 0 && <p className="mt-2 text-sm font-medium text-amber-800">{t.today.profitMissing(profit.unknownLines)}</p>}

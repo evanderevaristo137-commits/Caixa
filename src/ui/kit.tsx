@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { registerBackHandler } from './back';
+import { Modal } from './modal';
 import { formatKz } from '../lib/money';
 import { t } from '../i18n/pt-AO';
 
@@ -107,9 +108,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, []);
   return (
     <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 md:justify-center md:p-6" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
+      <Modal
         aria-label={title}
         className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl bg-slate-50 md:max-h-[85vh] md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -126,7 +125,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
           </button>
         </div>
         <div className="overflow-y-auto px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
-      </div>
+      </Modal>
     </div>
   );
 }

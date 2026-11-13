@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { t } from '../i18n/pt-AO';
 import { registerBackHandler } from './back';
 import { Button } from './kit';
+import { Modal } from './modal';
 
 export interface ConfirmOptions {
   /** The question, in a few words ("Arquivar este produto?"). */
@@ -33,9 +34,8 @@ function ConfirmDialog({
   useEffect(() => registerBackHandler(() => cancel.current()), []);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={onCancel}>
-      <div
+      <Modal
         role="alertdialog"
-        aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={message ? messageId : undefined}
         className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-xl"
@@ -58,7 +58,7 @@ function ConfirmDialog({
             {confirmLabel}
           </Button>
         </div>
-      </div>
+      </Modal>
     </div>
   );
 }

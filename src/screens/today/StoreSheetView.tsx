@@ -14,6 +14,7 @@ import { formatDate } from '../../lib/dates';
 import { formatKz } from '../../lib/money';
 import { registerBackHandler } from '../../ui/back';
 import { Button, LinkButton, Skeleton } from '../../ui/kit';
+import { Modal } from '../../ui/modal';
 
 const pct = (bp: number) => `${Math.round(bp / 100)}%`;
 
@@ -54,12 +55,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
   useEffect(() => registerBackHandler(() => close.current()), []);
 
   return createPortal(
-    <div
-      className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-4 text-black"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t.sheet.title}
-    >
+    <Modal className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-4 text-black" aria-label={t.sheet.title}>
       <div className="mx-auto max-w-lg">
         <div className="mb-4 grid grid-cols-2 gap-2 print:hidden">
           <Button variant="secondary" onClick={onClose}>
@@ -76,7 +72,7 @@ export function StoreSheetView({ onClose }: { onClose: () => void }) {
         </div>
         {!sheet ? <Skeleton rows={4} /> : <SheetBody sheet={sheet} />}
       </div>
-    </div>,
+    </Modal>,
     document.body,
   );
 }

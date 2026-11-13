@@ -5,6 +5,7 @@ import { TERMS_VERSION, type LegalDocId } from '../legal/documents';
 import { t } from '../i18n/pt-AO';
 import { Button } from '../ui/kit';
 import { LegalDocSheet } from '../screens/settings/LegalDocSheet';
+import { Modal } from '../ui/modal';
 
 /**
  * Before the shop's own data is used, the Terms of use and the Privacy policy must be accepted
@@ -29,7 +30,7 @@ export function TermsGate() {
   };
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-50" role="dialog" aria-modal="true" aria-labelledby="terms-title">
+    <Modal className="fixed inset-0 z-40 overflow-y-auto bg-slate-50" aria-labelledby="terms-title">
       <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-4 p-5">
         <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-16 w-16" />
         <h1 id="terms-title" className="text-2xl font-extrabold">
@@ -69,6 +70,6 @@ export function TermsGate() {
         </Button>
       </div>
       {reading && <LegalDocSheet id={reading} onClose={() => setReading(null)} />}
-    </div>
+    </Modal>
   );
 }

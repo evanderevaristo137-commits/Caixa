@@ -11,6 +11,7 @@ import { registerBackHandler } from './back';
 import { ICON, LineIcon } from './icons';
 import { Button } from './kit';
 import { useBusy } from './use-busy';
+import { Modal } from './modal';
 
 /** Tables with more rows than this may go on to the next page when printed. */
 const LONG_TABLE = 12;
@@ -73,12 +74,7 @@ export function ReportPrint({ doc, onClose }: { doc: ReportDoc; onClose: () => v
   const excel = () => void shareOrDownload(`${slug(doc.title)}-${dateStamp()}.csv`, reportCsv(doc), 'text/csv', doc.title);
 
   return createPortal(
-    <div
-      className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-4 text-black"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t.reportDoc.dialog}
-    >
+    <Modal className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-4 text-black" aria-label={t.reportDoc.dialog}>
       <div className="mx-auto mb-4 max-w-2xl space-y-2 print:hidden">
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose}>
@@ -110,8 +106,13 @@ export function ReportPrint({ doc, onClose }: { doc: ReportDoc; onClose: () => v
             // A short table stays on one page; a long one goes on to the next (its header repeats).
             <section key={table.title} className={table.rows.length <= LONG_TABLE ? 'break-inside-avoid' : ''}>
               <h2 className="mb-1 font-bold break-after-avoid">{table.title}</h2>
-              {/* Wide tables scroll sideways on a phone; on paper they fit the page. */}
-              <div className="overflow-x-auto print:overflow-visible">
+              {/* Wide tables scroll sideways on a phone (also with the keyboard: it can take the focus); on paper they fit the page. */}
+              <div
+                role="region"
+                aria-label={table.title}
+                tabIndex={0}
+                className="overflow-x-auto rounded focus-visible:outline-2 focus-visible:outline-brand-700 print:overflow-visible"
+              >
                 <table className="w-full border-collapse text-sm">
                   {table.header && (
                     <thead>
@@ -154,7 +155,7 @@ export function ReportPrint({ doc, onClose }: { doc: ReportDoc; onClose: () => v
           ))}
         </footer>
       </article>
-    </div>,
+    </Modal>,
     document.body,
   );
 }

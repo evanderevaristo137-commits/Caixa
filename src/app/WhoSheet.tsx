@@ -5,6 +5,7 @@ import { registerBackHandler } from '../ui/back';
 import { Button, Field } from '../ui/kit';
 import { useBusy } from '../ui/use-busy';
 import { signInError, type Team } from './team';
+import { Modal } from '../ui/modal';
 
 /**
  * «Quem está a usar a app?»: the owner and each employee; the chosen one types their code. With
@@ -37,7 +38,7 @@ export function WhoSheet({ team, onClose }: { team: Team; onClose?: () => void }
     });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-50" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <Modal className="fixed inset-0 z-50 overflow-y-auto bg-slate-50" aria-labelledby={titleId}>
       <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-4 p-5">
         <h1 id={titleId} className="text-2xl font-extrabold">
           {chosen ? t.team.codeOf(chosen.name) : t.team.whoTitle}
@@ -93,6 +94,6 @@ export function WhoSheet({ team, onClose }: { team: Team; onClose?: () => void }
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

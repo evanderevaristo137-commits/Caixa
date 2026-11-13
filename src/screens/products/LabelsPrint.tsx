@@ -4,6 +4,7 @@ import { t } from '../../i18n/pt-AO';
 import { BarcodeSvg } from '../../ui/BarcodeSvg';
 import { registerBackHandler } from '../../ui/back';
 import { Button } from '../../ui/kit';
+import { Modal } from '../../ui/modal';
 
 export interface LabelItem {
   key: string;
@@ -30,12 +31,7 @@ export function LabelsPrint({ labels, onClose }: { labels: LabelItem[]; onClose:
   }, []);
 
   return createPortal(
-    <div
-      className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-3 text-black"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t.labels.printDialog}
-    >
+    <Modal className="print-area fixed inset-0 z-50 overflow-y-auto bg-white p-3 text-black" aria-label={t.labels.printDialog}>
       <div className="mb-3 flex items-center gap-2 print:hidden">
         <Button variant="secondary" onClick={onClose}>
           {t.common.close}
@@ -58,7 +54,7 @@ export function LabelsPrint({ labels, onClose }: { labels: LabelItem[]; onClose:
           </div>
         ))}
       </div>
-    </div>,
+    </Modal>,
     document.body,
   );
 }
